@@ -320,11 +320,15 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 			{
 				m_pedtPannelID[LAYER_1][CH_1]->SetFocus();
 			}
-			else if (m_nMainKeyInData.GetLength() == 14) // PID SCAN - 길이 14개
+			else if (m_nMainKeyInData.GetLength() == PID_LENGTH) // PID SCAN - 길이 14개
 			{
 				bool P_Chk = false;
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID)
+
+				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID);
+				int NowRackNum = (_ttoi(lpInspWorkInfo->m_RackID)) - 1;
+
+				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID && BeforeRackNum != NowRackNum)
 				{
 					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 				}
@@ -332,14 +336,6 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				{
 					Lf_addMessage(_T("MES not connected"));
 					m_nMainKeyInData.Empty();
-
-					//int RackID = _ttoi(lpInspWorkInfo->m_RackID);
-					//int ChID = _ttoi(lpInspWorkInfo->m_ChID);
-					//RackID -= 1;
-					////pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-
-					//pDlg->Lf_setAgingSTART_PID(RackID, ChID);
-					
 					return TRUE;
 				}
 				else
@@ -349,7 +345,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 				if (P_Chk == TRUE)
 				{
-					//OnBnClickedBtnPiSaveExit_B(); // 저장
+					//OnBnClickedBtnPiSaveExit_B(); // 전체 저장
 					OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
 					if (m_nMainKeyInData != "")
 					{
@@ -394,10 +390,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 					}
 				}
-
-
 				m_nMainKeyInData.Empty(); // 입력값 초기화
-
 				return 1;
 			}
 			else if (m_nMainKeyInData.GetLength() == 10) // RACK ID SCAN
@@ -412,14 +405,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
 					Lf_checkBcrRackChIDInput(rackId, chId); // RACK 변경
-
 					lpInspWorkInfo->m_RackID = rackId.Right(2);
 					lpInspWorkInfo->m_ChID = chId.Right(2);
-
-					/*lpInspWorkInfo->m_StopRackID = rackId.Right(2);*/
-
-					/*(lpInspWorkInfo->m_RackID).Right(2);
-					(lpInspWorkInfo->m_ChID).Right(2);*/
 				}
 				else
 				{
@@ -2932,30 +2919,6 @@ BOOL CPidInput::Lf_setExecuteMesAGNOUT() // AGN_OUT
 
 void CPidInput::Lf_checkBcrRackChIDInput(CString RackID, CString ChID)
 {
-	// [1] RACK ID 매핑
-	//int len = RackID.GetLength();
-	//if (len < 5) return;  // 예외 보호
-
-	//// 뒤에서 2자리 숫자 추출: "01", "02" ... "06"
-	//CString rackNumStr = RackID.Right(2);
-
-	//// 숫자로 변환
-	//int rackIndex = _ttoi(rackNumStr) - 1; // 0 ~ 5 로 만들기
-
-	//// 올바른 범위인지 체크
-	//if (rackIndex < 0 || rackIndex >= 6)
-	//	return;
-
-	//// 해당 Rack 버튼 클릭 함수 호출
-	//switch (rackIndex)
-	//{
-	//case 0: OnBnClickedMbcPiRack1(); break;
-	//case 1: OnBnClickedMbcPiRack2(); break;
-	//case 2: OnBnClickedMbcPiRack3(); break;
-	//case 3: OnBnClickedMbcPiRack4(); break;
-	//case 4: OnBnClickedMbcPiRack5(); break;
-	//case 5: OnBnClickedMbcPiRack6(); break;
-	//}
 
 	CString rackKeys[6] = {
 		_T("RACK1_BCR_ID"), _T("RACK2_BCR_ID"), _T("RACK3_BCR_ID"),

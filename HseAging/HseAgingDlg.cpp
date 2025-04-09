@@ -697,7 +697,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.1"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.2"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -4185,12 +4185,6 @@ void CHseAgingDlg::Lf_setDoorOnOff(int rack)
 
 void CHseAgingDlg::Lf_setAgingSTART_PID(int rack, int ch)
 {
-	//Lf_setChannelUseUnuse_PID_ON(rack, ch);
-
-	//m_pApp->pCommand->Gf_setAgingSTART(rack);
-
-	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_ON);
-	//m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_ON);
 	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR_IP(rack, POWER_ON,1,ch,1);
 	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), rack);
 	lpInspWorkInfo->m_PidFlag = true;
