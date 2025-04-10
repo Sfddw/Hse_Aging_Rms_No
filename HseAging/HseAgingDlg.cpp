@@ -24,6 +24,8 @@
 #define new DEBUG_NEW
 #endif
 
+//static int lastDay = -1;
+
 static BOOL bTempErrorOnce[MAX_RACK] = { FALSE };
 
 UINT ThreadAgingStartRack(LPVOID pParam)
@@ -190,7 +192,8 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 			//}
 
 			// 2025-02-18 KDW. AGING START시 DELAY동안 RUNTIME값 수정
-				if (lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE)
+				if ((lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE || lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_ERROR) &&
+					lpInspWorkInfo->m_nAgingInYN[rack] == FALSE)
 				{
 					BOOL bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
 					BOOL bTempRange = OK;
@@ -210,13 +213,16 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 
 					if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
 					{
+					CheckAgain:
 						// 조건 처음 만족 → 타임스탬프 찍기
 						if (condStartTick[rack] == 0)
 							condStartTick[rack] = ::GetTickCount();
 
 						// 아직 4초 안 지남 → 아래 계산부로 내려가지 말고 다음 루프로
 						if ((::GetTickCount() - condStartTick[rack]) < 4000)
-							continue;
+						{continue;
+							//goto CheckAgain;
+						}
 
 						// 4초 연속 유지됨 → 여기서만 RUNNING 전이
 						// (필요시 DoorUse=false 분기 포함)
@@ -226,6 +232,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 						 idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
 						 lpInspWorkInfo->m_nAgnIn = TRUE;
 						 AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+						 lpInspWorkInfo->m_nAgingInYN[rack] = TRUE;
 
 						m_pApp->Gf_sumSetStartTime(rack);
 						lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
@@ -310,6 +317,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 						lpInspWorkInfo->m_nAgingStatusS[rack] = 0;
 						lpInspWorkInfo->m_nLampColor = 0;
 						pDlg->Lf_updateTowerLamp();
+						lpInspWorkInfo->m_nAgingInYN[rack] = FALSE;
 
 						// RACK Log 출력
 						sLog.Format(_T("DOOR Open Check : OK"));
@@ -1087,8 +1095,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpModelInfo = m_pApp->GetModelInfo();
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
-	/*GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);*/
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.0.2"));
+	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.0.3"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -1270,6 +1278,13 @@ HBRUSH CHseAgingDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 			{
 				pDC->SetBkColor(COLOR_SKYBLUE);
 				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_SKYBLUE];
+			}
+			else if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
+				|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT))
+			{
+				pDC->SetBkColor(COLOR_SKYBLUE);
+				pDC->SetTextColor(COLOR_RED);
 				return m_Brush[COLOR_IDX_SKYBLUE];
 			}
 
@@ -2065,7 +2080,25 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		Lf_getDIOStatus();
 		// Sensing Log
 		Lf_writeSensingLog();
-		
+		CString Aging_Count, Aging_Ng_Count;
+		Aging_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Count);
+		GetDlgItem(IDC_STT_MA_AGING_COUNT)->SetWindowText(Aging_Count);
+		Aging_Ng_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Ng_Count);
+		GetDlgItem(IDC_STT_MA_AGING_NG_COUNT)->SetWindowText(Aging_Ng_Count);
+
+
+		//CTime t = CTime::GetCurrentTime();
+		//int today = t.GetDay();
+
+		//if (lastDay != today)   // 날짜가 바뀐 경우에만 실행
+		//{
+		//	lpSystemInfo->m_Aging_Count = 0;
+		//	lpSystemInfo->m_Aging_Ng_Count = 0;
+		//	lastDay = today;
+
+		//	Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
+		//	Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count);
+		//}
 	}
 	if (nIDEvent == 3)
 	{
@@ -4749,6 +4782,7 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	memset(lpInspWorkInfo->m_fOpeAgingIblAvg, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblAvg));
 
 	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), RESET_RACK_PID);
+	lpInspWorkInfo->m_nAgingInYN[rack] = FALSE;
 }
 
 void CHseAgingDlg::Lf_setAgingSTOP(int rack)
@@ -5092,7 +5126,7 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 							m_pApp->Gf_writeMLog(strLog);
 							continue;
 						}
-
+						lpSystemInfo->m_Aging_Count++;
 						m_pApp->Gf_gmesSendHost(HOST_APDR, rack, layer, ch);
 						///////////////////////////////////////////////////////////////////////////////////////////////
 						///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5104,6 +5138,8 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 				// Time Out 값을 초기화 한다.
 				skey.Format(_T("LAST_TIMEOUT_RACK%d"), rack+1);
 				Write_SysIniFile(_T("SYSTEM"), skey, 0);
+
+				Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
 
 			}
 
@@ -5161,7 +5197,10 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			Dxt.Format(_T("빨간색"));
 			OutputDebugString(Dxt);
 			Sleep(5000);
-			lpInspWorkInfo->m_nAgingOperatingMode[lpInspWorkInfo->m_AgingErrorRack] = AGING_RUNNING;
+			if (lpInspWorkInfo->m_nAgingInYN[lpInspWorkInfo->m_AgingErrorRack] == TRUE)
+			{
+				lpInspWorkInfo->m_nAgingOperatingMode[lpInspWorkInfo->m_AgingErrorRack] = AGING_RUNNING;
+			}
 		}
 		if (towerStatus & TOWER_LAMP_RUNNING)
 		{
@@ -5432,6 +5471,10 @@ void CHseAgingDlg::Lf_writeTempLog()
 	fopen_s(&fp, filepath, "r+");
 	if (fp == NULL)
 	{
+		lpSystemInfo->m_Aging_Count = 0;
+			lpSystemInfo->m_Aging_Ng_Count = 0;
+		Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
+		Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count);
 		if ((_access(".\\Logs\\TemperatureLog", 0)) == -1)
 			_mkdir(".\\Logs\\TemperatureLog");
 
@@ -5451,6 +5494,7 @@ void CHseAgingDlg::Lf_writeTempLog()
 		}
 		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6,ZONE1,ZONE2,ZONE3,ZONE1_SET,ZONE2_SET,ZONE3_SET\n");
 		fprintf(fp, "%s", buff);
+			
 	}
 
 	fseek(fp, 0L, SEEK_END);

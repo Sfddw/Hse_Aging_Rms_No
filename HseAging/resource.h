@@ -1854,6 +1854,7 @@
 #define IDC_CHK_PI_LAYER1_CH2           2240
 #define IDC_CHK_PI_LAYER1_CH3           2241
 #define IDC_CHK_PI_LAYER1_CH4           2242
+#define IDC_GRP_MA_FW_VERSION4          2242
 #define IDC_CHK_PI_LAYER1_CH5           2243
 #define IDC_CHK_PI_LAYER1_CH6           2244
 #define IDC_CHK_PI_LAYER1_CH7           2245
@@ -2052,6 +2053,9 @@
 #define IDC_BUTTON_DOOR5                2430
 #define IDC_BUTTON_DOOR6                2432
 #define IDC_STT_MA_SW_VER               2433
+#define IDC_STT_MA_AGING_COUNT          2434
+#define IDC_STT_MA_AGING_NG_COUNT       2435
+#define IDC_STATIC_NG_COUNT             2436
 
 // Next default values for new objects
 // 
@@ -2059,7 +2063,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        189
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2434
+#define _APS_NEXT_CONTROL_VALUE         2437
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

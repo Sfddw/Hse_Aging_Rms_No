@@ -1301,7 +1301,9 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("EAS"), _T("EAS_REMOTE_SUBJECT"), &lpSystemInfo->m_sEasRemoteSubject);
 	
 	Read_SysIniFile(_T("SW_VERSION"), _T("SW_VERSION"), &lpSystemInfo->m_SwVersion);
-
+	
+	Read_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), &lpSystemInfo->m_Aging_Count);
+	Read_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), &lpSystemInfo->m_Aging_Ng_Count);
 
 	CString sSection, sKey, sValue;
 	for (int rack = 0; rack < MAX_RACK; rack++)
@@ -1568,6 +1570,11 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		sResult.Format(_T("OK"));
 	}
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_RESULT] = sResult;
+
+	if (sResult == "NG")
+	{
+		lpSystemInfo->m_Aging_Ng_Count++;
+	}
 
 	CString strFailMsg = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE];
 	CString strFailTime = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE_TIME];

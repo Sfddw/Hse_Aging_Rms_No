@@ -135,6 +135,10 @@ typedef struct _ST_SYSTEMINFO_{
 	// SW VERSION 설정 //
 	CString m_SwVersion;
 
+	// Aging Count 설정 //
+	int m_Aging_Count;
+	int m_Aging_Ng_Count;
+
 	// Refresh Time 설정
 	float m_fRefreshAgingStatusTime;
 	float m_fRefreshPowerMeasureTime;
@@ -172,6 +176,7 @@ typedef struct _ST_INSPWORKINFO_
 	int m_nAgingDoorOpenTime[MAX_RACK];
 
 	int m_nAgingTempMatchTime[MAX_RACK];
+	int m_nAgingInYN[MAX_RACK];
 
 	int m_nAgingEndWaitTime[MAX_RACK];
 	int m_nOpeDoorUse[MAX_RACK];
