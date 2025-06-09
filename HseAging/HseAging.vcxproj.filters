@@ -1,0 +1,261 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="소스 파일">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="헤더 파일">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="리소스 파일">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="_GlobalDefine">
+      <UniqueIdentifier>{e6056186-2c57-4e27-85c5-74649bfb4d68}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="HseAging.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HseAgingDlg.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="_GlobalDefine.h">
+      <Filter>_GlobalDefine</Filter>
+    </ClInclude>
+    <ClInclude Include="IniProfileAPI.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Struct.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="GradientStatic.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="UserID.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="UDPSocket.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ModelInfo.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Command.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="CIMNetCommApp.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="MessageError.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="MessageQuestion.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Monitoring.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="System.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Rs232Port.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Temp2xxx.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoFirmware.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="CableOpen.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PidInput.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Password.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HseAging.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HseAgingDlg.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="GradientStatic.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="UserID.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="UDPSocket.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelInfo.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Command.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="CIMNetCommApp.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="MessageError.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="MessageQuestion.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Monitoring.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="System.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Rs232Port.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Temp2xxx.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoFirmware.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="CableOpen.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="PidInput.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Password.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="HseAging.rc">
+      <Filter>리소스 파일</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\HseAging.rc2">
+      <Filter>리소스 파일</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\HseAging.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\icon1.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\icon2.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bitmap1.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00001.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\icon_run.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00002.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00003.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00001.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00002.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bitmap2.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00003.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00004.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00005.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00004.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00005.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00006.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00007.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00006.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00007.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00008.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00009.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00010.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00008.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\icon3.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\bmp00011.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00009.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00010.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00011.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00012.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="res\ico00013.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+  </ItemGroup>
+</Project>
