@@ -24,6 +24,7 @@ public:
 	BOOL Gf_setPowerSequenceOnOff(int rack, BOOL onoff, int bAck=ACK);
 
 	BOOL Gf_setPowerSequenceOnOff_BCR(int rack, BOOL onoff, int bAck = ACK, int Ch = 0, BOOL flag = 1); // BCR SCAN POWER ON/OFF
+	BOOL Gf_setPowerSequenceOnOff_BCR_IP(int rack, BOOL onoff, int bAck = ACK, int Ch = 0, BOOL flag = 1); // BCR SCAN POWER ON/OFF
 
 	BOOL Gf_getAllPowerMeasure(int rack);
 	BOOL Gf_getPowerMeasureAllGroup();

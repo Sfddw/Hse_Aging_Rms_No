@@ -324,8 +324,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 					int RackID = _ttoi(lpInspWorkInfo->m_RackID);
 					int ChID = _ttoi(lpInspWorkInfo->m_ChID);
 					RackID -= 1;
-					ChID -= 1;
-					pDlg->Lf_setAgingSTOP_PID(RackID);
+					//ChID -= 1;
+					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 
 					pDlg->Lf_setAgingSTART_PID(RackID, ChID);
 					return TRUE;
@@ -424,6 +424,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 					lpInspWorkInfo->m_RackID = rackId.Right(2);
 					lpInspWorkInfo->m_ChID = chId.Right(2);
+
+					/*lpInspWorkInfo->m_StopRackID = rackId.Right(2);*/
 
 					/*(lpInspWorkInfo->m_RackID).Right(2);
 					(lpInspWorkInfo->m_ChID).Right(2);*/

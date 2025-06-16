@@ -916,6 +916,90 @@ BOOL CHseAgingApp::udp_sendPacketUDPRack(int rack, int nCommand, int nSize, char
 	return TRUE;
 }
 
+BOOL CHseAgingApp::udp_sendPacketUDPRack_Pid(int ChID, int rack, int nCommand, int nSize, char* pdata, int recvACK, int waitTime)
+{
+	BOOL bRet = TRUE;
+	CString ipaddr = _T("");
+	int baseip = (rack * MAX_LAYER) + 1;
+	int IpAddr = 0;
+
+	ZeroMemory(lpInspWorkInfo->m_nRecvACK_Rack[rack], sizeof(lpInspWorkInfo->m_nRecvACK_Rack[rack]));
+
+	/*if (ChID > 0 && ChID <= 16)
+	{
+		IpAddr = 0;
+	}
+	else if (ChID > 16 && ChID <= 32)
+	{
+		IpAddr = 1;
+	}
+	else if (ChID > 32 && ChID <= 48)
+	{
+		IpAddr = 2;
+	}
+	else if (ChID > 48 && ChID <= 64)
+	{
+		IpAddr = 3;
+	}
+	else if (ChID > 64 && ChID <= 80)
+	{
+		IpAddr = 4;
+	}*/
+	if ((ChID >= 1 && ChID <= 8) || (ChID >= 41 && ChID <= 42)) {
+		IpAddr = 0;
+	}
+	else if ((ChID >= 9 && ChID <= 16) || (ChID >= 49 && ChID <= 56)) {
+		IpAddr = 1;
+	}
+	else if ((ChID >= 17 && ChID <= 24) || (ChID >= 57 && ChID <= 64)) {
+		IpAddr = 2;
+	}
+	else if ((ChID >= 25 && ChID <= 32) || (ChID >= 65 && ChID <= 72)) {
+		IpAddr = 3;
+	}
+	else if ((ChID >= 33 && ChID <= 40) || (ChID >= 73 && ChID <= 80)) {
+		IpAddr = 4;
+	}
+
+		if (lpInspWorkInfo->m_nMainEthConnect[rack][IpAddr] != 0)
+			lpInspWorkInfo->m_nMainEthConnect[rack][IpAddr]--;
+
+		ipaddr.Format(_T("192.168.10.%d"), (baseip + IpAddr));
+		udp_sendPacketUDP(ipaddr, nCommand, nSize, pdata, NACK);
+
+	// ACK를 Check한다.
+	if (recvACK == ACK)
+	{
+		DWORD sTick, eTick;
+		sTick = ::GetTickCount();
+
+		while (1)
+		{
+			BOOL bAllAck = TRUE;
+			for (int layer = 0; layer < MAX_LAYER; layer++)
+			{
+				if ((lpInspWorkInfo->m_nMainEthConnect[rack][layer]) && (lpInspWorkInfo->m_nRecvACK_Rack[rack][layer] == FALSE))
+				{
+					bAllAck = FALSE;
+				}
+			}
+
+			// 모든 Main에서 ACK가 전송 되었으면 Return TRUE
+			if (bAllAck == TRUE)
+				return TRUE;
+
+			// ACK Wait Time Check
+			eTick = ::GetTickCount();
+			if ((eTick - sTick) > (DWORD)waitTime)
+				return FALSE;
+
+			ProcessMessage();
+		}
+	}
+
+	return TRUE;
+}
+
 
 void CHseAgingApp::udp_processPacket(CString strPacket)
 {

@@ -276,12 +276,104 @@ BOOL CCommand::Gf_setPowerSequenceOnOff_BCR(int rack, BOOL onoff, int bAck, int 
 	if (Ch == 6)
 		Ch = 7;*/
 
-	sprintf_s(szPacket, sizeof(szPacket), "%01d%02d%01d", onoff, Ch, 01);
+	sprintf_s(szPacket, sizeof(szPacket), "%01d%02d%01d", onoff, 00, 01);
 	length = (int)strlen(szPacket);
 
 	int waitTime;
 	waitTime = getPowerOffAckWaitTime();
 	ret = m_pApp->udp_sendPacketUDPRack(rack, CMD_SET_POWER_SEQUENCE_ONOFF, length, szPacket, bAck, waitTime);
+
+	// Power Off 동작 시 Error 정보는 Clear 시킨다.
+	m_pApp->Gf_clearAgingStatusError();
+
+	return ret;
+}
+
+BOOL CCommand::Gf_setPowerSequenceOnOff_BCR_IP(int rack, BOOL onoff, int bAck, int Ch, BOOL flag)
+{
+	BOOL ret = FALSE;
+	int length, ChID = 0;
+	char szPacket[128] = { 0, };
+	//Ch = 11;
+	CString sLog;
+	if (onoff == ON)				sLog.Format(_T("<TEST> 'RACK-%c' POWER ON"), rack + 'A');
+	else if (onoff == OFF)		sLog.Format(_T("<TEST> 'RACK-%c' POWER OFF"), rack + 'A');
+	/*if (Ch == 40)
+		Ch = 9;
+	if (Ch == 6)
+		Ch = 7;*/
+
+	if (Ch == 1 || Ch == 9 || Ch == 17 || Ch == 25 || Ch == 33)
+	{
+		ChID = 1;
+	}
+	else if (Ch == 2 || Ch == 10 || Ch == 18 || Ch == 26 || Ch == 34)
+	{
+		ChID = 2;
+	}
+	else if (Ch == 3 || Ch == 11 || Ch == 19 || Ch == 27 || Ch == 35)
+	{
+		ChID = 3;
+	}
+	else if (Ch == 4 || Ch == 12 || Ch == 20 || Ch == 28 || Ch == 36)
+	{
+		ChID = 4;
+	}
+	else if (Ch == 5 || Ch == 13 || Ch == 21 || Ch == 29 || Ch == 37)
+	{
+		ChID = 5;
+	}
+	else if (Ch == 6 || Ch == 14 || Ch == 22 || Ch == 30 || Ch == 38)
+	{
+		ChID = 6;
+	}
+	else if (Ch == 7 || Ch == 15 || Ch == 23 || Ch == 31 || Ch == 39)
+	{
+		ChID = 7;
+	}
+	else if (Ch == 8 || Ch == 16 || Ch == 24 || Ch == 32 || Ch == 40)
+	{
+		ChID = 8;
+	}
+	else if (Ch == 41 || Ch == 49 || Ch == 57 || Ch == 65 || Ch == 73)
+	{
+		ChID = 9;
+	}
+	else if (Ch == 42 || Ch == 50 || Ch == 58 || Ch == 66 || Ch == 74)
+	{
+		ChID = 10;
+	}
+	else if (Ch == 43 || Ch == 51 || Ch == 59 || Ch == 67 || Ch == 75)
+	{
+		ChID = 11;
+	}
+	else if (Ch == 44 || Ch == 52 || Ch == 60 || Ch == 68 || Ch == 76)
+	{
+		ChID = 12;
+	}
+	else if (Ch == 45 || Ch == 53 || Ch == 61 || Ch == 69 || Ch == 77)
+	{
+		ChID = 13;
+	}
+	else if (Ch == 46 || Ch == 54 || Ch == 62 || Ch == 70 || Ch == 78)
+	{
+		ChID = 14;
+	}
+	else if (Ch == 47 || Ch == 55 || Ch == 63 || Ch == 71 || Ch == 79)
+	{
+		ChID = 15;
+	}
+	else if (Ch == 48 || Ch == 56 || Ch == 64 || Ch == 72 || Ch == 80)
+	{
+		ChID = 16;
+	}
+
+	sprintf_s(szPacket, sizeof(szPacket), "%01d%02d%01d", onoff, ChID, 01);
+	length = (int)strlen(szPacket);
+
+	int waitTime;
+	waitTime = getPowerOffAckWaitTime();
+	ret = m_pApp->udp_sendPacketUDPRack_Pid(Ch, rack, CMD_SET_POWER_SEQUENCE_ONOFF, length, szPacket, bAck, waitTime);
 
 	// Power Off 동작 시 Error 정보는 Clear 시킨다.
 	m_pApp->Gf_clearAgingStatusError();

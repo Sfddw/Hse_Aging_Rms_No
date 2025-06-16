@@ -69,6 +69,9 @@ public:
 	BOOL procParseGotoBootSection(int rack, int layer, CString packet);
 	BOOL udp_sendPacketUDP(CString ip, int nCommand, int nSize, char* pdata, int recvACK, int waitTime = 1000);
 	BOOL udp_sendPacketUDPRack(int rack, int nCommand, int nSize, char* pdata, int recvACK, int waitTime = 1000);
+
+	BOOL udp_sendPacketUDPRack_Pid(int ChID, int rack, int nCommand, int nSize, char* pdata, int recvACK, int waitTime = 1000);
+
 	void udp_processPacket(CString strPacket);
 
 	void procDioParseBoardInitial(CString packet);

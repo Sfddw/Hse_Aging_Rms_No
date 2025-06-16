@@ -4280,7 +4280,8 @@ void CHseAgingDlg::Lf_setAgingSTART_PID(int rack, int ch)
 
 	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_ON);
 	//m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_ON);
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_ON,1,ch,1);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR_IP(rack, POWER_ON,1,ch,1);
+	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), rack);
 }
 
 void CHseAgingDlg::Lf_setAgingSTOP_PID(int rack)
@@ -4289,7 +4290,7 @@ void CHseAgingDlg::Lf_setAgingSTOP_PID(int rack)
 
 	//m_pApp->pCommand->Gf_setAgingSTOP(rack);
 	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_OFF);
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_OFF);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_OFF);
 }
 
 void CHseAgingDlg::Lf_setChannelUseUnuse_PID_ON(int rack, int Ch)
@@ -5703,6 +5704,9 @@ void CHseAgingDlg::Lf_checkBcrRackIDInput()
 
 	lpInspWorkInfo->m_ChID = m_nSendKeyInData.Right(2);
 	lpInspWorkInfo->m_RackID = Left_Data;
+
+
+
 
 
 

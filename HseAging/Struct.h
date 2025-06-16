@@ -244,7 +244,7 @@ typedef struct _ST_INSPWORKINFO_
 
 	CString m_RackID;
 	CString m_ChID;
-	CString m_BcrLabelID;
+	CString m_StopRackID;
 
 	BOOL m_nAgnOutYn[6];
 	BOOL m_nAgnIn = FALSE;
