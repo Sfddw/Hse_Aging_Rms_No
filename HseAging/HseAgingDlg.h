@@ -46,6 +46,11 @@ public:
 	void Lf_writeRackMLog(int rack, CString sLog);
 	void Lf_updateTowerLamp();
 
+	void Lf_setAgingSTART_PID(int rack, int ch);
+	void Lf_setAgingSTOP_PID(int rack);
+	void Lf_setChannelUseUnuse_PID_ON(int rack, int ch);
+	void Lf_setChannelUseUnuse_PID_OFF(int rack);
+
 protected:
 	void Lf_InitLocalValue();
 	void Lf_InitFontset();

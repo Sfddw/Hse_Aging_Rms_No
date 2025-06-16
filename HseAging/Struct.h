@@ -174,6 +174,10 @@ typedef struct _ST_INSPWORKINFO_
 	float m_fOpeIblSetMin[MAX_RACK];
 	float m_fOpeIblSetMax[MAX_RACK];
 
+	int m_nTempSt590_01;
+	int m_nTempSt590_02;
+	int m_nTempSt590_03;
+
 	int m_nAgingTempMeasCount[MAX_RACK];
 	int m_nAgingPowerMeasCount[MAX_RACK];
 	float m_fOpeAgingTempMin[MAX_RACK];

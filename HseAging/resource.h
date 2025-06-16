@@ -546,9 +546,12 @@
 #define IDC_STT_TEMP_SENSOR             1431
 #define IDC_STT_MA_VCC_S2_CH14          1432
 #define IDC_STT_UI_USERID_TITLE         1432
+#define IDC_STT_TEMP_SENSOR2            1432
 #define IDC_STT_MA_VCC_S2_CH15          1433
+#define IDC_STT_TEMP_SENSOR3            1433
 #define IDC_STT_MA_VCC_S2_CH16          1434
 #define IDC_EDT_UI_USERID               1434
+#define IDC_STT_TEMP_SENSOR4            1434
 #define IDC_STT_MA_VCC_S2_CH17          1435
 #define IDC_BTN_UI_LOGIN                1435
 #define IDC_STT_MA_VCC_S2_CH18          1436

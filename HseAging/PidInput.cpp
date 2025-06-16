@@ -319,6 +319,15 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				{
 					Lf_addMessage(_T("MES not connected"));
 					m_nMainKeyInData.Empty();
+					CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+
+					int RackID = _ttoi(lpInspWorkInfo->m_RackID);
+					int ChID = _ttoi(lpInspWorkInfo->m_ChID);
+					RackID -= 1;
+					ChID -= 1;
+					pDlg->Lf_setAgingSTOP_PID(RackID);
+
+					pDlg->Lf_setAgingSTART_PID(RackID, ChID);
 					return TRUE;
 				}
 				else
@@ -333,6 +342,13 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 					{
 						sdata.Format(_T("PCHK OK [%s]"), m_nMainKeyInData);
 						Lf_addMessage(sdata);
+
+						CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+						pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_RackID));
+
+						pDlg->Lf_setAgingSTART_PID(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
+
+
 					}
 				}
 				else
@@ -405,6 +421,12 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
 					Lf_checkBcrRackChIDInput(rackId, chId);
+
+					lpInspWorkInfo->m_RackID = rackId.Right(2);
+					lpInspWorkInfo->m_ChID = chId.Right(2);
+
+					/*(lpInspWorkInfo->m_RackID).Right(2);
+					(lpInspWorkInfo->m_ChID).Right(2);*/
 				}
 				else
 				{

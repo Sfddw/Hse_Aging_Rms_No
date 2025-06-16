@@ -135,10 +135,10 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 			agingTotalSec = lpInspWorkInfo->m_nAgingSetTime[rack] * 60;
 			agingElapseSec = (::GetTickCount64() - lpInspWorkInfo->m_nAgingStartTick[rack]) / 1000;
 
-			if (agingElapseSec >= 100)
+			/*if (agingElapseSec >= 100)
 			{
 				lpInspWorkInfo->m_ast_AgingChErrorResult[4][0][8] = LIMIT_HIGH;
-			}
+			}*/
 
 			// Door Open 시간만큼 경과시간을 마이너스 시킨다.
 			//agingElapseSec = agingElapseSec - (lpInspWorkInfo->m_nAgingDoorOpenTime[rack] / 1000);
@@ -406,6 +406,192 @@ UINT ThreadFwVersionRead(LPVOID pParam)
 
 	return (0);
 }
+
+UINT ThreadTempControler(LPVOID pParam)
+{
+	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
+	LPCWSTR portName = L"\\\\.\\COM10";  // 본인 환경에 맞는 COM 포트 번호로 변경
+	DCB dcbSerialParams = { 0 };
+	COMMTIMEOUTS timeouts = { 0 };
+	HANDLE hSerial;
+
+	// Serial 포트 열기
+	hSerial = CreateFile(L"\\\\.\\COM10",
+		GENERIC_READ | GENERIC_WRITE,
+		0, NULL, OPEN_EXISTING, 0, NULL);
+
+	if (hSerial == INVALID_HANDLE_VALUE) {
+		return 1;
+	}
+
+	// DCB 설정
+	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+	if (!GetCommState(hSerial, &dcbSerialParams)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	dcbSerialParams.BaudRate = 115200;  // Baud Rate: 9600
+	dcbSerialParams.ByteSize = 8;         // Data Bits: 8
+	dcbSerialParams.Parity = NOPARITY;    // Parity: None
+	dcbSerialParams.StopBits = ONESTOPBIT;  // Stop Bits: 1
+	if (!SetCommState(hSerial, &dcbSerialParams)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// Timeouts 설정
+	timeouts.ReadIntervalTimeout = 50;
+	timeouts.ReadTotalTimeoutConstant = 50;
+	timeouts.ReadTotalTimeoutMultiplier = 10;
+	timeouts.WriteTotalTimeoutConstant = 50;
+	timeouts.WriteTotalTimeoutMultiplier = 10;
+
+	if (!SetCommTimeouts(hSerial, &timeouts)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 2. ST540E 프로토콜에 따른 명령어 설정
+	unsigned char command1[] = {
+		0x02, 0x30, 0x32, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
+	};
+
+	unsigned char command2[] = {
+		0x02, 0x30, 0x31, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
+	};
+
+	// 번갈아 가면서 명령어 전송 및 응답 수신 (무한 루프)
+	// 
+		// 명령어 1 전송
+	DWORD bytesWritten;
+	if (!WriteFile(hSerial, command1, sizeof(command1), &bytesWritten, NULL)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 응답 수신 및 데이터 처리
+	unsigned char buffer[256] = { 0 };
+	DWORD bytesRead;
+	if (!ReadFile(hSerial, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 수신된 데이터 출력
+	if (bytesRead > 0) {
+		buffer[bytesRead] = 0;  // Null-terminate
+
+		// CString으로 변환
+		CStringA strA((char*)buffer);     // ANSI 버퍼
+		CString strW(strA);               // 유니코드 변환 (필요 시)
+
+		// 디버그 출력
+		OutputDebugString(_T("명령어 1 수신된 데이터: "));
+		OutputDebugString(strW);
+		OutputDebugString(_T("\n"));
+
+		// 마지막 6글자 추출
+		if (strA.GetLength() >= 6) {
+			CStringA target = strA.Right(6);  // 맨 뒤 6글자
+
+			OutputDebugString(_T("추출된 16진수 문자열: "));
+			OutputDebugString(CString(target));
+			OutputDebugString(_T("\n"));
+
+			// 16진수를 정수로 변환
+			unsigned int decimalValue = 0;
+			sscanf_s(target, "%x", &decimalValue);  // ANSI 기반 파싱
+
+			// 10진수 값 변환 후 표시
+			double realValue = decimalValue * 0.1;
+			CString result;
+			result.Format(_T("10진수 값: %.1f\n"), realValue);
+			OutputDebugString(result);
+			lpInspWorkInfo->m_nTempSt590_01 = realValue;
+			CString strTemp;
+			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+			if (pDlg)
+			{
+				CString strTemp;
+				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_01);
+				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR2, strTemp);
+			}
+		}
+		else {
+			OutputDebugString(_T("수신된 데이터 길이가 6보다 작습니다.\n"));
+		}
+	}
+
+	// 1초 대기
+	Sleep(1000);
+
+	// 명령어 2 전송
+	if (!WriteFile(hSerial, command2, sizeof(command2), &bytesWritten, NULL)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 응답 수신 및 데이터 처리
+	memset(buffer, 0, sizeof(buffer)); // 버퍼 초기화
+	bytesRead = 0;
+	if (!ReadFile(hSerial, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 수신된 데이터 출력
+	if (bytesRead > 0) {
+		buffer[bytesRead] = 0;  // Null-terminate
+
+		// CString으로 변환
+		CStringA strA((char*)buffer);     // ANSI 버퍼
+		CString strW(strA);               // 유니코드 변환 (필요 시)
+
+		// 디버그 출력
+		OutputDebugString(_T("명령어 1 수신된 데이터: "));
+		OutputDebugString(strW);
+		OutputDebugString(_T("\n"));
+
+		// 마지막 6글자 추출
+		if (strA.GetLength() >= 6) {
+			CStringA target = strA.Right(6);  // 맨 뒤 6글자
+
+			OutputDebugString(_T("추출된 16진수 문자열: "));
+			OutputDebugString(CString(target));
+			OutputDebugString(_T("\n"));
+
+			// 16진수를 정수로 변환
+			unsigned int decimalValue = 0;
+			sscanf_s(target, "%x", &decimalValue);  // ANSI 기반 파싱
+
+			// 10진수 값 변환 후 표시
+			double realValue = decimalValue * 0.1;
+			CString result;
+			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+			lpInspWorkInfo->m_nTempSt590_02 = realValue;
+			if (pDlg)
+			{
+				CString strTemp;
+				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_02);
+				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR3, strTemp);
+			}
+			OutputDebugString(result);
+		}
+		else {
+			OutputDebugString(_T("수신된 데이터 길이가 6보다 작습니다.\n"));
+		}
+	}
+
+	// 1초 대기
+	Sleep(1000);
+
+	// 4. Serial 포트 닫기
+	CloseHandle(hSerial);
+	return (0);
+}
+
 
 
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
@@ -1630,6 +1816,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// 3초 Timer
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
+		AfxBeginThread(ThreadTempControler, this);
 	}
 
 	if (nIDEvent == 8)
@@ -4085,6 +4272,78 @@ void CHseAgingDlg::Lf_setDoorOnOff(int rack)
 	//memset(lpInspWorkInfo->m_nDoorOpenClose, 1, sizeof(lpInspWorkInfo->m_nDoorOpenClose));
 }
 
+void CHseAgingDlg::Lf_setAgingSTART_PID(int rack, int ch)
+{
+	//Lf_setChannelUseUnuse_PID_ON(rack, ch);
+
+	//m_pApp->pCommand->Gf_setAgingSTART(rack);
+
+	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_ON);
+	//m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_ON);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_ON,1,ch,1);
+}
+
+void CHseAgingDlg::Lf_setAgingSTOP_PID(int rack)
+{
+	//Lf_setChannelUseUnuse_PID_OFF(rack);
+
+	//m_pApp->pCommand->Gf_setAgingSTOP(rack);
+	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_OFF);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_OFF);
+}
+
+void CHseAgingDlg::Lf_setChannelUseUnuse_PID_ON(int rack, int Ch)
+{
+	CString ip;
+	BOOL setInfo[16];
+
+	m_pBtnChUseUnuseSet[rack]->EnableWindow(FALSE);
+
+	for (int layer = 0; layer < MAX_LAYER; layer++)
+	{
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+		{
+			// ch == 7일 때만 Use, 나머지는 Unuse (0-based index)
+			setInfo[ch] = (ch == Ch) ? CHANNEL_USE : CHANNEL_UNUSE;
+
+			// 옵션: 내부 상태도 같이 변경 (lpInspWorkInfo도 반영)
+			lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch] = setInfo[ch];
+		}
+
+		ip.Format(_T("192.168.10.%d"), (rack * 5) + layer + 1);
+		m_pApp->pCommand->Gf_setChannelUseUnuse(ip, setInfo);
+	}
+
+	m_pBtnChUseUnuseSet[rack]->EnableWindow(TRUE);
+}
+
+void CHseAgingDlg::Lf_setChannelUseUnuse_PID_OFF(int rack)
+{
+	CString ip;
+	BOOL setInfo[16];
+
+	m_pBtnChUseUnuseSet[rack]->EnableWindow(FALSE);
+
+	for (int layer = 0; layer < MAX_LAYER; layer++)
+	{
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+		{
+			// 모든 채널을 사용 상태로 설정
+			setInfo[ch] = CHANNEL_USE;
+
+			// 내부 상태도 같이 반영
+			lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch] = CHANNEL_USE;
+		}
+
+		ip.Format(_T("192.168.10.%d"), (rack * 5) + layer + 1);
+		m_pApp->pCommand->Gf_setChannelUseUnuse(ip, setInfo);
+	}
+
+	m_pBtnChUseUnuseSet[rack]->EnableWindow(TRUE);
+}
+
+
+
 void CHseAgingDlg::Lf_setAgingSTART(int rack)
 {
 	if (m_pCmbMaModel[rack]->GetCurSel() == 0)
@@ -5119,8 +5378,8 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 				m_pApp->Gf_gmesSendHost(HOST_UNDO, rack, layer, ch);
 
-				// Tower Lamp Error
-				//lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_ERROR;
+				 //Tower Lamp Error
+				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_ERROR;
 			}
 		}
 	}
@@ -5259,19 +5518,49 @@ void CHseAgingDlg::Lf_toggleChUseUnuse(int rack, int layer, int ch)
 	m_pSttRackState[rack][layer][ch]->Invalidate(FALSE);
 }
 
+//void CHseAgingDlg::Lf_setChannelUseUnuse(int rack)
+//{
+//	CString ip;
+//	BOOL setInfo[16];
+//
+//	m_pBtnChUseUnuseSet[rack]->EnableWindow(FALSE);
+//
+//	for (int layer = 0; layer < MAX_LAYER; layer++)
+//	{
+//		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+//		{
+//			// ch == 7일 때만 Use, 나머지는 Unuse (0-based index)
+//			setInfo[ch] = (ch == 8) ? CHANNEL_USE : CHANNEL_UNUSE;
+//
+//			// 옵션: 내부 상태도 같이 변경 (lpInspWorkInfo도 반영)
+//			lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch] = setInfo[ch];
+//		}
+//
+//		ip.Format(_T("192.168.10.%d"), (rack * 5) + layer + 1);
+//		m_pApp->pCommand->Gf_setChannelUseUnuse(ip, setInfo);
+//	}
+//
+//	m_pBtnChUseUnuseSet[rack]->EnableWindow(TRUE);
+//}
+
 void CHseAgingDlg::Lf_setChannelUseUnuse(int rack)
 {
 	CString ip;
 	BOOL setInfo[16];
-	
+
 	m_pBtnChUseUnuseSet[rack]->EnableWindow(FALSE);
 
 	for (int layer = 0; layer < MAX_LAYER; layer++)
 	{
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			setInfo[ch] = lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch];
+			// 모든 채널을 사용 상태로 설정
+			setInfo[ch] = CHANNEL_USE;
+
+			// 내부 상태도 같이 반영
+			lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch] = CHANNEL_USE;
 		}
+
 		ip.Format(_T("192.168.10.%d"), (rack * 5) + layer + 1);
 		m_pApp->pCommand->Gf_setChannelUseUnuse(ip, setInfo);
 	}
@@ -5414,6 +5703,14 @@ void CHseAgingDlg::Lf_checkBcrRackIDInput()
 
 	lpInspWorkInfo->m_ChID = m_nSendKeyInData.Right(2);
 	lpInspWorkInfo->m_RackID = Left_Data;
+
+
+
+
+
+
+
+
 
 	m_nUseKeyInData = true;
 	lpInspWorkInfo->m_SendRackID = true;
