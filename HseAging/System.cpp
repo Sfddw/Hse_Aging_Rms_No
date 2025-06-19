@@ -35,6 +35,7 @@ void CSystem::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CMB_SY_RECORDER_PORT, m_cmbSyRecorderPort);
 	DDX_Control(pDX, IDC_CMB_SY_TEMP_LOG_INTERVAL, m_cmbSyTempLogInterval);
 	DDX_Control(pDX, IDC_CMB_SY_SENSING_LOG_INTERVAL, m_cmbSySensingLogInterval);
+	DDX_Control(pDX, IDC_CMB_SY_CONTROLLER_PORT, m_cmbSyControllerPort);
 }
 
 
@@ -308,6 +309,8 @@ void CSystem::Lf_InitDialogControl()
 	GetDlgItem(IDC_EDT_SY_EQP_NAME)->SetWindowText(lpSystemInfo->m_sEqpName);
 	m_cmbSyRecorderPort.SetCurSel(lpSystemInfo->m_nTempRecorderPort);
 
+	m_cmbSyControllerPort.SetCurSel(lpSystemInfo->m_nTempControllerPort);
+
 	GetDlgItem(IDC_EDT_SY_MES_SERVICE_PORT)->SetWindowText(lpSystemInfo->m_sMesServicePort);
 	GetDlgItem(IDC_EDT_SY_MES_NETWORK)->SetWindowText(lpSystemInfo->m_sMesNetWork);
 	GetDlgItem(IDC_EDT_SY_MES_DAEMON_PORT)->SetWindowText(lpSystemInfo->m_sMesDaemonPort);
@@ -346,6 +349,9 @@ void CSystem::Lf_saveSystemInfo()
 
 	lpSystemInfo->m_nTempRecorderPort = m_cmbSyRecorderPort.GetCurSel();
 	Write_SysIniFile(_T("SYSTEM"), _T("TEMP_RECORDER_PORT"), lpSystemInfo->m_nTempRecorderPort);
+
+	lpSystemInfo->m_nTempControllerPort = m_cmbSyControllerPort.GetCurSel();
+	Write_SysIniFile(_T("SYSTEM"), _T("TEMP_CONTROLLER_PORT"), lpSystemInfo->m_nTempControllerPort);
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// MES, EAS Setting

@@ -328,6 +328,13 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				{
 					Lf_addMessage(_T("MES not connected"));
 					m_nMainKeyInData.Empty();
+
+					//int RackID = _ttoi(lpInspWorkInfo->m_RackID);
+					//int ChID = _ttoi(lpInspWorkInfo->m_ChID);
+					//RackID -= 1;
+					////pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+
+					//pDlg->Lf_setAgingSTART_PID(RackID, ChID);
 					
 					return TRUE;
 				}

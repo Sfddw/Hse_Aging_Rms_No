@@ -64,5 +64,8 @@ public:
 	CComboBox m_cmbSyRecorderPort;
 	CComboBox m_cmbSyTempLogInterval;
 	CComboBox m_cmbSySensingLogInterval;
+
+	CComboBox m_cmbSyControllerPort;
+
 	afx_msg void OnBnClickedMbtSyPasswordChange();
 };

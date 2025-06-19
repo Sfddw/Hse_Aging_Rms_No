@@ -115,6 +115,7 @@ typedef struct _ST_SYSTEMINFO_{
 	CString	m_sLastModelName[MAX_RACK];			// 마지막 M/C 모델명
 	CString m_sChannelID[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	int m_nTempRecorderPort;
+	int m_nTempControllerPort;
 
 	// MES 정보 설정 //
 	CString m_sMesServicePort;

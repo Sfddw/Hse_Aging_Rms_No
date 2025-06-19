@@ -1268,6 +1268,8 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("SYSTEM"), _T("EQP_NAME"), &lpSystemInfo->m_sEqpName);
 	Read_SysIniFile(_T("SYSTEM"), _T("TEMP_RECORDER_PORT"), &lpSystemInfo->m_nTempRecorderPort);
 
+	Read_SysIniFile(_T("SYSTEM"), _T("TEMP_CONTROLLER_PORT"), &lpSystemInfo->m_nTempControllerPort);
+
 	Read_SysIniFile(_T("SYSTEM"), _T("REFRESH_AGING_STATUS_TIME"), &sdata);
 	if (sdata.GetLength() == 0)		lpSystemInfo->m_fRefreshAgingStatusTime = 2.0f;
 	else							lpSystemInfo->m_fRefreshAgingStatusTime = (float)_tstof(sdata);
