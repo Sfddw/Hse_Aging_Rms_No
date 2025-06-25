@@ -5059,10 +5059,83 @@ void CHseAgingDlg::Lf_getTemperature()
 						fprintf(fp, "%s", pos);
 
 						// Summary 및 실처리 전송을 위한 Min/Max/Avg 값을 저장한다.
+						float measVCC = (float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f;
+						float measICC = (float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f;
+						float measVBL = (float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f;
+						float measIBL = (float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f;
+
+						lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][ch] += measVCC;
+						lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][ch] += measICC;
+						lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][ch] += measVBL;
+						lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][ch] += measIBL;
+
 						Lf_savePowerMeasureMinMax(rack, layer, ch);
+
+						if ((rack == 3 && layer == 2 && ch == 14)||(rack == 3 && layer == 2 && ch == 15))
+						{
+							CString desktopPath;
+							TCHAR szPath[MAX_PATH];
+							LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
+							// 바탕화면 경로 얻기
+							if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOP, NULL, 0, szPath)))
+							{
+								desktopPath = szPath;
+							}
+
+							// 파일 경로 설정
+							CString filePath;
+							filePath.Format(_T("%s\\IccAvgExport.csv"), desktopPath);
+
+							// 파일 열기 (추가 모드: 덮어쓰기 X, 기존 뒤에 이어쓰기)
+							CStdioFile file;
+							CFileException ex;
+							BOOL fileExists = PathFileExists(filePath);
+
+							// 파일 열기
+							if (!file.Open(filePath, CFile::modeReadWrite | CFile::modeCreate | CFile::modeNoTruncate | CFile::typeText, &ex))
+							{
+								AfxMessageBox(_T("파일을 열 수 없습니다."));
+							}
+
+							// 커서를 파일 끝으로 이동
+							file.SeekToEnd();
+
+							// 저장할 데이터 준비
+							/*float iccAvg = lpInspWorkInfo->m_fOpeAgingIccAvg[3][2][14];
+							int measCount = lpInspWorkInfo->m_nAgingPowerMeasCount[3];*/
+							float iccAvg = lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][ch];
+							int measCount = lpInspWorkInfo->m_nAgingPowerMeasCount[rack];
+
+							CString line;
+
+							// 처음 파일 생성일 경우 헤더 추가
+							if (!fileExists)
+							{
+								line = _T("IccAvg,MeasCount\r\n");
+								file.WriteString(line);
+							}
+
+							// 데이터 줄 추가
+							line.Format(_T("rack = %d, layer = %d, ch = %d - %.2f,%d\r\n"),rack, layer, ch, iccAvg, measCount);
+							file.WriteString(line);
+							file.Close();
+
+							CString dbg;
+							dbg.Format(_T("[Debug] CH15 :::::: m_fOpeAgingIccAvg = %f: PowerMeasCount (Ibl) = %f\r\n"), lpInspWorkInfo->m_fOpeAgingIccAvg[3][2][14], (float)lpInspWorkInfo->m_nAgingPowerMeasCount[3]);
+							OutputDebugString(dbg);
+
+							dbg.Format(_T("[Debug] CH16 :::::: m_fOpeAgingIccAvg = %f: PowerMeasCount (Ibl) = %f\r\n"), lpInspWorkInfo->m_fOpeAgingIccAvg[3][2][15], (float)lpInspWorkInfo->m_nAgingPowerMeasCount[3]);
+							OutputDebugString(dbg);
+						}
 					}
 				}
-				lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = lpInspWorkInfo->m_nAgingPowerMeasCount[rack] + 1;
+				//lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = lpInspWorkInfo->m_nAgingPowerMeasCount[rack] + 1;
+			}
+
+			for (int rack = 0; rack < MAX_RACK; rack++)
+			{
+				lpInspWorkInfo->m_nAgingPowerMeasCount[rack]++;
 			}
 
 			fclose(fp);
@@ -5939,16 +6012,14 @@ void CHseAgingDlg::Lf_checkComplete5MinOver()
 
 void CHseAgingDlg::Lf_savePowerMeasureMinMax(int rack, int layer, int ch)
 {
-	float measVCC, measICC, measVBL, measIBL;
-	
-	measVCC = (float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f;
-	measICC = (float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f;
-	measVBL = (float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f;
-	measIBL = (float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f;
+	float measVCC = (float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f;
+	float measICC = (float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f;
+	float measVBL = (float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f;
+	float measIBL = (float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f;
 
 
 	// VCC Min Value Save
-	if(lpInspWorkInfo->m_fOpeAgingVccMin[rack][layer][ch] == 0)
+	if (lpInspWorkInfo->m_fOpeAgingVccMin[rack][layer][ch] == 0)
 	{
 		lpInspWorkInfo->m_fOpeAgingVccMin[rack][layer][ch] = measVCC;
 	}
@@ -6025,10 +6096,10 @@ void CHseAgingDlg::Lf_savePowerMeasureMinMax(int rack, int layer, int ch)
 
 
 	// AVG 계산을 위한 Data 누적. AVG 변수에 측정값을 누적하고 Complete 시점에 Count 값으로 나눈다
-	lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][ch] = lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][ch] + measVCC;
+	/*lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][ch] = lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][ch] + measVCC;
 	lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][ch] = lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][ch] + measICC;
 	lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][ch] = lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][ch] + measVBL;
-	lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][ch] = lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][ch] + measIBL;
+	lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][ch] = lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][ch] + measIBL;*/
 }
 
 void CHseAgingDlg::Lf_flickerCompleteRackNumber()
