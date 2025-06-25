@@ -1911,7 +1911,7 @@ void CHseAgingApp::Gf_gmesShowLocalErrorMsg()
 	CMessageError errDlg;
 
 	pCimNet->GetFieldData(&strMsg, _T("ERR_MSG_ENG"));	//ERR_MSG_ENG	ERR_MSG_LOC
-	errDlg.m_strEMessage.Format(_T("<MES> MES ERROR %s"), strMsg);
+	errDlg.m_strEMessage.Format(_T("<MES> MES ERROR %s (RACK = [%d], LAYER = [%d], CH = [%d]"), strMsg, lpInspWorkInfo->m_AgnInStartRack, lpInspWorkInfo->m_AgnInStartLayer, lpInspWorkInfo->m_AgnInStartChannel);
 
 	errDlg.DoModal();
 }
@@ -2039,21 +2039,48 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_AGN_IN)
 	{
-		Gf_gmesSetValueAgcm(rack, layer, ch);
-		lpInspWorkInfo->m_AgnInStartRack = rack;
-		lpInspWorkInfo->m_AgnInStartLayer = layer;
-		lpInspWorkInfo->m_AgnInStartChannel = ch;
-		nRtnCD = pCimNet->AGN_IN();
+		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		{
+			Gf_gmesSetValueAgcm(rack, layer, ch);
+			lpInspWorkInfo->m_AgnInStartRack = rack;
+			lpInspWorkInfo->m_AgnInStartLayer = layer;
+			lpInspWorkInfo->m_AgnInStartChannel = ch;
+			nRtnCD = pCimNet->AGN_IN();
+		}
+		else
+		{
+			return TRUE;
+		}
 	}
 	else if (hostCMD == HOST_AGN_OUT)
 	{
-		Gf_gmesSetValueAgcm(rack, layer, ch);
-		nRtnCD = pCimNet->AGN_OUT();
+		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		{
+			Gf_gmesSetValueAgcm(rack, layer, ch);
+			lpInspWorkInfo->m_AgnInStartRack = rack;
+			lpInspWorkInfo->m_AgnInStartLayer = layer;
+			lpInspWorkInfo->m_AgnInStartChannel = ch;
+			nRtnCD = pCimNet->AGN_OUT();
+		}
+		else
+		{
+			return TRUE;
+		}
 	}
 	else if (hostCMD == HOST_APDR)
 	{
+		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		{
 		Lf_gmesSetValueAPDR(rack,layer, ch);
+		lpInspWorkInfo->m_AgnInStartRack = rack;
+		lpInspWorkInfo->m_AgnInStartLayer = layer;
+		lpInspWorkInfo->m_AgnInStartChannel = ch;
 		nRtnCD = pCimNet->APDR();
+		}
+		else
+		{
+			return TRUE;
+		}
 	}
 	else if (hostCMD == HOST_AGN_INSP)
 	{
