@@ -35,7 +35,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 	DWORD temTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 };
 	BOOL debugDoorOpen = DOOR_CLOSE;
 	float elapsedTimeToSubtract = 0;
-	CPidInput idDlg;
+	CPidInput idDlg; 
 
 	while (1)
 	{
@@ -1823,7 +1823,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// 3초 Timer
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
-		AfxBeginThread(ThreadTempControler, this);
+		//AfxBeginThread(ThreadTempControler, this);
 	}
 
 	if (nIDEvent == 8)
@@ -4353,7 +4353,7 @@ void CHseAgingDlg::Lf_setChannelUseUnuse_PID_OFF(int rack)
 
 
 
-void CHseAgingDlg::Lf_setAgingSTART(int rack)
+void CHseAgingDlg::Lf_setAgingSTART(int rack) 
 {
 	if (m_pCmbMaModel[rack]->GetCurSel() == 0)
 	{
