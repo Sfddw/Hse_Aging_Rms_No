@@ -319,11 +319,14 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 			{
 				m_pedtPannelID[LAYER_1][CH_1]->SetFocus();
 			}
-			else if (m_nMainKeyInData.GetLength() == 14) // PID SCAN
+			else if (m_nMainKeyInData.GetLength() == 14) // PID SCAN - 길이 14개
 			{
 				bool P_Chk = false;
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-				pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+				if (_ttoi(lpInspWorkInfo->m_StopRackID) != 13)
+				{
+					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+				}
 				if (m_pApp->m_bIsGmesConnect == FALSE)
 				{
 					Lf_addMessage(_T("MES not connected"));

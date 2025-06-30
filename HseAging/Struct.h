@@ -235,6 +235,7 @@ typedef struct _ST_INSPWORKINFO_
 
 	int m_nAgingStatusS[6]; // Door Open, Close 
 	int m_nLampColor; // Lamp
+	int m_nAgingOutStatus[6] = { 0,0,0,0,0,0 };
 
 	CString m_sDioFWVersion;
 
@@ -245,7 +246,7 @@ typedef struct _ST_INSPWORKINFO_
 
 	CString m_RackID;
 	CString m_ChID;
-	CString m_StopRackID;
+	CString m_StopRackID = _T("13"); // pid 점등 초기값 설정
 	BOOL m_PidFlag = false;
 
 	BOOL m_nAgnOutYn[6];

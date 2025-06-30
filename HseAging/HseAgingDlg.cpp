@@ -469,6 +469,10 @@ UINT ThreadTempControler(LPVOID pParam)
 		0x02, 0x30, 0x31, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
 	};
 
+	unsigned char command3[] = {
+		0x02, 0x30, 0x31, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
+	};
+
 	// 번갈아 가면서 명령어 전송 및 응답 수신 (무한 루프)
 	// 
 		// 명령어 1 전송
@@ -557,7 +561,7 @@ UINT ThreadTempControler(LPVOID pParam)
 		CString strW(strA);               // 유니코드 변환 (필요 시)
 
 		// 디버그 출력
-		OutputDebugString(_T("명령어 1 수신된 데이터: "));
+		OutputDebugString(_T("명령어 2 수신된 데이터: "));
 		OutputDebugString(strW);
 		OutputDebugString(_T("\n"));
 
@@ -583,6 +587,66 @@ UINT ThreadTempControler(LPVOID pParam)
 				CString strTemp;
 				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_02);
 				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR3, strTemp);
+			}
+			OutputDebugString(result);
+		}
+		else {
+			OutputDebugString(_T("수신된 데이터 길이가 6보다 작습니다.\n"));
+		}
+	}
+
+	// 1초 대기
+	Sleep(1000);
+
+	// 명령어 3 전송
+	if (!WriteFile(hSerial, command3, sizeof(command3), &bytesWritten, NULL)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 응답 수신 및 데이터 처리
+	memset(buffer, 0, sizeof(buffer)); // 버퍼 초기화
+	bytesRead = 0;
+	if (!ReadFile(hSerial, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
+		CloseHandle(hSerial);
+		return 1;
+	}
+
+	// 수신된 데이터 출력
+	if (bytesRead > 0) {
+		buffer[bytesRead] = 0;  // Null-terminate
+
+		// CString으로 변환
+		CStringA strA((char*)buffer);     // ANSI 버퍼
+		CString strW(strA);               // 유니코드 변환 (필요 시)
+
+		// 디버그 출력
+		OutputDebugString(_T("명령어 3 수신된 데이터: "));
+		OutputDebugString(strW);
+		OutputDebugString(_T("\n"));
+
+		// 마지막 6글자 추출
+		if (strA.GetLength() >= 6) {
+			CStringA target = strA.Right(6);  // 맨 뒤 6글자
+
+			OutputDebugString(_T("추출된 16진수 문자열: "));
+			OutputDebugString(CString(target));
+			OutputDebugString(_T("\n"));
+
+			// 16진수를 정수로 변환
+			unsigned int decimalValue = 0;
+			sscanf_s(target, "%x", &decimalValue);  // ANSI 기반 파싱
+
+			// 10진수 값 변환 후 표시
+			double realValue = decimalValue * 0.1;
+			CString result;
+			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+			lpInspWorkInfo->m_nTempSt590_03 = realValue;
+			if (pDlg)
+			{
+				CString strTemp;
+				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_03);
+				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR4, strTemp);
 			}
 			OutputDebugString(result);
 		}
@@ -4235,45 +4299,45 @@ void CHseAgingDlg::Lf_InitCobmoRackModelList()
 
 void CHseAgingDlg::Lf_setDoorOnOff(int rack)
 {
-	//CString strMsg;
+	CString strMsg;
 
-	//if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_CLOSE)
-	//{
-	//	lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
-	//	//lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
-	//	if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_OPEN)
-	//		strMsg.Format(_T("DOOR%d OPEN"), rack + 1);
-	//	else
-	//		strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
+	if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_CLOSE)
+	{
+		lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
+		//lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
+		if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_OPEN)
+			strMsg.Format(_T("DOOR%d OPEN"), rack + 1);
+		else
+			strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
 
-	//	m_pDoorState[rack]->SetWindowText(strMsg);
+		m_pDoorState[rack]->SetWindowText(strMsg);
 
-	//}
-	//else if (lpInspWorkInfo->m_nDoorOpenClose[rack] == 16843009)
-	//{
-	//	lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
-	//	//lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
-	//	if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_OPEN)
-	//		strMsg.Format(_T("DOOR%d OPEN"), rack + 1);
-	//	else
-	//		strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
+	}
+	else if (lpInspWorkInfo->m_nDoorOpenClose[rack] == 16843009)
+	{
+		lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
+		//lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_OPEN;
+		if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_OPEN)
+			strMsg.Format(_T("DOOR%d OPEN"), rack + 1);
+		else
+			strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
 
-	//	m_pDoorState[rack]->SetWindowText(strMsg);
-	//}
-	//else
-	//{
-	//	//memset(lpInspWorkInfo->m_nDoorOpenClose, 1, sizeof(lpInspWorkInfo->m_nDoorOpenClose));
-	//	//strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
-	//	lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_CLOSE;
-	//	if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_OPEN)
-	//		strMsg.Format(_T("DOOR%d OPEN"), rack + 1);
-	//	else
-	//		strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
+		m_pDoorState[rack]->SetWindowText(strMsg);
+	}
+	else
+	{
+		//memset(lpInspWorkInfo->m_nDoorOpenClose, 1, sizeof(lpInspWorkInfo->m_nDoorOpenClose));
+		//strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
+		lpInspWorkInfo->m_nDoorOpenClose[rack] = DOOR_CLOSE;
+		if (lpInspWorkInfo->m_nDoorOpenClose[rack] == DOOR_OPEN)
+			strMsg.Format(_T("DOOR%d OPEN"), rack + 1);
+		else
+			strMsg.Format(_T("DOOR%d CLOSE"), rack + 1);
 
-	//	m_pDoorState[rack]->SetWindowText(strMsg);
-	//}
+		m_pDoorState[rack]->SetWindowText(strMsg);
+	}
 
-	lpInspWorkInfo->m_ast_AgingChErrorResult[0][1][0] = LIMIT_HIGH;
+	//lpInspWorkInfo->m_ast_AgingChErrorResult[0][1][0] = LIMIT_HIGH;
 	
 
 	//memset(lpInspWorkInfo->m_nDoorOpenClose, 1, sizeof(lpInspWorkInfo->m_nDoorOpenClose));
@@ -4294,11 +4358,8 @@ void CHseAgingDlg::Lf_setAgingSTART_PID(int rack, int ch)
 
 void CHseAgingDlg::Lf_setAgingSTOP_PID(int rack)
 {
-	//Lf_setChannelUseUnuse_PID_OFF(rack);
-
-	//m_pApp->pCommand->Gf_setAgingSTOP(rack);
 	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_OFF);
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_OFF);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_OFF,1,0, 1);
 }
 
 void CHseAgingDlg::Lf_setChannelUseUnuse_PID_ON(int rack, int Ch)
@@ -5458,7 +5519,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 					//////////////////////////////////////////////////////////////////////////////////////////////////
 				}
 
-				m_pApp->Gf_gmesSendHost(HOST_UNDO, rack, layer, ch);
+				//m_pApp->Gf_gmesSendHost(HOST_UNDO, rack, layer, ch);
 
 				 //Tower Lamp Error
 				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_ERROR;
@@ -5785,18 +5846,6 @@ void CHseAgingDlg::Lf_checkBcrRackIDInput()
 
 	lpInspWorkInfo->m_ChID = m_nSendKeyInData.Right(2);
 	lpInspWorkInfo->m_RackID = Left_Data;
-
-
-
-
-
-
-
-
-
-
-
-
 
 	m_nUseKeyInData = true;
 	lpInspWorkInfo->m_SendRackID = true;

@@ -267,16 +267,13 @@ BOOL CCommand::Gf_setPowerSequenceOnOff_BCR(int rack, BOOL onoff, int bAck, int 
 	BOOL ret = FALSE;
 	int length = 0;
 	char szPacket[128] = { 0, };
-	//Ch = 11;
+
 	CString sLog;
 	if (onoff == ON)				sLog.Format(_T("<TEST> 'RACK-%c' POWER ON"), rack + 'A');
 	else if (onoff == OFF)		sLog.Format(_T("<TEST> 'RACK-%c' POWER OFF"), rack + 'A');
-	/*if (Ch == 40)
-		Ch = 9;
-	if (Ch == 6)
-		Ch = 7;*/
 
-	sprintf_s(szPacket, sizeof(szPacket), "%01d%02d%01d", onoff, 00, 01);
+	//sprintf_s(szPacket, "%01d", onoff);
+	sprintf_s(szPacket, sizeof(szPacket), "%01d%02d%01d", onoff, 00, 0);
 	length = (int)strlen(szPacket);
 
 	int waitTime;
