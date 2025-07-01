@@ -1566,6 +1566,7 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		sResult.Format(_T("OK"));
 	}
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_RESULT] = sResult;
+	
 
 	sprintf_s(buff, "%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S\n",
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_SW_VER].GetBuffer(0),
