@@ -1843,7 +1843,7 @@ void CHseAgingApp::Lf_gmesSetValueAPDR(int rack, int layer, int ch)
 	sdata.Format(_T("AGING_MONITORING:AGING_VBL_SENSOR_SET_MIN:%.2f,"), lpInspWorkInfo->m_fOpeVblSetMin[rack]);			sAPDInfo.Append(sdata);
 	sdata.Format(_T("AGING_MONITORING:AGING_VBL_SENSOR_SET_MAX:%.2f,"), lpInspWorkInfo->m_fOpeVblSetMax[rack]);			sAPDInfo.Append(sdata);
 	sdata.Format(_T("AGING_MONITORING:AGING_IBL_SENSOR_SET_MIN:%.2f,"), lpInspWorkInfo->m_fOpeIblSetMin[rack]);			sAPDInfo.Append(sdata);
-	sdata.Format(_T("AGING_MONITORING:AGING_IBL_SENSOR_SET_MAX:%.2f,"), lpInspWorkInfo->m_fOpeVccSetMax[rack]);			sAPDInfo.Append(sdata);
+	sdata.Format(_T("AGING_MONITORING:AGING_IBL_SENSOR_SET_MAX:%.2f,"), lpInspWorkInfo->m_fOpeIblSetMax[rack]);			sAPDInfo.Append(sdata);
 
 	sAPDInfo.Replace(_T("-"), _T("_"));				// 하이픈(-)은 언더바(_)로 변경
 	sAPDInfo.Replace(_T(" "), _T("_"));				// 공백은 언더바(_)로 변경
