@@ -4913,15 +4913,24 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 	{
 		lpInspWorkInfo->m_nTowerLampStatus = towerStatus;
 
+		CString Dxt;
+
 		int outData = 0, blinkMode = 0;
 		if (towerStatus & TOWER_LAMP_ERROR)
 		{
 			outData = outData | (DIO_OUT_RED | DIO_OUT_BUZZER);
 			blinkMode = blinkMode | DIO_OUT_RED_BLINK;
+
+			Dxt.Format(_T("빨간색"));
+			OutputDebugString(Dxt);
+			Sleep(5000);
+			lpInspWorkInfo->m_nAgingOperatingMode[lpInspWorkInfo->m_AgingErrorRack] = AGING_RUNNING;
 		}
 		if (towerStatus & TOWER_LAMP_RUNNING)
 		{
 			outData = outData | DIO_OUT_GREEN;
+			Dxt.Format(_T("초록색"));
+			OutputDebugString(Dxt);
 		}
 		if (towerStatus & TOWER_LAMP_COMPLETE)
 		{
@@ -4931,10 +4940,14 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			Lf_setDIOWrite(outData, 0);
 			outData = outData | DIO_OUT_YELLOW;
 			Lf_setDIOWrite(outData, 0);
+			Dxt.Format(_T("초록 노랑"));
+			OutputDebugString(Dxt);
 		}
 		if(towerStatus & TOWER_LAMP_READY)
 		{
 			outData = outData | DIO_OUT_YELLOW;
+			Dxt.Format(_T("노란색"));
+			OutputDebugString(Dxt);
 		}
 
 		for (int rack = 0; rack < MAX_RACK; rack++)
@@ -4943,6 +4956,8 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			{
 				outData = outData | (DIO_OUT_GREEN | DIO_OUT_BUZZER);
 				blinkMode = blinkMode | DIO_OUT_GREEN_BLINK;
+				Dxt.Format(_T("초록반짝"));
+				OutputDebugString(Dxt);
 			}
 			
 		}
@@ -5524,7 +5539,8 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 				//m_pApp->Gf_gmesSendHost(HOST_UNDO, rack, layer, ch);
 
 				 //Tower Lamp Error
-				//lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_ERROR;
+				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_ERROR;
+				lpInspWorkInfo->m_AgingErrorRack = rack;
 			}
 		}
 	}

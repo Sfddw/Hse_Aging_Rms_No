@@ -730,9 +730,9 @@ BOOL CHseAgingApp::procParseMeasurePower(int rack, int layer, CString packet)
 			//ptr += len;	len = 5;
 			sdata = packet.Mid(ptr, len);		lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] = _ttoi(sdata);
 			ptr += len;
-			debugStr.Format(_T("[Debug] ptr=%d, len=%d, rack=%d, layer=%d, ch=%d, sdata=%s\n"),
+			/*debugStr.Format(_T("[Debug] ptr=%d, len=%d, rack=%d, layer=%d, ch=%d, sdata=%s\n"),
 				ptr, len, rack, layer, ch, sdata);
-			OutputDebugString(debugStr);
+			OutputDebugString(debugStr);*/
 		}
 
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
