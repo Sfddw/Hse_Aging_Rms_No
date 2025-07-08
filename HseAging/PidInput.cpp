@@ -323,7 +323,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 			{
 				bool P_Chk = false;
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-				if (_ttoi(lpInspWorkInfo->m_StopRackID) != 13)
+				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID)
 				{
 					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 				}

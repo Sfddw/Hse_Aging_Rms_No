@@ -4512,6 +4512,8 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	memset(lpInspWorkInfo->m_fOpeAgingIblMin, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblMin));
 	memset(lpInspWorkInfo->m_fOpeAgingIblMax, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblMax));
 	memset(lpInspWorkInfo->m_fOpeAgingIblAvg, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblAvg));
+
+	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), RESET_RACK_PID);
 }
 
 void CHseAgingDlg::Lf_setAgingSTOP(int rack)
