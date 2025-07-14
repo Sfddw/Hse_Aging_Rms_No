@@ -7,6 +7,9 @@
 
 #define TEMP2XXX_ADDR		1
 #define TEMPSDR100_ADDR		1
+#define TEMPST590_ADDR2		2
+#define TEMPST590_ADDR3		3
+#define TEMPST590_ADDR4		4
 
 #define RUNMODE_TIMEOUT		0
 #define RUNMODE_SCENARIO	1
@@ -42,8 +45,13 @@ public:
 	BOOL  TempSDR100_Initialize(int port);
 	BOOL  TempSDR100_receiveACK();
 	BOOL  TempSDR100_readTemp();
-	BOOL  TempSDR100_sendPacket(char* packet, BOOL bACK=FALSE);
+	/*BOOL  TempSDR100_sendPacket(char* packet, BOOL bACK=FALSE);*/
+	BOOL  TempSDR100_sendPacket(int addr, char* packet, BOOL bACK = FALSE);
 	BOOL  TempSDR100_rs232send(unsigned char* sendmsg, unsigned long dwsize);
+
+	BOOL  TempST590_readTemp2();
+	BOOL  TempST590_readTemp3();
+	BOOL  TempST590_readTemp4();
 
 protected:
 	CRs232Port*		pR232Port;

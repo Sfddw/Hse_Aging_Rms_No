@@ -187,14 +187,14 @@ BOOL CTemp2xxx::TempSDR100_rs232send(unsigned char* sendmsg, unsigned long dwsiz
 	return TRUE;
 }
 
-BOOL CTemp2xxx::TempSDR100_sendPacket(char* packet, int bACK)
+BOOL CTemp2xxx::TempSDR100_sendPacket(int Addr, char* packet, int bACK)
 {
 	BOOL bRet=TRUE;
 	char szsendmsg[1024]={0,};
 	ULONG dwsize=0;
 
 	// 마지막에 CR코드가 들어간다.
-	sprintf_s(szsendmsg, "%c%02d%s%c%c", _STX_, TEMPSDR100_ADDR, packet, 0x0D, 0x0A);
+	sprintf_s(szsendmsg, "%c%02d%s%c%c", _STX_, Addr, packet, 0x0D, 0x0A);
 	dwsize = (ULONG)strlen(szsendmsg);
 
 	m_bIsReceiveACK2=FALSE;
@@ -225,8 +225,15 @@ BOOL CTemp2xxx::TempSDR100_Initialize(int port)
 
 	if (port == 0)	return TRUE;
 
-	sPort.Format(_T("COM%d"), port);
-	if(rs232_OpenPort2(sPort, 115200) == FALSE)
+	if (port >= 10)
+	{
+		sPort.Format(_T("\\\\.\\COM%d"), port);
+	}
+	else
+	{
+		sPort.Format(_T("COM%d"), port);
+	}
+	//if(rs232_OpenPort2(sPort, 115200) == FALSE)
 	//sPort.Format(_T("COM10"));
 	if (rs232_OpenPort2(sPort, 115200) == FALSE)
 	{
@@ -236,7 +243,7 @@ BOOL CTemp2xxx::TempSDR100_Initialize(int port)
 		return FALSE;
 	}
 
-	m_bPortOpen2	= TRUE;
+	m_bPortOpen2 = TRUE;
 
 	return TRUE;
 }
@@ -266,7 +273,40 @@ BOOL CTemp2xxx::TempSDR100_readTemp()
 	char buff[100]={0,};
 
 	sprintf_s(buff, "RSD,%02d,0001", MAX_TEMP_SENSOR);
-	bRet = TempSDR100_sendPacket(buff);
+	bRet = TempSDR100_sendPacket(TEMPSDR100_ADDR, buff);
+
+	return bRet;
+}
+
+BOOL CTemp2xxx::TempST590_readTemp2()
+{
+	BOOL bRet = FALSE;
+	char buff[100] = { 0, };
+
+	sprintf_s(buff, "RSD,%02d,0004", MAX_TEMP_ST590_SENSOR);
+    bRet = TempSDR100_sendPacket(TEMPST590_ADDR2, buff);
+
+	return bRet;
+}
+
+BOOL CTemp2xxx::TempST590_readTemp3()
+{
+	BOOL bRet = FALSE;
+	char buff[100] = { 0, };
+
+	sprintf_s(buff, "RSD,%02d,0004", MAX_TEMP_ST590_SENSOR);
+	bRet = TempSDR100_sendPacket(TEMPST590_ADDR3, buff);
+
+	return bRet;
+}
+
+BOOL CTemp2xxx::TempST590_readTemp4()
+{
+	BOOL bRet = FALSE;
+	char buff[100] = { 0, };
+
+	sprintf_s(buff, "RSD,%02d,0004", MAX_TEMP_ST590_SENSOR);
+	bRet = TempSDR100_sendPacket(TEMPST590_ADDR4, buff);
 
 	return bRet;
 }

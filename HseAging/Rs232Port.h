@@ -45,7 +45,7 @@ public:
 	CString m_strPortName1, m_strPortName2; 
 	BOOL m_boolConnected1, m_boolConnected2; 
 	OVERLAPPED m_osRead1, m_osRead2, m_osWrite1, m_osWrite2; 
-	HANDLE m_hThreadWatchComm1, m_hThreadWatchComm2; 
+	HANDLE m_hThreadWatchComm1, m_hThreadWatchComm2, m_hThreadWatchComm3; 
 	WORD m_wPortID1, m_wPortID2;
 	int n;
 	void SetNumber (int i)	{n = i;}

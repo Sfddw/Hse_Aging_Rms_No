@@ -190,8 +190,8 @@ BOOL CRs232Port::OpenPort2 (CString sPortName, unsigned long dwBaud, unsigned sh
 	dcb.XoffChar = ASCII_XOFF;
 	dcb.XonLim = 100;
 
-	dcb.fDtrControl = DTR_CONTROL_DISABLE;
-	dcb.fRtsControl = RTS_CONTROL_DISABLE;
+	/*dcb.fDtrControl = DTR_CONTROL_DISABLE;
+	dcb.fRtsControl = RTS_CONTROL_DISABLE;*/
 
 
 	if (!SetCommState (m_hComm2, &dcb))		return FALSE;
