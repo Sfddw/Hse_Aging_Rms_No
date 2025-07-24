@@ -5285,19 +5285,19 @@ void CHseAgingDlg::Lf_saveTempMinMax()
 			continue;
 
 		// Min Value Save
-		if (lpInspWorkInfo->m_fOpeAgingTempMin[rack] > lpInspWorkInfo->m_fTempReadVal[0])
+		if (lpInspWorkInfo->m_fOpeAgingTempMin[rack] > lpInspWorkInfo->m_fTempReadVal[rack])
 		{
-			lpInspWorkInfo->m_fOpeAgingTempMin[rack] = lpInspWorkInfo->m_fTempReadVal[0];
+			lpInspWorkInfo->m_fOpeAgingTempMin[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
 		}
 
 		// Max Value Save
-		if (lpInspWorkInfo->m_fOpeAgingTempMax[rack] < lpInspWorkInfo->m_fTempReadVal[0])
+		if (lpInspWorkInfo->m_fOpeAgingTempMax[rack] < lpInspWorkInfo->m_fTempReadVal[rack])
 		{
-			lpInspWorkInfo->m_fOpeAgingTempMax[rack] = lpInspWorkInfo->m_fTempReadVal[0];
+			lpInspWorkInfo->m_fOpeAgingTempMax[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
 		}
 
 		// AVG 계산을 위한 Data 누적. AVG 변수에 측정값을 누적하고 Complete 시점에 Count 값으로 나눈다
-		lpInspWorkInfo->m_fOpeAgingTempAvg[rack] = lpInspWorkInfo->m_fOpeAgingTempAvg[rack] + lpInspWorkInfo->m_fTempReadVal[0];
+		lpInspWorkInfo->m_fOpeAgingTempAvg[rack] = lpInspWorkInfo->m_fOpeAgingTempAvg[rack] + lpInspWorkInfo->m_fTempReadVal[rack];
 		lpInspWorkInfo->m_nAgingTempMeasCount[rack] = lpInspWorkInfo->m_nAgingTempMeasCount[rack] + 1;
 	}
 }
