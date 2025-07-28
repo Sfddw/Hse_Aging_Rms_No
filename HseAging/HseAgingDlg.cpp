@@ -136,9 +136,9 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 			agingTotalSec = lpInspWorkInfo->m_nAgingSetTime[rack] * 60;
 			agingElapseSec = (::GetTickCount64() - lpInspWorkInfo->m_nAgingStartTick[rack]) / 1000;
 
-			/*if (agingElapseSec >= 100)
+			/*if (agingElapseSec >= 20)
 			{
-				lpInspWorkInfo->m_ast_AgingChErrorResult[4][0][8] = LIMIT_HIGH;
+				lpInspWorkInfo->m_ast_AgingChErrorResult[3][0][8] = LIMIT_HIGH;
 			}*/
 
 			// Door Open 시간만큼 경과시간을 마이너스 시킨다.
@@ -4517,7 +4517,17 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	lpInspWorkInfo->m_nAgingTempMatchTime[rack] = 0;
 
 	lpInspWorkInfo->m_nAgingTempMeasCount[rack] = 0;
-	lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = 0;
+	//lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = 0;
+	for (int rack = 0; rack < MAX_LAYER; rack++)
+	{
+		for (int layer = 0; layer < MAX_LAYER; layer++)
+		{
+			for (int ch = 0; ch < MAX_CHANNEL; ch++)
+			{
+				lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][ch] = 0;
+			}
+		}
+	}
 	lpInspWorkInfo->m_fOpeAgingTempMin[rack] = 60;
 	lpInspWorkInfo->m_fOpeAgingTempMax[rack] = 0;
 	lpInspWorkInfo->m_fOpeAgingTempAvg[rack] = 0;
@@ -4977,8 +4987,8 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 		{
 			if (lpInspWorkInfo->m_nAgingStatusS[rack] == 1)
 			{
-				outData = outData | (DIO_OUT_GREEN | DIO_OUT_BUZZER);
-				blinkMode = blinkMode | DIO_OUT_GREEN_BLINK;
+				/*outData = outData | (DIO_OUT_GREEN | DIO_OUT_BUZZER);
+				blinkMode = blinkMode | DIO_OUT_GREEN_BLINK;*/
 				Dxt.Format(_T("초록반짝"));
 				OutputDebugString(Dxt);
 			}
@@ -5180,16 +5190,18 @@ void CHseAgingDlg::Lf_getTemperature()
 						lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][ch] += measVBL;
 						lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][ch] += measIBL;
 
+						lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][ch]++;
+
 						Lf_savePowerMeasureMinMax(rack, layer, ch);
 					}
 				}
 				//lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = lpInspWorkInfo->m_nAgingPowerMeasCount[rack] + 1;
 			}
 
-			for (int rack = 0; rack < MAX_RACK; rack++)
+			/*for (int rack = 0; rack < MAX_RACK; rack++)
 			{
 				lpInspWorkInfo->m_nAgingPowerMeasCount[rack]++;
-			}
+			}*/
 
 			fclose(fp);
 		}

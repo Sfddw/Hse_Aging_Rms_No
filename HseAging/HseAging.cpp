@@ -1506,54 +1506,54 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MIN].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMin[rack]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MAX].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMax[rack]);
 	/*m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingTempMeasCount[rack]));*/
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	CString dbg;
+	/*CString dbg;
 	dbg.Format(_T("tempavg = %f, tempCount = %f"),
 		(float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack],
-			(float)lpInspWorkInfo->m_nAgingTempMeasCount[rack]));
+			(float)lpInspWorkInfo->m_nAgingTempMeasCount[rack][layer][channel]));
 
-	OutputDebugString(dbg);
+	OutputDebugString(dbg);*/
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVccMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVccMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	dbg.Format(_T("vccavg = %f, vccCount = %f"),
+	/*dbg.Format(_T("vccavg = %f, vccCount = %f"),
 		(float)(lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	OutputDebugString(dbg);
+	OutputDebugString(dbg);*/
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIccMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIccMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	dbg.Format(_T("iccavg = %f, iccCount = %f"),
+	/*dbg.Format(_T("iccavg = %f, iccCount = %f"),
 		(float)(lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	OutputDebugString(dbg);
+	OutputDebugString(dbg);*/
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVblMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVblMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	dbg.Format(_T("vblavg = %f, vblCount = %f"),
+	/*dbg.Format(_T("vblavg = %f, vblCount = %f"),
 		(float)(lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	OutputDebugString(dbg);
+	OutputDebugString(dbg);*/
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIblMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIblMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	dbg.Format(_T("iblavg = %f, iblCount = %f"),
+	/*dbg.Format(_T("iblavg = %f, iblCount = %f"),
 		(float)(lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack]));
+			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	OutputDebugString(dbg);
+	OutputDebugString(dbg);*/
 
 	if (bNewCsv == TRUE)
 	{

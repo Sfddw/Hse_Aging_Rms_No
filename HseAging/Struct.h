@@ -185,7 +185,8 @@ typedef struct _ST_INSPWORKINFO_
 	int m_nTempSt590_03;
 
 	int m_nAgingTempMeasCount[MAX_RACK];
-	int m_nAgingPowerMeasCount[MAX_RACK];
+	/*int m_nAgingPowerMeasCount[MAX_RACK];*/
+	int m_nAgingPowerMeasCount[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	float m_fOpeAgingTempMin[MAX_RACK];
 	float m_fOpeAgingTempMax[MAX_RACK];
 	float m_fOpeAgingTempAvg[MAX_RACK];
