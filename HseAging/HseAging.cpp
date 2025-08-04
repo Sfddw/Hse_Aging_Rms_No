@@ -1505,8 +1505,8 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MIN].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMin[rack]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MAX].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMax[rack]);
-	/*m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingTempMeasCount[rack]));*/
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
+	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingTempMeasCount[rack]));
+	//m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
 	/*CString dbg;
 	dbg.Format(_T("tempavg = %f, tempCount = %f"),
@@ -1566,6 +1566,14 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		sResult.Format(_T("OK"));
 	}
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_RESULT] = sResult;
+
+	CString strFailMsg = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE];
+	CString strFailTime = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE_TIME];
+
+	if (strFailMsg.FindOneOf(_T(",\r\n")) >= 0)
+		strFailMsg = _T("\"") + strFailMsg + _T("\"");
+	if (strFailTime.FindOneOf(_T(",\r\n")) >= 0)
+		strFailTime = _T("\"") + strFailTime + _T("\"");
 	
 
 	sprintf_s(buff, "%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S\n",
@@ -1582,8 +1590,10 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_START_TIME].GetBuffer(0),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_END_TIME].GetBuffer(0),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_RESULT].GetBuffer(0),
-		m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE].GetBuffer(0),
-		m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE_TIME].GetBuffer(0),
+		/*m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE].GetBuffer(0),
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE_TIME].GetBuffer(0),*/
+		strFailMsg.GetBuffer(),
+		strFailTime.GetBuffer(),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_MEAS_VCC].GetBuffer(0),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_MEAS_ICC].GetBuffer(0),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_MEAS_VBL].GetBuffer(0),
@@ -1798,8 +1808,13 @@ void CHseAgingApp::Lf_gmesSetValueAPDR(int rack, int layer, int ch)
 
 	tempAPD = m_summaryInfo[rack][layer][ch];
 
-	tempAPD.m_sumData[SUM_START_TIME].Replace(_T(":"), _T("_"));
-	tempAPD.m_sumData[SUM_END_TIME].Replace(_T(":"), _T("_"));
+	/*tempAPD.m_sumData[SUM_START_TIME].Replace(_T(":"), _T("_"));
+	tempAPD.m_sumData[SUM_END_TIME].Replace(_T(":"), _T("_"));*/
+	tempAPD.m_sumData[SUM_START_TIME].Replace(_T(":"), _T(""));
+	tempAPD.m_sumData[SUM_START_TIME].Replace(_T(" "), _T(""));
+
+	tempAPD.m_sumData[SUM_END_TIME].Replace(_T(":"), _T(""));
+	tempAPD.m_sumData[SUM_END_TIME].Replace(_T(" "), _T(""));
 
 
 	sdata.Format(_T("AGING_MONITORING:EM_NO:%s,"), tempAPD.m_sumData[SUM_EQP_NAME]);						sAPDInfo.Append(sdata);
@@ -2072,7 +2087,7 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_AGN_IN)
 	{
-		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		/*if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
 		{
 			Gf_gmesSetValueAgcm(rack, layer, ch);
 			lpInspWorkInfo->m_AgnInStartRack = rack;
@@ -2083,11 +2098,16 @@ Send_RETRY:
 		else
 		{
 			return TRUE;
-		}
+		}*/
+		Gf_gmesSetValueAgcm(rack, layer, ch);
+		lpInspWorkInfo->m_AgnInStartRack = rack;
+		lpInspWorkInfo->m_AgnInStartLayer = layer;
+		lpInspWorkInfo->m_AgnInStartChannel = ch;
+		nRtnCD = pCimNet->AGN_IN();
 	}
 	else if (hostCMD == HOST_AGN_OUT)
 	{
-		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		/*if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
 		{
 			Gf_gmesSetValueAgcm(rack, layer, ch);
 			lpInspWorkInfo->m_AgnInStartRack = rack;
@@ -2098,11 +2118,17 @@ Send_RETRY:
 		else
 		{
 			return TRUE;
-		}
+		}*/
+		Gf_gmesSetValueAgcm(rack, layer, ch);
+		lpInspWorkInfo->m_AgnInStartRack = rack;
+		lpInspWorkInfo->m_AgnInStartLayer = layer;
+		lpInspWorkInfo->m_AgnInStartChannel = ch;
+		nRtnCD = pCimNet->AGN_OUT();
+		//return TRUE;
 	}
 	else if (hostCMD == HOST_APDR)
 	{
-		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		/*if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
 		{
 		Lf_gmesSetValueAPDR(rack,layer, ch);
 		lpInspWorkInfo->m_AgnInStartRack = rack;
@@ -2113,7 +2139,12 @@ Send_RETRY:
 		else
 		{
 			return TRUE;
-		}
+		}*/
+		Lf_gmesSetValueAPDR(rack, layer, ch);
+		lpInspWorkInfo->m_AgnInStartRack = rack;
+		lpInspWorkInfo->m_AgnInStartLayer = layer;
+		lpInspWorkInfo->m_AgnInStartChannel = ch;
+		nRtnCD = pCimNet->APDR();
 	}
 	else if (hostCMD == HOST_AGN_INSP)
 	{

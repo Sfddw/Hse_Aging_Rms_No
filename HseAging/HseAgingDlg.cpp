@@ -183,7 +183,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 					//lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_COMPLETE_DOORCLOSE;
 					lpInspWorkInfo->m_nLampColor = 1;
 					lpInspWorkInfo->m_nAgingStatusS[rack] = 1;
-					//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
+					m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
 					
 
 					if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
@@ -5245,13 +5245,13 @@ void CHseAgingDlg::Lf_writeTempLog()
 				}
 			}
 		}
-		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6\n");
+		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6, ZONE1, ZONE2, ZONE3\n");
 		fprintf(fp, "%s", buff);
 	}
 
 	fseek(fp, 0L, SEEK_END);
 
-	sprintf_s(buff, "%02d,%02d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+	sprintf_s(buff, "%02d,%02d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
 		time.GetHour(),
 		time.GetMinute(),
 		(lpInspWorkInfo->m_fTempReadVal[0]),
@@ -5259,7 +5259,10 @@ void CHseAgingDlg::Lf_writeTempLog()
 		(lpInspWorkInfo->m_fTempReadVal[2]),
 		(lpInspWorkInfo->m_fTempReadVal[3]),
 		(lpInspWorkInfo->m_fTempReadVal[4]),
-		(lpInspWorkInfo->m_fTempReadVal[5])
+		(lpInspWorkInfo->m_fTempReadVal[5]),
+		(lpInspWorkInfo->m_fTempReadValST590_2[0]),
+		(lpInspWorkInfo->m_fTempReadValST590_3[0]),
+		(lpInspWorkInfo->m_fTempReadValST590_4[0])
 	);
 
 	char* pos = dataline;
@@ -5335,7 +5338,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 		{
 			lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-			if (!strcmp(szCmd, "RSD"))
+			if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
 			{
 				for (int tp = 1; tp < 7; tp++)
 				{
@@ -5362,7 +5365,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-				if (!strcmp(szCmd, "RSD"))
+				if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
 				{
 					for (int tp = 1; tp < 4; tp++)
 					{
@@ -5391,7 +5394,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-				if (!strcmp(szCmd, "RSD"))
+				if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
 				{
 					for (int tp = 1; tp < 4; tp++)
 					{
@@ -5420,7 +5423,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-				if (!strcmp(szCmd, "RSD"))
+				if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
 				{
 					for (int tp = 1; tp < 4; tp++)
 					{
