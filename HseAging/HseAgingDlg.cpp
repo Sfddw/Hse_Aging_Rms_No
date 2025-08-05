@@ -183,7 +183,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 					//lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_COMPLETE_DOORCLOSE;
 					lpInspWorkInfo->m_nLampColor = 1;
 					lpInspWorkInfo->m_nAgingStatusS[rack] = 1;
-					m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
+					//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
 					
 
 					if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
@@ -4987,8 +4987,8 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 		{
 			if (lpInspWorkInfo->m_nAgingStatusS[rack] == 1)
 			{
-				/*outData = outData | (DIO_OUT_GREEN | DIO_OUT_BUZZER);
-				blinkMode = blinkMode | DIO_OUT_GREEN_BLINK;*/
+				outData = outData | (DIO_OUT_GREEN | DIO_OUT_BUZZER);
+				blinkMode = blinkMode | DIO_OUT_GREEN_BLINK;
 				Dxt.Format(_T("초록반짝"));
 				OutputDebugString(Dxt);
 			}
