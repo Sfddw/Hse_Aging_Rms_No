@@ -24,6 +24,8 @@
 #define new DEBUG_NEW
 #endif
 
+static BOOL bTempErrorOnce[MAX_RACK] = { FALSE };
+
 UINT ThreadAgingStartRack(LPVOID pParam)
 {
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)pParam;
@@ -36,6 +38,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 	BOOL debugDoorOpen = DOOR_CLOSE;
 	float elapsedTimeToSubtract = 0;
 	CPidInput idDlg; 
+	
 
 	while (1)
 	{
@@ -260,6 +263,24 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 								pDlg->Lf_writeRackMLog(rack, sLog);
 
 								m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
+
+								if (bTempErrorOnce[rack] == FALSE)
+								{
+									bTempErrorOnce[rack] = TRUE;
+										for (int layer = 0; layer < MAX_LAYER; layer++)
+										{
+											// Channel 상태 Update. /Normal/Error
+											for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+											{
+												lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] = TEMP_LOW;
+												lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_TEMP;
+											}
+										}
+									
+									
+								}
+
+								//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
 							}
 							else
 							{
@@ -1903,7 +1924,35 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// 3초 Timer
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
-		//AfxBeginThread(ThreadTempST590_1, this);
+		/*AfxBeginThread(ThreadTempST590_1, this);
+
+		for (int i = 0; i < 6; i++)
+		{
+			if(i == 0)
+			{ 
+				lpInspWorkInfo->m_fTempReadVal[i] = 45 + lpInspWorkInfo->TempTest;
+			}
+			if (i == 1)
+			{
+				lpInspWorkInfo->m_fTempReadVal[i] = 46 + lpInspWorkInfo->TempTest;
+			}
+			if (i == 2)
+			{
+				lpInspWorkInfo->m_fTempReadVal[i] = 47 + lpInspWorkInfo->TempTest;
+			}
+			if (i == 3)
+			{
+				lpInspWorkInfo->m_fTempReadVal[i] = 48 + lpInspWorkInfo->TempTest;
+			}
+			if (i == 4)
+			{
+				lpInspWorkInfo->m_fTempReadVal[i] = 49 + lpInspWorkInfo->TempTest;
+			}
+			if (i == 5)
+			{
+				lpInspWorkInfo->m_fTempReadVal[i] = 50 + lpInspWorkInfo->TempTest;
+			}
+		}*/
 
 		//AfxBeginThread(ThreadTempControler, this);
 		
@@ -4445,6 +4494,8 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	CString sModelName, sdata, sLog;
 
+	bTempErrorOnce[rack] = FALSE;
+
 	// Button Disable
 	m_pBtnAgingStart[rack]->EnableWindow(FALSE);
 	m_pBtnAgingFusing[rack]->EnableWindow(FALSE);
@@ -5245,7 +5296,7 @@ void CHseAgingDlg::Lf_writeTempLog()
 				}
 			}
 		}
-		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6, ZONE1, ZONE2, ZONE3\n");
+		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6,ZONE1,ZONE2,ZONE3\n");
 		fprintf(fp, "%s", buff);
 	}
 
@@ -5338,7 +5389,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 		{
 			lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-			if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
+			if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD")) // 받는 패킷이 RSD , RRD
 			{
 				for (int tp = 1; tp < 7; tp++)
 				{
@@ -5356,7 +5407,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			}
 		}
 		}
-		else if (addr == TEMPST590_ADDR2) // 온도 컨트롤러일 때(2)
+		else if (addr == TEMPST590_ADDR2) // 온도 컨트롤러일 때(ADDR - 2)
 		{
 			memcpy(szCmd, &szpacket[3], 3);
 			memcpy(szRet, &szpacket[7], 2);
@@ -5380,12 +5431,12 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 
 					// 세 번째 온도를 IDC_STT_TEMP_SENSOR2에 표시
 					CString sTemp;
-					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_2[0]);  // tp=3 번째 → 인덱스 2
+					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_2[0]);
 					GetDlgItem(IDC_STT_TEMP_SENSOR2)->SetWindowText(sTemp);
 				}
 			}
 		}
-		else if (addr == TEMPST590_ADDR3) // 온도 컨트롤러일 때(3)
+		else if (addr == TEMPST590_ADDR3) // 온도 컨트롤러일 때(ADDR - 3)
 		{
 			memcpy(szCmd, &szpacket[3], 3);
 			memcpy(szRet, &szpacket[7], 2);
@@ -5407,14 +5458,14 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 						lpInspWorkInfo->m_fTempReadValST590_3[tp - 1] = (float)(nVal / 10.0);
 					}
 
-					// 세 번째 온도를 IDC_STT_TEMP_SENSOR2에 표시
+					// 세 번째 온도를 IDC_STT_TEMP_SENSOR3에 표시
 					CString sTemp;
-					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_3[0]);  // tp=3 번째 → 인덱스 2
+					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_3[0]);
 					GetDlgItem(IDC_STT_TEMP_SENSOR3)->SetWindowText(sTemp);
 				}
 			}
 		}
-		else if (addr == TEMPST590_ADDR4) // 온도 컨트롤러일 때(4)
+		else if (addr == TEMPST590_ADDR4) // 온도 컨트롤러일 때(ADDR - 4)
 		{
 			memcpy(szCmd, &szpacket[3], 3);
 			memcpy(szRet, &szpacket[7], 2);
@@ -5436,9 +5487,9 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 						lpInspWorkInfo->m_fTempReadValST590_4[tp - 1] = (float)(nVal / 10.0);
 					}
 
-					// 세 번째 온도를 IDC_STT_TEMP_SENSOR2에 표시
+					// 세 번째 온도를 IDC_STT_TEMP_SENSOR4에 표시
 					CString sTemp;
-					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_4[0]);  // tp=3 번째 → 인덱스 2
+					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_4[0]);
 					GetDlgItem(IDC_STT_TEMP_SENSOR4)->SetWindowText(sTemp);
 				}
 			}
@@ -5508,6 +5559,10 @@ CString CHseAgingDlg::Lf_getLimitErrorString(int rack, int layer, int ch)
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_LOW"), &modelSetValue);
 			retString.Format(_T("IBL LOW Limit (Set:%.2fA, Meas:%.2fA)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
 		}
+	}
+	if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_TEMP)
+	{
+		retString.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack + 1, layer + 1, ch + 1);
 	}
 
 	return retString;
@@ -5585,12 +5640,51 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 			// Channel 상태 Update. /Normal/Error
 			for (ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 			{
+
+				if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == TEMP_LOW)
+				{
+					if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_TEMP)
+					{
+						/*sLog.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack+1, layer+1, ch+1);
+						Lf_writeRackMLog(rack, sLog);*/
+
+						rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
+						errString = Lf_getLimitErrorString(rack, layer, ch);
+						//Lf_writeRackMLog(rack, errString);
+
+						sLog.Format(_T("<TEMP> TEMP ERROR NG. %s %s"), rackInfo, errString);
+						m_pApp->Gf_writeMLog(sLog);
+
+						limitAlarm.Append(sdata);
+
+						sdata.Format(_T("%s  %s\r\n"), rackInfo, errString);
+
+						m_pApp->Gf_writeAlarmLog(rack, layer, ch, errString);
+
+						if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)
+						{
+							//////////////////////////////////////////////////////////////////////////////////////////////////
+							CString skey = _T(""), stime = _T("");
+							CTime time = CTime::GetCurrentTime();
+							stime.Format(_T("%02d:%02d:%02d"), time.GetHour(), time.GetMinute(), time.GetSecond());
+							skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+							Write_SummaryInfo(_T("FAIL_MESSAGE"), skey, errString);
+							Write_SummaryInfo(_T("FAIL_TIME"), skey, stime);
+							//////////////////////////////////////////////////////////////////////////////////////////////////
+						}
+
+						lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] = LIMIT_NONE;
+						lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_NONE;
+						continue;
+					}
+				}
 				if (lpInspWorkInfo->m_nChErrorStatusOld[rack][layer][ch] == lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch])
 					continue;
 
 				if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
 					continue;
 
+				
 				//////////////////////////////////////////////////////////////////////////////////////////////////
 				// Power Limit 정보를 생성한다.
 				//rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
@@ -6288,7 +6382,8 @@ void CHseAgingDlg::Lf_flickerCompleteRackNumber()
 void CHseAgingDlg::OnBnClickedButtonDoor1()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	Lf_setDoorOnOff(RACK_2);
+	//Lf_setDoorOnOff(RACK_2);
+	lpInspWorkInfo->TempTest += 1;
 
 }
 
@@ -6296,7 +6391,8 @@ void CHseAgingDlg::OnBnClickedButtonDoor1()
 void CHseAgingDlg::OnBnClickedButtonDoor2()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	Lf_setDoorOnOff(RACK_1);
+	//Lf_setDoorOnOff(RACK_1);
+	lpInspWorkInfo->TempTest -= 1;
 }
 
 

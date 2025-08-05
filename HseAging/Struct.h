@@ -148,6 +148,8 @@ typedef struct _ST_INSPWORKINFO_
 	int m_nMainEthConnect[MAX_RACK][MAX_LAYER];
 	float m_fTempReadVal[MAX_TEMP_SENSOR];
 
+	int TempTest = 0;
+
 	float m_fTempReadValST590_2[MAX_TEMP_SENSOR];
 	float m_fTempReadValST590_3[MAX_TEMP_SENSOR];
 	float m_fTempReadValST590_4[MAX_TEMP_SENSOR];

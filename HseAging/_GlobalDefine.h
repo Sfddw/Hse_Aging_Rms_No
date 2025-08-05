@@ -56,6 +56,9 @@
 #define LIMIT_HIGH							1
 #define LIMIT_LOW							2
 
+#define TEMP_HIGH							3
+#define TEMP_LOW							4
+
 #define CHANNEL_USE							0
 #define CHANNEL_UNUSE						1
 
@@ -190,7 +193,8 @@ enum
 	ERR_INFO_VCC,
 	ERR_INFO_ICC,
 	ERR_INFO_VBL,
-	ERR_INFO_IBL
+	ERR_INFO_IBL,
+	ERR_INFO_TEMP
 };
 
 
