@@ -154,6 +154,10 @@ typedef struct _ST_INSPWORKINFO_
 	float m_fTempReadValST590_3[MAX_TEMP_SENSOR];
 	float m_fTempReadValST590_4[MAX_TEMP_SENSOR];
 
+	float m_fTempReadValST590_2_SET[MAX_TEMP_SENSOR];
+	float m_fTempReadValST590_3_SET[MAX_TEMP_SENSOR];
+	float m_fTempReadValST590_4_SET[MAX_TEMP_SENSOR];
+
 	CString m_sMainFWVersion[MAX_RACK][MAX_LAYER];
 	BOOL m_nFwVerifyResult[MAX_RACK];
 

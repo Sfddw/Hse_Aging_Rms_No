@@ -686,15 +686,32 @@ UINT ThreadTempControler(LPVOID pParam)
 
 UINT ThreadTempST590_1(LPVOID pParam)
 {
-	m_pApp->m_pTemp2xxx->TempSDR100_readTemp();
-	Sleep(100);
+	/*m_pApp->m_pTemp2xxx->TempSDR100_readTemp();
+	Sleep(300);*/
 	m_pApp->m_pTemp2xxx->TempST590_readTemp2();
-	Sleep(100);
+	Sleep(300);
 	m_pApp->m_pTemp2xxx->TempST590_readTemp3();
-	Sleep(200);
+	Sleep(300);
 	m_pApp->m_pTemp2xxx->TempST590_readTemp4();
 	Sleep(300);
 	/*m_pApp->m_pTemp2xxx->TempSDR100_readTemp();
+	Sleep(100);*/
+	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp2();
+	Sleep(300);
+	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp3();
+	Sleep(300);
+	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp4();
+	Sleep(300);
+	return (0);
+}
+
+UINT ThreadTempST590_1_SET(LPVOID pParam)
+{
+	/*m_pApp->m_pTemp2xxx->TempST590_SET_readTemp2();
+	Sleep(100);
+	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp3();
+	Sleep(100);
+	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp4();
 	Sleep(100);*/
 	return (0);
 }
@@ -1924,9 +1941,10 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// 3초 Timer
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
-		/*AfxBeginThread(ThreadTempST590_1, this);
+		//AfxBeginThread(ThreadTempST590_1, this);
+		
 
-		for (int i = 0; i < 6; i++)
+		/*for (int i = 0; i < 6; i++)
 		{
 			if(i == 0)
 			{ 
@@ -1961,6 +1979,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 
 	if (nIDEvent == 8)
 	{
+		//AfxBeginThread(ThreadTempST590_1_SET, this);
 		
 		if (lpInspWorkInfo->m_bAlarmOccur == TRUE)
 		{
@@ -5296,13 +5315,13 @@ void CHseAgingDlg::Lf_writeTempLog()
 				}
 			}
 		}
-		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6,ZONE1,ZONE2,ZONE3\n");
+		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6,ZONE1,ZONE2,ZONE3,ZONE1_SET,ZONE2_SET,ZONE3_SET\n");
 		fprintf(fp, "%s", buff);
 	}
 
 	fseek(fp, 0L, SEEK_END);
 
-	sprintf_s(buff, "%02d,%02d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+	sprintf_s(buff, "%02d,%02d,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
 		time.GetHour(),
 		time.GetMinute(),
 		(lpInspWorkInfo->m_fTempReadVal[0]),
@@ -5313,7 +5332,10 @@ void CHseAgingDlg::Lf_writeTempLog()
 		(lpInspWorkInfo->m_fTempReadVal[5]),
 		(lpInspWorkInfo->m_fTempReadValST590_2[0]),
 		(lpInspWorkInfo->m_fTempReadValST590_3[0]),
-		(lpInspWorkInfo->m_fTempReadValST590_4[0])
+		(lpInspWorkInfo->m_fTempReadValST590_4[0]),
+		(lpInspWorkInfo->m_fTempReadValST590_2_SET[0]),
+		(lpInspWorkInfo->m_fTempReadValST590_3_SET[0]),
+		(lpInspWorkInfo->m_fTempReadValST590_4_SET[0])
 	);
 
 	char* pos = dataline;
@@ -5389,7 +5411,7 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 		{
 			lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-			if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD")) // 받는 패킷이 RSD , RRD
+			if (!strcmp(szCmd, "RSD")) // 받는 패킷이 RSD
 			{
 				for (int tp = 1; tp < 7; tp++)
 				{
@@ -5416,7 +5438,8 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-				if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
+				/*if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))*/
+				if (!strcmp(szCmd, "RSD"))
 				{
 					for (int tp = 1; tp < 4; tp++)
 					{
@@ -5430,9 +5453,20 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 					}
 
 					// 세 번째 온도를 IDC_STT_TEMP_SENSOR2에 표시
-					CString sTemp;
-					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_2[0]);
-					GetDlgItem(IDC_STT_TEMP_SENSOR2)->SetWindowText(sTemp);
+					/*CString sTemp;
+					sTemp.Format(_T("%.1fC + %.1fC"), lpInspWorkInfo->m_fTempReadValST590_2_SET[0], lpInspWorkInfo->m_fTempReadValST590_2[0]);
+					GetDlgItem(IDC_STT_TEMP_SENSOR2)->SetWindowText(sTemp);*/
+				}
+				else if (!strcmp(szCmd, "RRD"))
+				{
+					for (int tp = 1; tp < 4; tp++)
+					{
+						int nVal;
+						sscanf_s(&szpacket[10 + (tp - 1) * 5], "%04X", &nVal);
+						if (nVal > 1000) nVal = 0;
+
+						lpInspWorkInfo->m_fTempReadValST590_2_SET[tp - 1] = (float)(nVal / 10.0);
+					}
 				}
 			}
 		}
@@ -5445,7 +5479,8 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-				if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
+				//if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
+				if (!strcmp(szCmd, "RSD"))
 				{
 					for (int tp = 1; tp < 4; tp++)
 					{
@@ -5459,9 +5494,19 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 					}
 
 					// 세 번째 온도를 IDC_STT_TEMP_SENSOR3에 표시
-					CString sTemp;
-					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_3[0]);
-					GetDlgItem(IDC_STT_TEMP_SENSOR3)->SetWindowText(sTemp);
+					/*CString sTemp;
+					sTemp.Format(_T("%.1fC + %.1fC"), lpInspWorkInfo->m_fTempReadValST590_3_SET[0], lpInspWorkInfo->m_fTempReadValST590_3[0]);
+					GetDlgItem(IDC_STT_TEMP_SENSOR3)->SetWindowText(sTemp);*/
+				}
+				else if (!strcmp(szCmd, "RRD"))
+				{
+					for (int tp = 1; tp < 4; tp++)
+					{
+						int nVal;
+						sscanf_s(&szpacket[10 + (tp - 1) * 5], "%04X", &nVal);
+						if (nVal > 1000)	nVal = 0;
+						lpInspWorkInfo->m_fTempReadValST590_3_SET[tp - 1] = (float)(nVal / 10.0);
+					}
 				}
 			}
 		}
@@ -5474,7 +5519,8 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
 
-				if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
+				//if (!strcmp(szCmd, "RSD") || !strcmp(szCmd, "RRD"))
+				if (!strcmp(szCmd, "RSD")) // 셋팅값 저장
 				{
 					for (int tp = 1; tp < 4; tp++)
 					{
@@ -5488,9 +5534,19 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 					}
 
 					// 세 번째 온도를 IDC_STT_TEMP_SENSOR4에 표시
-					CString sTemp;
-					sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadValST590_4[0]);
-					GetDlgItem(IDC_STT_TEMP_SENSOR4)->SetWindowText(sTemp);
+					/*CString sTemp;
+					sTemp.Format(_T("%.1fC + %.1fC"), lpInspWorkInfo->m_fTempReadValST590_4_SET[0], lpInspWorkInfo->m_fTempReadValST590_4[0]);
+					GetDlgItem(IDC_STT_TEMP_SENSOR4)->SetWindowText(sTemp);*/
+				}
+				else if (!strcmp(szCmd, "RRD")) // 현재 값 저장
+				{
+					for (int tp = 1; tp < 4; tp++)
+					{
+						int nVal;
+						sscanf_s(&szpacket[10 + (tp - 1) * 5], "%04X", &nVal);
+						if (nVal > 1000)	nVal = 0;
+						lpInspWorkInfo->m_fTempReadValST590_4_SET[tp - 1] = (float)(nVal / 10.0);
+					}
 				}
 			}
 		}
@@ -5657,9 +5713,9 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 						limitAlarm.Append(sdata);
 
-						sdata.Format(_T("%s  %s\r\n"), rackInfo, errString);
+						/*sdata.Format(_T("%s  %s\r\n"), rackInfo, errString);
 
-						m_pApp->Gf_writeAlarmLog(rack, layer, ch, errString);
+						m_pApp->Gf_writeAlarmLog(rack, layer, ch, errString);*/
 
 						if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)
 						{
@@ -5724,6 +5780,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 				 //Tower Lamp Error
 				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_ERROR;
 				lpInspWorkInfo->m_AgingErrorRack = rack;
+				m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
 			}
 		}
 	}

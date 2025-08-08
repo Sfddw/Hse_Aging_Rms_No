@@ -53,6 +53,10 @@ public:
 	BOOL  TempST590_readTemp3();
 	BOOL  TempST590_readTemp4();
 
+	BOOL  TempST590_SET_readTemp2();
+	BOOL  TempST590_SET_readTemp3();
+	BOOL  TempST590_SET_readTemp4();
+
 protected:
 	CRs232Port*		pR232Port;
 

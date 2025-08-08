@@ -313,3 +313,39 @@ BOOL CTemp2xxx::TempST590_readTemp4()
 
 	return bRet;
 }
+
+BOOL CTemp2xxx::TempST590_SET_readTemp2()
+{
+	BOOL bRet = FALSE;
+	char buff[100] = { 0, };
+
+	sprintf_s(buff, "RSD,%02d,0004", MAX_TEMP_ST590_SENSOR);
+	//sprintf_s(buff, "RRD,%02d,0001,0002", 2);
+	bRet = TempSDR100_sendPacket(TEMPST590_ADDR2, buff);
+
+	return bRet;
+}
+
+BOOL CTemp2xxx::TempST590_SET_readTemp3()
+{
+	BOOL bRet = FALSE;
+	char buff[100] = { 0, };
+
+	sprintf_s(buff, "RSD,%02d,0004", MAX_TEMP_ST590_SENSOR);
+	//sprintf_s(buff, "RRD,%02d,0001,0002", 2);
+	bRet = TempSDR100_sendPacket(TEMPST590_ADDR3, buff);
+
+	return bRet;
+}
+
+BOOL CTemp2xxx::TempST590_SET_readTemp4()
+{
+	BOOL bRet = FALSE;
+	char buff[100] = { 0, };
+
+	sprintf_s(buff, "RSD,%02d,0004", MAX_TEMP_ST590_SENSOR);
+	//sprintf_s(buff, "RRD,%02d,0001,0002", 2);
+	bRet = TempSDR100_sendPacket(TEMPST590_ADDR4, buff);
+
+	return bRet;
+}
