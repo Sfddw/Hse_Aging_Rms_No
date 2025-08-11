@@ -4595,6 +4595,7 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 			for (int ch = 0; ch < MAX_CHANNEL; ch++)
 			{
 				lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][ch] = 0;
+				lpInspWorkInfo->m_ast_AgingTempError[rack][layer][ch] = FALSE;
 			}
 		}
 	}
@@ -5701,8 +5702,8 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 				{
 					if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_TEMP)
 					{
-						/*sLog.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack+1, layer+1, ch+1);
-						Lf_writeRackMLog(rack, sLog);*/
+						sLog.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack+1, layer+1, ch+1);
+						Lf_writeRackMLog(rack, sLog);
 
 						rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
 						errString = Lf_getLimitErrorString(rack, layer, ch);
@@ -5731,6 +5732,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 						lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] = LIMIT_NONE;
 						lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_NONE;
+						lpInspWorkInfo->m_ast_AgingTempError[rack][layer][ch] = TRUE;
 						continue;
 					}
 				}

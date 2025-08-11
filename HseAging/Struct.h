@@ -235,6 +235,8 @@ typedef struct _ST_INSPWORKINFO_
 	BOOL m_ast_AgingChErrorType[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	int  m_ast_AgingChErrorValue[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 
+	BOOL m_ast_AgingTempError[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
+
 	int m_nChMainUiStatusOld[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	int m_nChErrorStatusOld[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 
