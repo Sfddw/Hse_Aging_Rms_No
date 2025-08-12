@@ -130,6 +130,10 @@ protected:
 	int m_nAgingStatusTick;
 	int m_nPowerMeasureTick;
 	int m_nSensinglogTick;
+	int m_nFirmwareRunCount;
+
+	int m_nFirmwareTick;
+	double m_nFirmwareTick_d;
 
 	int m_nAgnOutFlag[MAX_RACK];
 	int m_bOnOffFlag[MAX_RACK];
@@ -143,6 +147,8 @@ protected:
 	/*CString m_nMainKeyInData;*/
 	bool m_nUseKeyInData;
 	CString m_nSendKeyInData;
+
+	BOOL m_bFwMismatchNotified[MAX_RACK];
 
 private:
 	CFont m_Font[FONT_IDX_MAX];

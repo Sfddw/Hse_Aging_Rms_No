@@ -132,6 +132,9 @@ typedef struct _ST_SYSTEMINFO_{
 	CString m_sEasLocalSubject;
 	CString m_sEasRemoteSubject;
 
+	// SW VERSION 설정 //
+	CString m_SwVersion;
+
 	// Refresh Time 설정
 	float m_fRefreshAgingStatusTime;
 	float m_fRefreshPowerMeasureTime;

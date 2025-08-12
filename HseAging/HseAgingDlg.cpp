@@ -38,6 +38,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 	BOOL debugDoorOpen = DOOR_CLOSE;
 	float elapsedTimeToSubtract = 0;
 	CPidInput idDlg; 
+	DWORD condStartTick[MAX_RACK] = { 0 };
 	
 
 	while (1)
@@ -48,93 +49,201 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 				continue;
 
 			// 2025-02-18 PDH. AGING START시 DOOR CLOSE 상태 Check 시작
-			if (lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE)
-			{
-				//lpInspWorkInfo->m_fOpeAgingTempMin[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
+			//if (lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE)
+			//{
+			//	//lpInspWorkInfo->m_fOpeAgingTempMin[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
 
 
-				BOOL bDoorStatus, bTempRange;
-				bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
+			//	BOOL bDoorStatus, bTempRange;
+			//	bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
 
 
-				// Door 기능 사용하지 않을 경우 Door Close 체크하지 않는다.
-				if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
-					bDoorStatus = DOOR_CLOSE;
+			//	// Door 기능 사용하지 않을 경우 Door Close 체크하지 않는다.
+			//	if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
+			//		bDoorStatus = DOOR_CLOSE;
 
-				// Temp Range 확인하여 OK/NG 판단한다.
-				if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == FALSE)
+			//	// Temp Range 확인하여 OK/NG 판단한다.
+			//	if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == FALSE)
+			//	{
+			//		bTempRange = OK;
+			//	}
+			//	else
+			//	{
+			//		bTempRange = OK;
+			//		if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack]+5)
+			//		{
+			//			bTempRange = NG; // NG 상태 설정
+			//		}
+
+			//		if (lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
+			//		{
+			//			bTempRange = NG; // NG 상태 설정
+			//		}
+			//	}
+
+			//	// DOOR CLOSE 상태 체크되면 AGING RUNNING 상태로 변경하고 AGING을 시작한다.
+			//	//if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
+			//	//{
+			//	//	Sleep(4000);
+			//	//	//lpInspWorkInfo->m_nDoorOpenClose[rack] = lpInspWorkInfo->m_nDioInputData[rack + DIO_IN_DOOR1];
+			//	//	if ((bTempRange == OK) && (lpInspWorkInfo->m_nDoorOpenClose[rack] == 1))
+			//	//	{
+			//	//		// Aging 상태를 Running 으로 변경한다.
+			//	//		lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
+
+			//	//		idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+			//	//		lpInspWorkInfo->m_nAgnIn = TRUE;
+			//	//		AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+
+			//	//		// AGING Start Time 을 기록한다. (시/분/초 Summary Log 기록 위함)
+			//	//		m_pApp->Gf_sumSetStartTime(rack);
+
+			//	//		// AGING Start Tick 을 기록한다. (Thread 에서 경과시간 확인을 위함)
+			//	//		lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
+
+			//	//		// RACK Log 출력
+			//	//		//sLog.Format(_T("DOOR Close Check : OK"));
+			//	//		sLog.Format(_T("DOOR&TEMP Check : OK"));
+			//	//		pDlg->Lf_writeRackMLog(rack, sLog);
+			//	//	}
+			//	//	else if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE) // Door Enable
+			//	//	{
+			//	//		lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
+
+			//	//		idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+			//	//		lpInspWorkInfo->m_nAgnIn = TRUE;
+			//	//		AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+
+			//	//		// AGING Start Time 을 기록한다. (시/분/초 Summary Log 기록 위함)
+			//	//		m_pApp->Gf_sumSetStartTime(rack);
+
+			//	//		// AGING Start Tick 을 기록한다. (Thread 에서 경과시간 확인을 위함)
+			//	//		lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
+
+			//	//		// RACK Log 출력
+			//	//		//sLog.Format(_T("DOOR Close Check : OK"));
+			//	//		sLog.Format(_T("DOOR&TEMP Check : OK"));
+			//	//		pDlg->Lf_writeRackMLog(rack, sLog);
+			//	//	}
+			//	//	else
+			//	//	{
+			//	//		continue;
+			//	//	}
+			//	//	
+			//	//}
+			//	//else
+			//	//{
+			//	//	continue;
+			//	//}
+			//	if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
+			//	{
+			//		// 조건이 처음 만족되면 시작 시간 기록
+			//		if (condStartTick[rack] == 0)
+			//		{
+			//			condStartTick[rack] = ::GetTickCount();
+			//		}
+
+			//		// 4초 이상 조건 유지 시 실행
+			//		if ((::GetTickCount() - condStartTick[rack]) >= 4000)
+			//		{
+			//			//lpInspWorkInfo->m_nDoorOpenClose[rack] = lpInspWorkInfo->m_nDioInputData[rack + DIO_IN_DOOR1];
+			//			if ((bTempRange == OK) && (lpInspWorkInfo->m_nDoorOpenClose[rack] == 1))
+			//			{
+			//				// Aging 상태를 Running 으로 변경
+			//				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
+
+			//				/*idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+			//				lpInspWorkInfo->m_nAgnIn = TRUE;
+			//				AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);*/
+
+			//				m_pApp->Gf_sumSetStartTime(rack);
+			//				lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
+
+			//				sLog.Format(_T("DOOR&TEMP Check : OK"));
+			//				pDlg->Lf_writeRackMLog(rack, sLog);
+
+			//				condStartTick[rack] = 0; // 실행 후 초기화
+			//			}
+			//			else if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
+			//			{
+			//				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
+
+			//				idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+			//				lpInspWorkInfo->m_nAgnIn = TRUE;
+			//				AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+
+			//				m_pApp->Gf_sumSetStartTime(rack);
+			//				lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
+
+			//				sLog.Format(_T("DOOR&TEMP Check : OK"));
+			//				pDlg->Lf_writeRackMLog(rack, sLog);
+
+			//				condStartTick[rack] = 0; // 실행 후 초기화
+			//			}
+			//		}
+			//	}
+			//	else
+			//	{
+			//		// 조건이 깨지면 타이머 초기화
+			//		condStartTick[rack] = 0;
+			//	}
+			//}
+
+			// 2025-02-18 KDW. AGING START시 DELAY동안 RUNTIME값 수정
+				if (lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE)
 				{
-					bTempRange = OK;
-				}
-				else
-				{
-					bTempRange = OK;
-					if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack])
+					BOOL bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
+					BOOL bTempRange = OK;
+
+					if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
+						bDoorStatus = DOOR_CLOSE;
+
+					if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == TRUE)
 					{
-						bTempRange = NG; // NG 상태 설정
+						bTempRange = OK;
+						if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack]+5 ||
+							lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
+						{
+							bTempRange = NG;
+						}
 					}
 
-					if (lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
+					if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
 					{
-						bTempRange = NG; // NG 상태 설정
-					}
-				}
+						// 조건 처음 만족 → 타임스탬프 찍기
+						if (condStartTick[rack] == 0)
+							condStartTick[rack] = ::GetTickCount();
 
-				// DOOR CLOSE 상태 체크되면 AGING RUNNING 상태로 변경하고 AGING을 시작한다.
-				if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
-				{
-					Sleep(4000);
-					//lpInspWorkInfo->m_nDoorOpenClose[rack] = lpInspWorkInfo->m_nDioInputData[rack + DIO_IN_DOOR1];
-					if ((bTempRange == OK) && (lpInspWorkInfo->m_nDoorOpenClose[rack] == 1))
-					{
-						// Aging 상태를 Running 으로 변경한다.
+						// 아직 4초 안 지남 → 아래 계산부로 내려가지 말고 다음 루프로
+						if ((::GetTickCount() - condStartTick[rack]) < 4000)
+							continue;
+
+						// 4초 연속 유지됨 → 여기서만 RUNNING 전이
+						// (필요시 DoorUse=false 분기 포함)
 						lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
 
-						idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-						lpInspWorkInfo->m_nAgnIn = TRUE;
-						AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+						// (필요하다면 MES 관련 코드 복구)
+						// idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+						// lpInspWorkInfo->m_nAgnIn = TRUE;
+						// AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
 
-						// AGING Start Time 을 기록한다. (시/분/초 Summary Log 기록 위함)
 						m_pApp->Gf_sumSetStartTime(rack);
-
-						// AGING Start Tick 을 기록한다. (Thread 에서 경과시간 확인을 위함)
 						lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
 
-						// RACK Log 출력
-						//sLog.Format(_T("DOOR Close Check : OK"));
 						sLog.Format(_T("DOOR&TEMP Check : OK"));
 						pDlg->Lf_writeRackMLog(rack, sLog);
-					}
-					else if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE) // Door Enable
-					{
-						lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
 
-						idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-						lpInspWorkInfo->m_nAgnIn = TRUE;
-						AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
-
-						// AGING Start Time 을 기록한다. (시/분/초 Summary Log 기록 위함)
-						m_pApp->Gf_sumSetStartTime(rack);
-
-						// AGING Start Tick 을 기록한다. (Thread 에서 경과시간 확인을 위함)
-						lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
-
-						// RACK Log 출력
-						//sLog.Format(_T("DOOR Close Check : OK"));
-						sLog.Format(_T("DOOR&TEMP Check : OK"));
-						pDlg->Lf_writeRackMLog(rack, sLog);
+						condStartTick[rack] = 0;  // 전이 후 초기화
+						// 전이 완료했으니 계속 진행 (아래 경과시간 계산으로 내려가도 OK)
 					}
 					else
 					{
+						// 조건이 깨지면 타이머 초기화
+						condStartTick[rack] = 0;
+						// 아직 IDLE 유지 → 아래 계산부 수행 이유 없음, 다음 루프로
 						continue;
 					}
-					
 				}
-				else
-				{
-					continue;
-				}
-			}
 
 			agingTotalSec = lpInspWorkInfo->m_nAgingSetTime[rack] * 60;
 			agingElapseSec = (::GetTickCount64() - lpInspWorkInfo->m_nAgingStartTick[rack]) / 1000;
@@ -978,12 +1087,20 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpModelInfo = m_pApp->GetModelInfo();
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
-	lpInspWorkInfo->m_nAgingStatusS[0] = 0;
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
+
+	for (int i = 0; i < MAX_RACK; ++i)
+	{
+		m_bFwMismatchNotified[i] = FALSE;
+		lpInspWorkInfo->m_nAgingStatusS[i] = 0;
+	}
+
+	/*lpInspWorkInfo->m_nAgingStatusS[0] = 0;
 	lpInspWorkInfo->m_nAgingStatusS[1] = 0;
 	lpInspWorkInfo->m_nAgingStatusS[2] = 0;
 	lpInspWorkInfo->m_nAgingStatusS[3] = 0;
 	lpInspWorkInfo->m_nAgingStatusS[4] = 0;
-	lpInspWorkInfo->m_nAgingStatusS[5] = 0;
+	lpInspWorkInfo->m_nAgingStatusS[5] = 0;*/
 
 	lpInspWorkInfo->m_nLampColor = 0;
 
@@ -1924,6 +2041,19 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 
 			
 		}
+		//if ((nowTick - m_nFirmwareTick) >= (0.1 * 60 * 1000) && m_nFirmwareTick_d <= 1.1)
+		//{
+		//	m_nFirmwareTick = nowTick;
+		//	Lf_updateFirmwareMatching();
+		//	m_nFirmwareTick_d += 1;
+		//}
+
+		//if ((nowTick - m_nFirmwareTick) >= (1 * 60 * 1000)) // 5분(300,000ms)
+		//{
+		//	m_nFirmwareTick = nowTick;
+		//	Lf_updateFirmwareMatching();
+		//}
+
 
 		SetTimer(1, 100, NULL);
 	}
@@ -2859,6 +2989,8 @@ void CHseAgingDlg::Lf_InitLocalValue()
 	m_nAgingStatusTick = 0;
 	m_nPowerMeasureTick = 0;
 	m_nSensinglogTick = 0;
+	m_nFirmwareTick = 0;
+	m_nFirmwareTick_d = 0.1;
 	memset(m_nAgnOutFlag, 0, sizeof(m_nAgnOutFlag));
 	memset(m_nAgingStart, 0, sizeof(m_nAgingStart));
 
@@ -5689,6 +5821,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 	CString limitAlarm = _T("");
 	CString sLog, sdata, rackInfo, errString;
 	int ch = 0;
+	static bool tempErrorLogged[MAX_RACK] = { false };
 
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
@@ -5712,11 +5845,15 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 						sLog.Format(_T("<TEMP> TEMP ERROR NG. %s %s"), rackInfo, errString);
 						m_pApp->Gf_writeMLog(sLog);
 
-						limitAlarm.Append(sdata);
+						//limitAlarm.Append(sdata);
+						if (!tempErrorLogged[rack])
+						{
+							sdata.Format(_T("TEMP ERROR (RACK%d)"), rack);
+							limitAlarm.Append(sdata);
+							tempErrorLogged[rack] = true;
+						}
 
-						/*sdata.Format(_T("%s  %s\r\n"), rackInfo, errString);
-
-						m_pApp->Gf_writeAlarmLog(rack, layer, ch, errString);*/
+						m_pApp->Gf_writeAlarmLog(rack, layer, ch, sdata);
 
 						if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)
 						{
@@ -5805,94 +5942,162 @@ void CHseAgingDlg::Lf_getFirmawareVersion()
 	Lf_updateFirmwareMatching();
 }
 
+//void CHseAgingDlg::Lf_updateFirmwareMatching()
+//{
+//#if 1
+//	// 2025-01-17 PDH. 가장 빠른 날짜의 F/W 버전을 표시하기 위한 알고리즘으로 수정
+//	for (int rack = 0; rack < MAX_RACK; rack++)
+//	{
+//		CString fwVersion, curVersion, preVersion;
+//		CTime backupDate = 0;
+//		BOOL bVerifyResult = TRUE;
+//		for (int layer = 0; layer < MAX_LAYER; layer++)
+//		{
+//			// FW 버전이 Read 되어있지 않을 경우 Skip 한다.
+//			if(lpInspWorkInfo->m_sMainFWVersion[rack][layer].GetLength() == 0)
+//				continue;
+//
+//			// CString 시간 문자를 CTime 형으로 변경한다.
+//			CTime layerDate;
+//			CString strDate = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
+//			CString strYear, strMonth, strDay;
+//			AfxExtractSubString(strYear, strDate, 0, '-');
+//			AfxExtractSubString(strMonth, strDate, 1, '-');
+//			AfxExtractSubString(strDay, strDate, 2, '-');
+//			CTime tmDate(_ttoi(strYear), _ttoi(strMonth), _ttoi(strDay), 0, 0, 0);
+//			layerDate = tmDate;
+//
+//			// 가장 마지막 FW 버전 정보를 표시한다.
+//			if (layerDate > backupDate)
+//			{
+//				backupDate = layerDate;
+//				fwVersion.Format(_T("%s"), lpInspWorkInfo->m_sMainFWVersion[rack][layer].GetString());
+//			}
+//
+//			// 모든 FW 버전의 값이 같은지 비교한다.
+//			if (preVersion.GetLength() == 0)
+//			{
+//				// 이전 Version 비교값이 없을 경우에 값을 넣는다.
+//				preVersion = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
+//			}
+//			else
+//			{
+//				if (preVersion != lpInspWorkInfo->m_sMainFWVersion[rack][layer])
+//				{
+//					bVerifyResult = FALSE;
+//				}
+//			}
+//		}
+//		lpInspWorkInfo->m_nFwVerifyResult[rack] = bVerifyResult;
+//
+//		// Firmware Version 변경되었으면 업데이트 한다.
+//		m_pSttFWVersion[rack]->GetWindowText(curVersion);
+//		if (fwVersion != curVersion)
+//		{
+//			m_pSttFWVersion[rack]->SetWindowText(fwVersion);
+//			
+//		}
+//
+//		// RACK의 모든 Layer F/W 버전이 같은지 확인한다.
+//		m_pSttFWVersion[rack]->Invalidate(FALSE);
+//		if (lpInspWorkInfo->m_nFwVerifyResult[rack] == FALSE)
+//		{
+//			CString sdata;
+//			sdata.Format(_T("FirmWare Not Matching (RACK%d)"), rack + 1);
+//			m_pApp->Gf_ShowMessageBox(sdata);
+//		}
+//	}
+//#else
+//	CString sMcuOld[MAX_RACK];
+//
+//	for (int rack = 0; rack < MAX_RACK; rack++)
+//	{
+//		for (int layer = 0; layer < MAX_LAYER; layer++)
+//		{
+//			if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0)
+//				continue;
+//
+//			if (lpInspWorkInfo->m_sMainFWVersion[rack][layer].IsEmpty() == FALSE)
+//				sMcuOld[layer].Format(_T("%s"), lpInspWorkInfo->m_sMainFWVersion[rack][layer]);
+//		}
+//	}
+//
+//	for (int rack = 0; rack < MAX_RACK; rack++)
+//	{
+//		for (int layer = 0; layer < MAX_LAYER; layer++)
+//		{
+//			if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0)
+//				continue;
+//
+//			if (lpInspWorkInfo->m_sMainFWVersion[rack][layer] != sMcuOld[layer])
+//				m_bMcuFwComapre[rack] = FALSE;
+//			else
+//				sMcuOld[rack] = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
+//		}
+//		m_pSttFWVersion[rack]->SetWindowText(sMcuOld[rack].Left(16));
+//	}
+//#endif
+//}
+
 void CHseAgingDlg::Lf_updateFirmwareMatching()
 {
-#if 1
-	// 2025-01-17 PDH. 가장 빠른 날짜의 F/W 버전을 표시하기 위한 알고리즘으로 수정
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
 		CString fwVersion, curVersion, preVersion;
 		CTime backupDate = 0;
 		BOOL bVerifyResult = TRUE;
+
 		for (int layer = 0; layer < MAX_LAYER; layer++)
 		{
-			// FW 버전이 Read 되어있지 않을 경우 Skip 한다.
-			if(lpInspWorkInfo->m_sMainFWVersion[rack][layer].GetLength() == 0)
+			if (lpInspWorkInfo->m_sMainFWVersion[rack][layer].GetLength() == 0)
 				continue;
 
-			// CString 시간 문자를 CTime 형으로 변경한다.
-			CTime layerDate;
+			// 날짜 파싱
 			CString strDate = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
 			CString strYear, strMonth, strDay;
-			AfxExtractSubString(strYear, strDate, 0, '-');
-			AfxExtractSubString(strMonth, strDate, 1, '-');
-			AfxExtractSubString(strDay, strDate, 2, '-');
-			CTime tmDate(_ttoi(strYear), _ttoi(strMonth), _ttoi(strDay), 0, 0, 0);
-			layerDate = tmDate;
+			AfxExtractSubString(strYear, strDate, 0, _T('-'));
+			AfxExtractSubString(strMonth, strDate, 1, _T('-'));
+			AfxExtractSubString(strDay, strDate, 2, _T('-'));
+			CTime layerDate(_ttoi(strYear), _ttoi(strMonth), _ttoi(strDay), 0, 0, 0);
 
-			// 가장 마지막 FW 버전 정보를 표시한다.
 			if (layerDate > backupDate)
 			{
 				backupDate = layerDate;
-				fwVersion.Format(_T("%s"), lpInspWorkInfo->m_sMainFWVersion[rack][layer].GetString());
+				fwVersion = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
 			}
 
-			// 모든 FW 버전의 값이 같은지 비교한다.
-			if (preVersion.GetLength() == 0)
-			{
-				// 이전 Version 비교값이 없을 경우에 값을 넣는다.
+			if (preVersion.IsEmpty())
 				preVersion = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
-			}
-			else
-			{
-				if (preVersion != lpInspWorkInfo->m_sMainFWVersion[rack][layer])
-				{
-					bVerifyResult = FALSE;
-				}
-			}
+			else if (preVersion != lpInspWorkInfo->m_sMainFWVersion[rack][layer])
+				bVerifyResult = FALSE;
 		}
+
 		lpInspWorkInfo->m_nFwVerifyResult[rack] = bVerifyResult;
 
-		// Firmware Version 변경되었으면 업데이트 한다.
+		// 표시 업데이트
 		m_pSttFWVersion[rack]->GetWindowText(curVersion);
 		if (fwVersion != curVersion)
-		{
 			m_pSttFWVersion[rack]->SetWindowText(fwVersion);
-		}
 
-		// RACK의 모든 Layer F/W 버전이 같은지 확인한다.
 		m_pSttFWVersion[rack]->Invalidate(FALSE);
-	}
-#else
-	CString sMcuOld[MAX_RACK];
 
-	for (int rack = 0; rack < MAX_RACK; rack++)
-	{
-		for (int layer = 0; layer < MAX_LAYER; layer++)
+		// ★ 알림 로직: 불일치 시 1회만 알림, 일치하면 플래그 리셋
+		if (bVerifyResult == FALSE)
 		{
-			if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0)
-				continue;
-
-			if (lpInspWorkInfo->m_sMainFWVersion[rack][layer].IsEmpty() == FALSE)
-				sMcuOld[layer].Format(_T("%s"), lpInspWorkInfo->m_sMainFWVersion[rack][layer]);
+			if (m_bFwMismatchNotified[rack] == FALSE)
+			{
+				CString sdata;
+				sdata.Format(_T("FirmWare Not Matching (RACK%d)"), rack + 1);
+				m_pApp->Gf_ShowMessageBox(sdata);
+				m_bFwMismatchNotified[rack] = TRUE; // 이제 알림했음
+			}
+		}
+		else
+		{
+			// 일치하면 다음 번 불일치에서 다시 알리도록 플래그 초기화
+			m_bFwMismatchNotified[rack] = FALSE;
 		}
 	}
-
-	for (int rack = 0; rack < MAX_RACK; rack++)
-	{
-		for (int layer = 0; layer < MAX_LAYER; layer++)
-		{
-			if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0)
-				continue;
-
-			if (lpInspWorkInfo->m_sMainFWVersion[rack][layer] != sMcuOld[layer])
-				m_bMcuFwComapre[rack] = FALSE;
-			else
-				sMcuOld[rack] = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
-		}
-		m_pSttFWVersion[rack]->SetWindowText(sMcuOld[rack].Left(16));
-	}
-#endif
 }
 
 BOOL CHseAgingDlg::Lf_checkAgingIDLEMode()

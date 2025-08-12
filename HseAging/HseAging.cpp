@@ -1299,6 +1299,8 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("EAS"), _T("EAS_DAEMON_PORT"), &lpSystemInfo->m_sEasDaemonPort);
 	Read_SysIniFile(_T("EAS"), _T("EAS_LOCAL_SUBJECT"), &lpSystemInfo->m_sEasLocalSubject);
 	Read_SysIniFile(_T("EAS"), _T("EAS_REMOTE_SUBJECT"), &lpSystemInfo->m_sEasRemoteSubject);
+	
+	Read_SysIniFile(_T("SW_VERSION"), _T("SW_VERSION"), &lpSystemInfo->m_SwVersion);
 
 
 	CString sSection, sKey, sValue;
@@ -2117,7 +2119,7 @@ Send_RETRY:
 		}
 		else
 		{
-			return TRUE;
+			return FALSE;
 		}
 		/*Gf_gmesSetValueAgcm(rack, layer, ch);
 		lpInspWorkInfo->m_AgnInStartRack = rack;
