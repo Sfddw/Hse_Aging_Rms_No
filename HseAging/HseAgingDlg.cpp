@@ -223,9 +223,9 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 						lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
 
 						// (필요하다면 MES 관련 코드 복구)
-						// idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-						// lpInspWorkInfo->m_nAgnIn = TRUE;
-						// AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+						 idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+						 lpInspWorkInfo->m_nAgnIn = TRUE;
+						 AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
 
 						m_pApp->Gf_sumSetStartTime(rack);
 						lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
@@ -1087,7 +1087,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpModelInfo = m_pApp->GetModelInfo();
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
+	/*GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);*/
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.0.2"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{

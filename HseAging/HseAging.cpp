@@ -1804,11 +1804,16 @@ void CHseAgingApp::Lf_gmesSetValueAPDR(int rack, int layer, int ch)
 	SUMMARYINFO tempAPD;
 	CString sdata, sValue, sAPDInfo;
 
-	pCimNet->SetPanelID(lpInspWorkInfo->m_sMesPchkRtnPID[rack][layer][ch]);
-	pCimNet->SetSerialNumber(_T(""));
+	/*pCimNet->SetPanelID(lpInspWorkInfo->m_sMesPchkRtnPID[rack][layer][ch]);
+	pCimNet->SetSerialNumber(_T(""));*/
 
 
 	tempAPD = m_summaryInfo[rack][layer][ch];
+
+	pCimNet->SetPanelID(tempAPD.m_sumData[SUM_PID]);
+	pCimNet->SetSerialNumber(_T(""));
+	pCimNet->SetModelName(tempAPD.m_sumData[SUM_MODEL]);
+
 
 	/*tempAPD.m_sumData[SUM_START_TIME].Replace(_T(":"), _T("_"));
 	tempAPD.m_sumData[SUM_END_TIME].Replace(_T(":"), _T("_"));*/
