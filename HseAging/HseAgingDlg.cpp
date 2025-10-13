@@ -2105,10 +2105,10 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// 3초 Timer
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
-		//AfxBeginThread(ThreadTempST590_1, this);
+		/*AfxBeginThread(ThreadTempST590_1, this);
 		
 
-		/*for (int i = 0; i < 6; i++)
+		for (int i = 0; i < 6; i++)
 		{
 			if(i == 0)
 			{ 
@@ -5893,7 +5893,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 						//limitAlarm.Append(sdata);
 						if (!tempErrorLogged[rack])
 						{
-							sdata.Format(_T("TEMP ERROR (RACK%d)"), rack);
+							sdata.Format(_T("TEMP ERROR (RACK%d)"), rack+1);
 							limitAlarm.Append(sdata);
 							tempErrorLogged[rack] = true;
 						}
