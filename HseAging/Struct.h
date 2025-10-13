@@ -132,6 +132,14 @@ typedef struct _ST_SYSTEMINFO_{
 	CString m_sEasLocalSubject;
 	CString m_sEasRemoteSubject;
 
+	// RMS 정보 설정 //
+	int		m_sRmsUse;
+	CString m_sRmsServicePort;
+	CString m_sRmsNetWork;
+	CString m_sRmsDaemonPort;
+	CString m_sRmsLocalSubject;
+	CString m_sRmsRemoteSubject;
+
 	// SW VERSION 설정 //
 	CString m_SwVersion;
 

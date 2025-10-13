@@ -62,6 +62,7 @@ public:
 
 	ICallGmesClass *gmes;
 	ICallEASClass *eas;
+	ICallRMSClass *rms;
 
 	CLSID			clsid_ECS;
 	HRESULT			hr;
@@ -148,6 +149,7 @@ public:
 	void MakeClientTimeString();
 	void SetMesHostInterface();
 	void SetEasHostInterface();
+	void SetRmsHostInterface();
 	void SetLocalTimeZone(int timeZone);
 	void SetLocalTimeData(CString strTime);
 	void SetMachineName(CString strBuff);
@@ -214,11 +216,12 @@ public:
 	CString m_strLocalSubjectIP;
 	CString m_strLocalSubjectMesF;
 	CString m_strLocalSubjectEasF;
+	CString m_strLocalSubjectRmsF;
 
 protected:
 	BOOL	m_bIsGmesLocalTestMode;
 	BOOL	m_bIsEasLocalTestMode;
-
+	BOOL	m_blsRmsLocalTestMode;
 
 	
 
@@ -234,6 +237,13 @@ protected:
 	CString m_strServicePortEAS;
 	CString m_strDaemonEAS;
 	CString m_strLocalIPEAS;
+
+	CString m_strRemoteSubjectRMS;
+	CString m_strLocalSubjectRMS;
+	CString m_strNetworkRMS;
+	CString m_strServicePortRMS;
+	CString m_strDaemonRMS;
+	CString m_strLocalIPRMS;
 
 	CString m_strNgComment;
 

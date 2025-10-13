@@ -78,6 +78,23 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 		}
 	}
 
+	else if (nServerType == SERVER_RMS)
+	{
+		VARIANT_BOOL resultConnect = rms->Connect();
+
+		if (resultConnect == VARIANT_TRUE)
+		{
+			m_pApp->Gf_writeMLog(_T("<RMS> RMS Server Connection Succeeded"));
+			m_pApp->m_blsRmsConnect = TRUE;
+			return TRUE;
+		}
+		else
+		{
+			m_pApp->Gf_writeMLog(_T("<RMS> RMS Server Connection Fail"));
+			m_pApp->m_blsRmsConnect = FALSE;
+		}
+	}
+
 	return FALSE;
 }
 
@@ -96,6 +113,14 @@ BOOL CCimNetCommApi::CloseTibRv(int nServerType)
 		VARIANT_BOOL resultDisConnect = eas->Terminate();
 	
 		if(resultDisConnect == VARIANT_TRUE)
+			return TRUE;
+	}
+
+	else if (nServerType == SERVER_RMS)
+	{
+		VARIANT_BOOL resultDisConnect = rms->Terminate();
+
+		if (resultDisConnect == VARIANT_TRUE)
 			return TRUE;
 	}
 
@@ -256,6 +281,39 @@ BOOL CCimNetCommApi::Init(int nServerType)
 		}
 
 		m_pApp->Gf_writeMLog(_T("<EAS> EAS TIB INIT Fail"));
+		return FALSE;
+	}
+
+	else if (nServerType == SERVER_RMS)
+	{
+		SetRmsHostInterface();
+#if (DEBUG_GMES_TEST_SERVER==1)
+		m_strLocalSubjectRMS = (_T("EQP.TEST"));
+#else
+		if (m_strLocalSubjectIP.GetLength() == 0)
+			m_strLocalSubjectRmsF.Format(_T("%s"), m_strLocalSubjectRMS);
+		else
+			m_strLocalSubjectRmsF.Format(_T("%s,%s"), m_strLocalSubjectRMS, m_strLocalSubjectIP);
+#endif
+
+		HRESULT rmsHr = CoCreateInstance(CLSID_DllRms, NULL, CLSCTX_INPROC_SERVER, IID_ICallRMSClass, reinterpret_cast<void**>(&rms));
+
+		if (SUCCEEDED(rmsHr)) {
+			rms->SetTimeOut(5);
+
+			VARIANT_BOOL resultIni = rms->Init(
+				(_bstr_t)m_strServicePortRMS,
+				(_bstr_t)m_strNetworkRMS,
+				(_bstr_t)m_strDaemonRMS,
+				(_bstr_t)m_strRemoteSubjectRMS,
+				(_bstr_t)m_strLocalSubjectRmsF
+			);
+
+			if (resultIni == VARIANT_TRUE)
+				return TRUE;
+		}
+
+		m_pApp->Gf_writeMLog(_T("<RMS> RMS TIB INIT Fail"));
 		return FALSE;
 	}
 
@@ -470,6 +528,44 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 		}
 	}
 
+	if (nMode == ECS_MODE_EAYT)
+	{
+		if (m_pApp->m_bIsGmesConnect == FALSE)
+			return RTN_MSG_NOT_SEND;
+
+		VARIANT_BOOL bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+
+		do {
+			if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
+				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+				break;
+			}
+			if (bRetCode == VARIANT_FALSE)
+			{
+				m_pApp->Gf_writeMLog(_T("<HOST_S> Did not send a RMS Message. Retry !!!"));
+				break;
+			}
+		} while (1);
+
+		if (bRetCode == VARIANT_FALSE) {
+			bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+
+			sLog.Format(_T("<HOST_S> %s"), m_strHostSendMessage);
+			m_pApp->Gf_writeMLog(sLog);
+
+			do {
+				if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
+					m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+					break;
+				}
+				if (bRetCode == VARIANT_FALSE) {
+					AfxMessageBox(_T("Did not send a message !!! (RMS)"));
+					return RTN_MSG_NOT_SEND;   // 통신 NG 
+				}
+			} while (1);
+		}
+	}
+
 	m_strHostRecvMessage = m_sReceiveMessage;
 
 	return RTN_OK;		// normal...
@@ -680,6 +776,17 @@ void CCimNetCommApi::SetEasHostInterface()
 	Read_SysIniFile(_T("EAS"), _T("EAS_REMOTE_SUBJECT"),		&m_strRemoteSubjectEAS);
 }
 
+void CCimNetCommApi::SetRmsHostInterface()
+{
+	if (m_blsRmsLocalTestMode == TRUE) return;
+
+	Read_SysIniFile(_T("RMS"), _T("RMS_SERVICE_PORT"), &m_strServicePortRMS);
+	Read_SysIniFile(_T("RMS"), _T("RMS_NETWORK"), &m_strNetworkRMS);
+	Read_SysIniFile(_T("RMS"), _T("RMS_DAEMON_PORT"), &m_strDaemonRMS);
+	Read_SysIniFile(_T("RMS"), _T("RMS_LOCAL_SUBJECT"), &m_strLocalSubjectRMS);
+	Read_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), &m_strRemoteSubjectRMS);
+}
+
 void CCimNetCommApi::SetLocalTest(int nServerType)
 {
 
@@ -702,6 +809,16 @@ void CCimNetCommApi::SetLocalTest(int nServerType)
 		m_strRemoteSubjectEAS	= (_T("MES.TEST"));
 		m_strServicePortEAS		= (_T("7800"));
 		m_strDaemonEAS			= (_T("tcp::7800"));
+	}
+	else if (nServerType == SERVER_RMS)
+	{
+		m_blsRmsLocalTestMode = TRUE;
+
+		m_strLocalSubjectRMS	= (_T("EQP.TEST"));
+		m_strNetworkRMS			= (_T(""));
+		m_strRemoteSubjectRMS	= (_T("RMS.TEST"));
+		m_strServicePortRMS		= (_T("7900"));
+		m_strDaemonRMS			= (_T("tcp::7900"));
 	}
 }
 

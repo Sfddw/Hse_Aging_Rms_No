@@ -125,6 +125,7 @@ public:
 	CString m_strLocalSubjectIP;
 	BOOL m_bIsGmesConnect;
 	BOOL m_bIsEasConnect;
+	BOOL m_blsRmsConnect;
 	int m_nAckCmdPG[MAX_RACK][MAX_LAYER];
 	int m_nAckCmdDIO;
 

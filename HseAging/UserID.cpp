@@ -285,6 +285,19 @@ BOOL CUserID::Lf_confirmUserID()
 			}
 			lpInspWorkInfo->m_nConnectInfo[CONNECT_EAS] = TRUE;
 		}
+		// RMS Connect
+		if (m_pApp->m_blsRmsConnect == FALSE)
+		{
+			if (m_pApp->Gf_gmesConnect(SERVER_RMS) == FALSE)
+			{
+				m_pApp->Gf_ShowMessageBox(_T("RMS Server Connect Fail"));
+
+				CString sLog;
+				sLog.Format(_T("<RMS> RMS Server Connection Fail"));
+				m_pApp->Gf_writeMLog(sLog);
+			}
+			lpInspWorkInfo->m_nConnectInfo[CONNECT_RMS] = TRUE;
+		}
 
 		m_pApp->m_bUserIdAdmin = FALSE;
 

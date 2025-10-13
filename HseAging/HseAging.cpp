@@ -118,7 +118,11 @@ BOOL CHseAgingApp::InitInstance()
 	}
 	if (Gf_gmesInitServer(SERVER_EAS) == FALSE)
 	{
-		AfxMessageBox(_T("TIB Driver Init Fail.\r\nPlease check whether you have installed the TibDriver and registered the MES DLL."), MB_ICONERROR);
+		AfxMessageBox(_T("TIB Driver Init Fail.\r\nPlease check whether you have installed the TibDriver and registered the EAS DLL."), MB_ICONERROR);
+	}
+	if (Gf_gmesInitServer(SERVER_RMS) == FALSE)
+	{
+		AfxMessageBox(_T("TIB Driver Init Fail.\r\nPlease check whether you have installed the TibDriver and registered the RMS DLL."), MB_ICONERROR);
 	}
 
 	CUserID user_dlg;
@@ -1299,6 +1303,12 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("EAS"), _T("EAS_DAEMON_PORT"), &lpSystemInfo->m_sEasDaemonPort);
 	Read_SysIniFile(_T("EAS"), _T("EAS_LOCAL_SUBJECT"), &lpSystemInfo->m_sEasLocalSubject);
 	Read_SysIniFile(_T("EAS"), _T("EAS_REMOTE_SUBJECT"), &lpSystemInfo->m_sEasRemoteSubject);
+
+	Read_SysIniFile(_T("RMS"), _T("RMS_SERVICE_PORT"), &lpSystemInfo->m_sRmsServicePort);
+	Read_SysIniFile(_T("RMS"), _T("RMS_NETWORK"), &lpSystemInfo->m_sRmsNetWork);
+	Read_SysIniFile(_T("RMS"), _T("RMS_DAEMON_PORT"), &lpSystemInfo->m_sRmsDaemonPort);
+	Read_SysIniFile(_T("RMS"), _T("RMS_LOCAL_SUBJECT"), &lpSystemInfo->m_sRmsLocalSubject);
+	Read_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), &lpSystemInfo->m_sRmsRemoteSubject);
 	
 	Read_SysIniFile(_T("SW_VERSION"), _T("SW_VERSION"), &lpSystemInfo->m_SwVersion);
 	
@@ -1754,6 +1764,10 @@ BOOL CHseAgingApp::Gf_gmesInitServer(BOOL nServerType)
 		pCimNet->SetLocalTest(nServerType);
 	}
 	else if ((DEBUG_GMES_TEST_SERVER == TRUE) && (nServerType == SERVER_EAS))
+	{
+		pCimNet->SetLocalTest(nServerType);
+	}
+	else if ((DEBUG_GMES_TEST_SERVER == TRUE) && (nServerType == SERVER_RMS))
 	{
 		pCimNet->SetLocalTest(nServerType);
 	}

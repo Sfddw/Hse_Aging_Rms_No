@@ -323,6 +323,14 @@ void CSystem::Lf_InitDialogControl()
 	GetDlgItem(IDC_EDT_SY_EAS_LOCAL_SUBJECT)->SetWindowText(lpSystemInfo->m_sEasLocalSubject);
 	GetDlgItem(IDC_EDT_SY_EAS_REMOTE_SUBJECT)->SetWindowText(lpSystemInfo->m_sEasRemoteSubject);
 
+	GetDlgItem(IDC_EDT_SY_RMS_SERVICE_PORT2)->SetWindowText(lpSystemInfo->m_sRmsServicePort);
+	GetDlgItem(IDC_EDT_SY_RMS_NETWORK2)->SetWindowText(lpSystemInfo->m_sRmsNetWork);
+	GetDlgItem(IDC_EDT_SY_RMS_DAEMON_PORT2)->SetWindowText(lpSystemInfo->m_sRmsDaemonPort);
+	GetDlgItem(IDC_EDT_SY_RMS_LOCAL_SUBJECT2)->SetWindowText(lpSystemInfo->m_sRmsLocalSubject);
+	GetDlgItem(IDC_EDT_SY_RMS_REMOTE_SUBJECT2)->SetWindowText(lpSystemInfo->m_sRmsRemoteSubject);
+
+
+
 	sdata.Format(_T("%.1f"), lpSystemInfo->m_fRefreshAgingStatusTime);
 	GetDlgItem(IDC_EDT_SY_REFRESH_AGING_STATUS)->SetWindowText(sdata);
 	sdata.Format(_T("%.1f"), lpSystemInfo->m_fRefreshPowerMeasureTime);
@@ -385,6 +393,18 @@ void CSystem::Lf_saveSystemInfo()
 
 	GetDlgItem(IDC_EDT_SY_EAS_REMOTE_SUBJECT)->GetWindowText(lpSystemInfo->m_sEasRemoteSubject);
 	Write_SysIniFile(_T("EAS"), _T("EAS_REMOTE_SUBJECT"), lpSystemInfo->m_sEasRemoteSubject);
+
+	GetDlgItem(IDC_EDT_SY_RMS_SERVICE_PORT2)->GetWindowText(lpSystemInfo->m_sRmsServicePort);
+	Write_SysIniFile(_T("RMS"), _T("RMS_SERVICE_PORT"), lpSystemInfo->m_sRmsServicePort);
+	GetDlgItem(IDC_EDT_SY_RMS_NETWORK2)->GetWindowText(lpSystemInfo->m_sRmsNetWork);
+	Write_SysIniFile(_T("RMS"), _T("RMS_NETWORK"), lpSystemInfo->m_sRmsNetWork);
+	GetDlgItem(IDC_EDT_SY_RMS_DAEMON_PORT2)->GetWindowText(lpSystemInfo->m_sRmsDaemonPort);
+	Write_SysIniFile(_T("RMS"), _T("RMS_DAEMON_PORT"), lpSystemInfo->m_sRmsDaemonPort);
+	GetDlgItem(IDC_EDT_SY_RMS_LOCAL_SUBJECT2)->GetWindowText(lpSystemInfo->m_sRmsLocalSubject);
+	Write_SysIniFile(_T("RMS"), _T("RMS_LOCAL_SUBJECT"), lpSystemInfo->m_sRmsLocalSubject);
+	GetDlgItem(IDC_EDT_SY_RMS_REMOTE_SUBJECT2)->GetWindowText(lpSystemInfo->m_sRmsRemoteSubject);
+	Write_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), lpSystemInfo->m_sRmsRemoteSubject);
+
 
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
