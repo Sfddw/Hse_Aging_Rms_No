@@ -2162,6 +2162,10 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 
 void CHseAgingDlg::OnBnClickedBtnMaUser()
 {
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> USER BUTTON CLICK"));
+	m_pApp->Gf_writeMLog(sLog);
+
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	KillTimer(1);
 
@@ -2177,6 +2181,10 @@ void CHseAgingDlg::OnBnClickedBtnMaUser()
 void CHseAgingDlg::OnBnClickedBtnMaMonitoring()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> MONITORING BUTTON CLICK"));
+	m_pApp->Gf_writeMLog(sLog);
+
 	CMonitoring mnt_dlg;
 	mnt_dlg.DoModal();
 }
@@ -2184,6 +2192,10 @@ void CHseAgingDlg::OnBnClickedBtnMaMonitoring()
 
 void CHseAgingDlg::OnBnClickedBtnMaModel()
 {
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> MODEL BUTTON CLICK"));
+	m_pApp->Gf_writeMLog(sLog);
+
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (Lf_checkAgingIDLEMode() == FALSE)
 		return;
@@ -2201,6 +2213,10 @@ void CHseAgingDlg::OnBnClickedBtnMaModel()
 
 void CHseAgingDlg::OnBnClickedBtnMaPidInput()
 {
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> PID BUTTON CLICK"));
+	m_pApp->Gf_writeMLog(sLog);
+
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	KillTimer(1);
 
@@ -2214,6 +2230,10 @@ void CHseAgingDlg::OnBnClickedBtnMaPidInput()
 
 void CHseAgingDlg::OnBnClickedBtnMaFirmware()
 {
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> FIRMWARE BUTTON CLICK"));
+	m_pApp->Gf_writeMLog(sLog);
+
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (Lf_checkAgingIDLEMode() == FALSE)
 		return;
@@ -2229,6 +2249,10 @@ void CHseAgingDlg::OnBnClickedBtnMaFirmware()
 
 void CHseAgingDlg::OnBnClickedBtnMaSystem()
 {
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> SYSTEM BUTTON CLICK"));
+	m_pApp->Gf_writeMLog(sLog);
+
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (Lf_checkAgingIDLEMode() == FALSE)
 		return;
@@ -4679,6 +4703,9 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	CString sModelName, sdata, sLog;
 
+	sLog.Format(_T("<MESSAGE> AGING START CLICK [RACK %d]"), rack + 1);
+	m_pApp->Gf_writeMLog(sLog);
+
 	bTempErrorOnce[rack] = FALSE;
 
 	// Button Disable
@@ -4805,6 +4832,10 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 	sLog.Format(_T("Aging STOP"));
 	Lf_writeRackMLog(rack, sLog);
 
+	sLog.Format(_T("<MESSAGE> AGING STOP CLICK [RACK %d]"),rack+1);
+
+	m_pApp->Gf_writeMLog(sLog);
+
 	// Button Enable
 	m_pBtnAgingStart[rack]->EnableWindow(TRUE);
 	m_pBtnAgingFusing[rack]->EnableWindow(TRUE);
@@ -4813,6 +4844,10 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 
 void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 {
+	CString sLog;
+	sLog.Format(_T("<MESSAGE> AGING FUSING CLICK [RACK %d]"), rack + 1);
+	m_pApp->Gf_writeMLog(sLog);
+
 	if (m_pCmbMaModel[rack]->GetCurSel() == 0)
 	{
 		m_pApp->Gf_ShowMessageBox(_T("No model was selected. Please select a model."));
@@ -5134,6 +5169,10 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 				}
 
 				m_pApp->Gf_sumInitSummaryInfo(rack);
+
+				sLog.Format(_T("<MESSAGE> AGING END [RACK %d]"), rack + 1);
+
+				m_pApp->Gf_writeMLog(sLog);
 
 				// Time Out 값을 초기화 한다.
 				skey.Format(_T("LAST_TIMEOUT_RACK%d"), rack+1);

@@ -153,6 +153,7 @@ HBRUSH CSystem::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_MES_TITLE)
 				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_EAS_TITLE)
 				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_REFRESH_TITLE)
+				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_RMS_TITLE)
 				)
 			{
 				pDC->SetBkColor(COLOR_DARK_NAVY);

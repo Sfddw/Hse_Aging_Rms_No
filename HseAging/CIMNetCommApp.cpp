@@ -528,43 +528,43 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 		}
 	}
 
-	if (nMode == ECS_MODE_EAYT)
-	{
-		if (m_pApp->m_bIsGmesConnect == FALSE)
-			return RTN_MSG_NOT_SEND;
+	//if (nMode == ECS_MODE_EAYT) // RMS 통신 (온도값?)
+	//{
+	//	if (m_pApp->m_bIsGmesConnect == FALSE)
+	//		return RTN_MSG_NOT_SEND;
 
-		VARIANT_BOOL bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+	//	VARIANT_BOOL bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
 
-		do {
-			if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
-				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
-				break;
-			}
-			if (bRetCode == VARIANT_FALSE)
-			{
-				m_pApp->Gf_writeMLog(_T("<HOST_S> Did not send a RMS Message. Retry !!!"));
-				break;
-			}
-		} while (1);
+	//	do {
+	//		if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
+	//			m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+	//			break;
+	//		}
+	//		if (bRetCode == VARIANT_FALSE)
+	//		{
+	//			m_pApp->Gf_writeMLog(_T("<HOST_S> Did not send a RMS Message. Retry !!!"));
+	//			break;
+	//		}
+	//	} while (1);
 
-		if (bRetCode == VARIANT_FALSE) {
-			bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+	//	if (bRetCode == VARIANT_FALSE) {
+	//		bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
 
-			sLog.Format(_T("<HOST_S> %s"), m_strHostSendMessage);
-			m_pApp->Gf_writeMLog(sLog);
+	//		sLog.Format(_T("<HOST_S> %s"), m_strHostSendMessage);
+	//		m_pApp->Gf_writeMLog(sLog);
 
-			do {
-				if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
-					m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
-					break;
-				}
-				if (bRetCode == VARIANT_FALSE) {
-					AfxMessageBox(_T("Did not send a message !!! (RMS)"));
-					return RTN_MSG_NOT_SEND;   // 통신 NG 
-				}
-			} while (1);
-		}
-	}
+	//		do {
+	//			if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
+	//				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+	//				break;
+	//			}
+	//			if (bRetCode == VARIANT_FALSE) {
+	//				AfxMessageBox(_T("Did not send a message !!! (RMS)"));
+	//				return RTN_MSG_NOT_SEND;   // 통신 NG 
+	//			}
+	//		} while (1);
+	//	}
+	//}
 
 	m_strHostRecvMessage = m_sReceiveMessage;
 
