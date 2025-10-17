@@ -101,6 +101,7 @@ protected:
 	void Lf_checkComplete5MinOver();
 	void Lf_savePowerMeasureMinMax(int rack, int layer, int ch);
 	void Lf_flickerCompleteRackNumber();
+	void Lf_AgingProgressLog();
 
 	LPMODELINFO			lpModelInfo;
 	LPSYSTEMINFO		lpSystemInfo;
@@ -143,6 +144,9 @@ protected:
 
 	int m_nTempLogWriteHour; // 현재 시간
 	int m_nSensingLogWriteHour; // 현재 시간
+
+	int m_nProgressGauge[MAX_RACK];
+	int m_nLastLoggerdProgress[MAX_RACK];
 
 	/*CString m_nMainKeyInData;*/
 	bool m_nUseKeyInData;

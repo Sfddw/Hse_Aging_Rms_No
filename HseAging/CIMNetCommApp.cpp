@@ -430,6 +430,9 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 	case ECS_MODE_DMOU:
 		m_strHostSendMessage = m_strDMOU;
 		break;
+	case ECS_MODE_RMSO:
+		m_strHostSendMessage = m_strRMSO;
+		break;
 	default:
 		return RTN_MSG_NOT_SEND;	// 통신 NG
 	}
@@ -441,7 +444,7 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 
 	Sleep (10);
 
-	if(nMode != ECS_MODE_APDR)
+	if(nMode != ECS_MODE_APDR && nMode != ECS_MODE_RMSO)
 	{
 		if (m_pApp->m_bIsGmesConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
@@ -484,6 +487,43 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 		}
 
 
+	}
+	else if (nMode == ECS_MODE_RMSO) // RMS 온도값 메시지
+	{
+		if (m_pApp->m_bIsGmesConnect == FALSE)
+			return RTN_MSG_NOT_SEND;
+
+		VARIANT_BOOL bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+
+		do {
+			if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
+				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+				break;
+			}
+			if (bRetCode == VARIANT_FALSE)
+			{
+				m_pApp->Gf_writeMLog(_T("<HOST_S> Did not send a RMS Message. Retry !!! (RMS)"));
+				break;
+			}
+		} while (1);
+
+		if (bRetCode == VARIANT_FALSE) {
+			bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+
+			sLog.Format(_T("<HOST_S> %s"), m_strHostSendMessage);
+			m_pApp->Gf_writeMLog(sLog);
+
+			do {
+				if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
+					m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+					break;
+				}
+				if (bRetCode == VARIANT_FALSE) {
+					AfxMessageBox(_T("Did not send a message !!! (RMS)"));
+					return RTN_MSG_NOT_SEND;   // 통신 NG 
+				}
+			} while (1);
+		}
 	}
 	else
 	{
@@ -528,7 +568,7 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 		}
 	}
 
-	//if (nMode == ECS_MODE_EAYT) // RMS 통신 (온도값?)
+	//if (nMode == ECS_MODE_RMSO)
 	//{
 	//	if (m_pApp->m_bIsGmesConnect == FALSE)
 	//		return RTN_MSG_NOT_SEND;
@@ -2364,7 +2404,7 @@ BOOL CCimNetCommApi::UNDO(int rack, int layer, int ch)
 
 	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
-	m_strAGN_IN.Format(_T("UNDO ADDR=%s,%s EQP=%s PID=%s SERIAL_NO=%s LASTEVENT_TIMEKEY=%s USER_ID=%s MODE=AUTO COMMENT=[] CLIENT_DATE=%s "),
+	m_strUNDO.Format(_T("UNDO ADDR=%s,%s EQP=%s PID=%s SERIAL_NO=%s LASTEVENT_TIMEKEY=%s USER_ID=%s MODE=AUTO COMMENT=[] CLIENT_DATE=%s "),
 		m_strLocalSubjectMesF,
 		m_strLocalSubjectMesF,
 		m_strMachineName,
@@ -2376,6 +2416,36 @@ BOOL CCimNetCommApi::UNDO(int rack, int layer, int ch)
 	);
 
 	int nRetCode = MessageSend(ECS_MODE_AGN_IN);
+	if (nRetCode != RTN_OK)
+	{
+		return nRetCode;
+	}
+
+	CString strMsg;
+	GetFieldData(&strMsg, _T("RTN_CD"));
+	if (strMsg.Compare(_T("0")))
+	{
+		return 3;	// return code is not zero...
+	}
+
+	return RTN_OK;	// normal
+}
+
+BOOL CCimNetCommApi::RMSO()
+{
+	MakeClientTimeString();
+
+	//LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
+	m_strRMSO.Format(_T("RMSO ADDR=%s,%s EQP=%s DURABLE_ID=%s MODE=AUTO USER_ID=%s CLIENT_DATE=%s COMMENT=[]")
+		, m_strLocalSubjectMesF
+		, m_strLocalSubjectMesF
+		, m_strMachineName
+		, m_strDurableID
+		, m_strUserID
+		, m_strClientDate);
+
+	int nRetCode = MessageSend(ECS_MODE_RMSO);
 	if (nRetCode != RTN_OK)
 	{
 		return nRetCode;

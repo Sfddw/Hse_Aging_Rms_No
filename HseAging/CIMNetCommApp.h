@@ -49,6 +49,7 @@
 #define ECS_MODE_DMIN				0x28
 #define ECS_MODE_DMOU				0x29
 #define ECS_MODE_ERCP				0x2A
+#define ECS_MODE_RMSO				0x2B
 
 #define UTC_ZONE_VIETNAM			0x00
 #define UTC_ZONE_CHINA				0x01
@@ -138,6 +139,7 @@ public:
 	BOOL DMOU();
 
 	BOOL UNDO(int rack, int layer, int ch);
+	BOOL RMSO();
 
 	// ---------------------------------------
 	BOOL ERCP();
@@ -340,6 +342,8 @@ protected:
 	CString m_strDMIN;
 	CString m_strDMOU;
 	CString m_strERCP;
+	CString m_strUNDO;
+	CString m_strRMSO;
 
 	CString m_strDefectComCode;
 

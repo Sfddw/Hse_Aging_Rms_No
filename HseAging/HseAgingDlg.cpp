@@ -300,6 +300,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 				{
 					// Door 기능 사용하지 않을 경우 Door Close 체크하지 않는다.
 					//lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_COMPLETE_DOORCLOSE;
+
 					lpInspWorkInfo->m_nLampColor = 1;
 					lpInspWorkInfo->m_nAgingStatusS[rack] = 1;
 					//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
@@ -2080,12 +2081,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		Lf_getDIOStatus();
 		// Sensing Log
 		Lf_writeSensingLog();
-		CString Aging_Count, Aging_Ng_Count;
-		Aging_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Count);
-		GetDlgItem(IDC_STT_MA_AGING_COUNT)->SetWindowText(Aging_Count);
-		Aging_Ng_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Ng_Count);
-		GetDlgItem(IDC_STT_MA_AGING_NG_COUNT)->SetWindowText(Aging_Ng_Count);
-
+		Lf_AgingProgressLog();
 
 		//CTime t = CTime::GetCurrentTime();
 		//int today = t.GetDay();
@@ -5179,6 +5175,7 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 				Write_SysIniFile(_T("SYSTEM"), skey, 0);
 
 				Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
+				Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count);
 
 			}
 
@@ -6769,4 +6766,60 @@ void CHseAgingDlg::OnBnClickedButtonDoor6()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	Lf_setDoorOnOff(RACK_6);
+}
+
+void CHseAgingDlg::Lf_AgingProgressLog()
+{
+	CString Aging_Count, Aging_Ng_Count;
+	Aging_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Count);
+	GetDlgItem(IDC_STT_MA_AGING_COUNT)->SetWindowText(Aging_Count);
+	Aging_Ng_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Ng_Count);
+	GetDlgItem(IDC_STT_MA_AGING_NG_COUNT)->SetWindowText(Aging_Ng_Count);
+
+	//for (int i = 0; i < MAX_RACK; i++)
+	//{
+	//	if (m_nAgingStart[i] == TRUE)
+	//	{
+	//		m_nProgressGauge[i] = m_pCtrMaProgress[i]->GetPos();
+
+	//		// 현재 게이지가 20, 40, 60, 80, 100 중 하나이고, 이전에 기록한 값과 다르면
+	//		if (m_nProgressGauge[i] % 20 == 0 &&
+	//			m_nProgressGauge[i] != m_nLastLoggerdProgress[i] &&
+	//			m_nProgressGauge[i] <= 100)
+	//		{
+	//			CString sLog;	
+	//			sLog.Format(_T("<MESSAGE> Aging Progress Rate - [%d%%] (RACK %d)"),
+	//				m_nProgressGauge[i], (i + 1));
+
+	//			m_pApp->Gf_writeMLog(sLog);
+
+	//			// 마지막 기록한 값 저장
+	//			m_nLastLoggerdProgress[i] = m_nProgressGauge[i];
+	//		}
+	//	}
+	//}
+	for (int i = 0; i < MAX_RACK; i++)
+	{
+		if (m_nAgingStart[i] == TRUE)
+		{
+			m_nProgressGauge[i] = m_pCtrMaProgress[i]->GetPos();
+
+			// 현재 진행률에 따른 구간 번호 계산
+			int nSection = m_nProgressGauge[i] / 20;  // 0~5까지
+
+			// 새로운 구간에 진입했는지 확인
+			if (nSection != m_nLastLoggerdProgress[i] && nSection >= 1 && nSection <= 5)
+			{
+				CString sLog;
+				sLog.Format(_T("<MESSAGE> Aging Progress Rate - [%d%%] (RACK %d)"),
+					m_nProgressGauge[i], (i + 1));
+
+				m_pApp->Gf_writeMLog(sLog);
+
+				m_nLastLoggerdProgress[i] = nSection;
+
+				//m_pApp->Gf_gmesSendHost(HOST_RMSO, NULL, NULL, NULL); // RMS
+			}
+		}
+	}
 }

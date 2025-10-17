@@ -2203,6 +2203,10 @@ Send_RETRY:
 		Lf_setGmesValueUNDO(rack, layer, ch);
 		nRtnCD = pCimNet->UNDO(rack, layer, ch);
 	}
+	else if (hostCMD == HOST_RMSO)
+	{
+		nRtnCD = pCimNet->RMSO();
+	}
 
 	sLog.Format(_T("<HOST_R> %s"), pCimNet->GetHostRecvMessage());
 	Gf_writeMLog(sLog);
