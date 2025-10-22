@@ -2133,8 +2133,6 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		}*/
 
 		//AfxBeginThread(ThreadTempControler, this);
-		
-		
 	}
 
 	if (nIDEvent == 8)

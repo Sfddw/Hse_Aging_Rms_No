@@ -2005,11 +2005,20 @@ BOOL CHseAgingApp::Gf_gmesSendHost_PCHK(int hostCMD, CString PID)
 
 Send_RETRY:
 
-	if (hostCMD == HOST_EAYT)
+	/*if (hostCMD == HOST_EAYT)
 	{
 		nRtnCD = pCimNet->EAYT();
 	}
 	else if (hostCMD == HOST_PCHK)
+	{
+		Gf_gmesSetValueAgcm(1, 1, 1);
+		nRtnCD = pCimNet->PCHK_B(PID);
+		if (nRtnCD == RTN_OK)
+		{
+			pCimNet->GetFieldData(&lpInspWorkInfo->m_sMesPchkRtnPID[1][1][1], _T("RTN_PID"));
+		}
+	}*/
+	if (hostCMD == HOST_PCHK)
 	{
 		Gf_gmesSetValueAgcm(1, 1, 1);
 		nRtnCD = pCimNet->PCHK_B(PID);

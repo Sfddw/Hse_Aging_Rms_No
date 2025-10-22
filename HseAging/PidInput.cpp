@@ -348,7 +348,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 				if (P_Chk == TRUE)
 				{
-					OnBnClickedBtnPiSaveExit_B(); // 저장
+					//OnBnClickedBtnPiSaveExit_B(); // 저장
+					OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
 					if (m_nMainKeyInData != "")
 					{
 						sdata.Format(_T("PCHK OK [%s]"), m_nMainKeyInData);
@@ -1747,6 +1748,132 @@ void CPidInput::OnBnClickedBtnPiSaveExit_B()
 			Write_MesPIDInfo(sSection, sKey, sValue);
 		}
 	}
+}
+
+void CPidInput::OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid)
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+
+	int Pid_Layer, Pid_Ch;
+
+	if ((Chid >= 1 && Chid <= 8) || (Chid >= 41 && Chid <= 42)) {
+		Pid_Layer = 1;
+	}
+	else if ((Chid >= 9 && Chid <= 16) || (Chid >= 49 && Chid <= 56)) {
+		Pid_Layer = 2;
+	}
+	else if ((Chid >= 17 && Chid <= 24) || (Chid >= 57 && Chid <= 64)) {
+		Pid_Layer = 3;
+	}
+	else if ((Chid >= 25 && Chid <= 32) || (Chid >= 65 && Chid <= 72)) {
+		Pid_Layer = 4;
+	}
+	else if ((Chid >= 33 && Chid <= 40) || (Chid >= 73 && Chid <= 80)) {
+		Pid_Layer = 5;
+	}
+
+
+	if (Chid == 1 || Chid == 9 || Chid == 17 || Chid == 25 || Chid == 33)
+	{
+		Pid_Ch = 1;
+	}
+	else if (Chid == 2 || Chid == 10 || Chid == 18 || Chid == 26 || Chid == 34)
+	{
+		Pid_Ch = 2;
+	}
+	else if (Chid == 3 || Chid == 11 || Chid == 19 || Chid == 27 || Chid == 35)
+	{
+		Pid_Ch = 3;
+	}
+	else if (Chid == 4 || Chid == 12 || Chid == 20 || Chid == 28 || Chid == 36)
+	{
+		Pid_Ch = 4;
+	}
+	else if (Chid == 5 || Chid == 13 || Chid == 21 ||Chid == 29 || Chid == 37)
+	{
+		Pid_Ch = 5;
+	}
+	else if (Chid == 6 || Chid == 14 || Chid == 22 || Chid == 30 || Chid == 38)
+	{
+		Pid_Ch = 6;
+	}
+	else if (Chid == 7 ||Chid == 15 ||Chid == 23 || Chid == 31 || Chid == 39)
+	{
+		Pid_Ch = 7;
+	}
+	else if (Chid == 8 || Chid == 16 || Chid == 24 || Chid == 32 || Chid == 40)
+	{
+		Pid_Ch = 8;
+	}
+	else if (Chid == 41 || Chid == 49 || Chid == 57 || Chid == 65 || Chid == 73)
+	{
+		Pid_Ch = 9;
+	}
+	else if (Chid == 42 || Chid == 50 || Chid == 58 || Chid == 66 || Chid == 74)
+	{
+		Pid_Ch = 10;
+	}
+	else if (Chid == 43 || Chid == 51 || Chid == 59 || Chid == 67 || Chid == 75)
+	{
+		Pid_Ch = 11;
+	}
+	else if (Chid == 44 || Chid == 52 || Chid == 60 || Chid == 68 || Chid == 76)
+	{
+		Pid_Ch = 12;
+	}
+	else if (Chid == 45 || Chid == 53 || Chid == 61 || Chid == 69 || Chid == 77)
+	{
+		Pid_Ch = 13;
+	}
+	else if (Chid == 46 || Chid == 54 || Chid == 62 || Chid == 70 || Chid == 78)
+	{
+		Pid_Ch = 14;
+	}
+	else if (Chid == 47 || Chid == 55 || Chid == 63 || Chid == 71 || Chid == 79)
+	{
+		Pid_Ch = 15;
+	}
+	else if (Chid == 48 || Chid == 56 || Chid == 64 || Chid == 72 || Chid == 80)
+	{
+		Pid_Ch = 16;
+	}
+
+	CString sSection, sKey, sValue;
+
+	sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
+
+	// RACK ID 저장
+	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
+
+	lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
+	sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
+	Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
+
+	// CHANNEL PID 저장
+	// 
+			// Channel PID Save
+			sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, Pid_Layer, Pid_Ch);
+			m_pedtPannelID[Pid_Layer-1][Pid_Ch-1]->GetWindowText(sValue);
+			lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer][Pid_Ch] = sValue;
+			Write_MesPIDInfo(sSection, sKey, sValue);
+
+
+	//CString sSection, sKey, sValue;
+
+	//sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
+
+	//// RACK ID 저장
+	//GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
+
+	//lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
+	//sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
+	//Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
+
+	//		// Channel PID Save
+	//		sKey.Format(_T("RACK%d_LAYER%d_CH%d"), Rackid, Pid_Layer, Pid_Ch);
+	//		m_pedtPannelID[Pid_Layer][Pid_Ch]->GetWindowText(sValue);
+	//		lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer][Pid_Ch] = sValue;
+	//		Write_MesPIDInfo(sSection, sKey, sValue);
 }
 
 

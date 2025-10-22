@@ -197,6 +197,7 @@ public:
 	afx_msg void OnBnClickedBtnPiMesAgnout();
 	afx_msg void OnBnClickedBtnPiSaveExit();
 	afx_msg void OnBnClickedBtnPiSaveExit_B();
+	afx_msg void OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid);
 	afx_msg void OnBnClickedBtnPiCancel();
 	CButton m_btnPiSaveExit;
 	CButton m_btnPiCancel;

@@ -2435,7 +2435,7 @@ BOOL CCimNetCommApi::RMSO()
 {
 	MakeClientTimeString();
 
-	//LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	m_strRMSO.Format(_T("RMSO ADDR=%s,%s EQP=%s DURABLE_ID=%s MODE=AUTO USER_ID=%s CLIENT_DATE=%s COMMENT=[]")
 		, m_strLocalSubjectMesF
@@ -2444,6 +2444,15 @@ BOOL CCimNetCommApi::RMSO()
 		, m_strDurableID
 		, m_strUserID
 		, m_strClientDate);
+
+	/*m_strRMSO.Format(_T("RMSO ADDR=%s,%s EQP=%s DURABLE_ID=%f MODE=AUTO USER_ID=%f CLIENT_DATE=%f COMMENT=[]")
+		, m_strLocalSubjectMesF
+		, m_strLocalSubjectMesF
+		, m_strMachineName
+		, lpInspWorkInfo->m_fTempReadValST590_2_SET[0]
+		, lpInspWorkInfo->m_fTempReadValST590_3_SET[0]
+		, lpInspWorkInfo->m_fTempReadValST590_4_SET[0]);*/
+
 
 	int nRetCode = MessageSend(ECS_MODE_RMSO);
 	if (nRetCode != RTN_OK)
