@@ -2205,7 +2205,7 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_ERCP)
 	{
-
+		nRtnCD = pCimNet->ERCP();
 	}
 	else if (hostCMD == HOST_UNDO)
 	{

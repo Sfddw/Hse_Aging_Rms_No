@@ -204,7 +204,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 					if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == TRUE)
 					{
 						bTempRange = OK;
-						if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack]+5 ||
+						if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack] ||
 							lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
 						{
 							bTempRange = NG;
@@ -1097,7 +1097,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.3"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.4"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -2101,10 +2101,10 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// 3초 Timer
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
-		/*AfxBeginThread(ThreadTempST590_1, this);
+		AfxBeginThread(ThreadTempST590_1, this);
 		
 
-		for (int i = 0; i < 6; i++)
+		/*for (int i = 0; i < 6; i++)
 		{
 			if(i == 0)
 			{ 
@@ -5630,6 +5630,11 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 					int nVal;
 					sscanf_s(&szpacket[10 + (tp - 1) * 5], "%04X", &nVal);
 
+					if ((float)(nVal / 10.0) < 10)
+					{
+						continue;
+					}
+
 					if (nVal > 1000)	nVal = 0;
 					lpInspWorkInfo->m_fTempReadVal[tp - 1] = (float)(nVal / 10.0);
 					//lpInspWorkInfo->m_fTempReadVal[tp - 1] = 45+tp;
@@ -6232,6 +6237,27 @@ void CHseAgingDlg::Lf_toggleChUseUnuse(int rack, int layer, int ch)
 
 void CHseAgingDlg::Lf_setChannelUseUnuse(int rack)
 {
+	//CString ip;
+	//BOOL setInfo[16];
+
+	//m_pBtnChUseUnuseSet[rack]->EnableWindow(FALSE);
+
+	//for (int layer = 0; layer < MAX_LAYER; layer++)
+	//{
+	//	for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+	//	{
+	//		// 모든 채널을 사용 상태로 설정
+	//		setInfo[ch] = CHANNEL_USE;
+
+	//		// 내부 상태도 같이 반영
+	//		lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch] = CHANNEL_USE;
+	//	}
+
+	//	ip.Format(_T("192.168.10.%d"), (rack * 5) + layer + 1);
+	//	m_pApp->pCommand->Gf_setChannelUseUnuse(ip, setInfo);
+	//}
+
+	//m_pBtnChUseUnuseSet[rack]->EnableWindow(TRUE);
 	CString ip;
 	BOOL setInfo[16];
 
@@ -6241,13 +6267,8 @@ void CHseAgingDlg::Lf_setChannelUseUnuse(int rack)
 	{
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			// 모든 채널을 사용 상태로 설정
-			setInfo[ch] = CHANNEL_USE;
-
-			// 내부 상태도 같이 반영
-			lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch] = CHANNEL_USE;
+			setInfo[ch] = lpInspWorkInfo->m_ast_ChUseUnuse[rack][layer][ch];
 		}
-
 		ip.Format(_T("192.168.10.%d"), (rack * 5) + layer + 1);
 		m_pApp->pCommand->Gf_setChannelUseUnuse(ip, setInfo);
 	}

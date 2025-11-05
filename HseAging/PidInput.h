@@ -81,6 +81,8 @@ protected:
 	BOOL Pchk_TF = TRUE;
 	int Lf_PchkInfo(int ctrl_id);
 
+	void Lf_CableOpenCheck(int rack); // Cable Open
+
 private:
 	CFont m_Font[FONT_IDX_MAX];
 	CBrush m_Brush[COLOR_IDX_MAX];

@@ -8,6 +8,7 @@
 #include "MessageError.h"
 #include "MessageQuestion.h"
 #include "HseAgingDlg.h"
+#include "CableOpen.h"
 
 
 // CPidInput 대화 상자
@@ -348,8 +349,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 				if (P_Chk == TRUE)
 				{
-					//OnBnClickedBtnPiSaveExit_B(); // 저장
-					OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
+					OnBnClickedBtnPiSaveExit_B(); // 저장
+					//OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
 					if (m_nMainKeyInData != "")
 					{
 						sdata.Format(_T("PCHK OK [%s]"), m_nMainKeyInData);
@@ -359,8 +360,9 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 						int ChID = _ttoi(lpInspWorkInfo->m_ChID);
 						RackID -= 1;
 						//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-
-						pDlg->Lf_setAgingSTART_PID(RackID, ChID);
+						Lf_CableOpenCheck(RackID);
+						//pDlg->Lf_setAgingSTART_PID(RackID, ChID);
+						
 					}
 				}
 				else
@@ -3071,4 +3073,113 @@ void CPidInput::Lf_Send_checkBcrRackChIDInput(CString RackID, CString ChID)
 	{
 		TRACE(_T("⚠️ 잘못된 포커싱: ChID=%s → chNumber=%d → row=%d, col=%d\n"), ChID, chNumber, row, col);
 	}
+}
+
+void CPidInput::Lf_CableOpenCheck(int rack)
+{
+	//lpInspWorkInfo->m_RackID
+	int Chid = (_ttoi(lpInspWorkInfo->m_ChID));
+	int Pid_Layer, Pid_Ch;
+
+	if ((Chid >= 1 && Chid <= 8) || (Chid >= 41 && Chid <= 42)) {
+		Pid_Layer = 1;
+	}
+	else if ((Chid >= 9 && Chid <= 16) || (Chid >= 49 && Chid <= 56)) {
+		Pid_Layer = 2;
+	}
+	else if ((Chid >= 17 && Chid <= 24) || (Chid >= 57 && Chid <= 64)) {
+		Pid_Layer = 3;
+	}
+	else if ((Chid >= 25 && Chid <= 32) || (Chid >= 65 && Chid <= 72)) {
+		Pid_Layer = 4;
+	}
+	else if ((Chid >= 33 && Chid <= 40) || (Chid >= 73 && Chid <= 80)) {
+		Pid_Layer = 5;
+	}
+
+
+	if (Chid == 1 || Chid == 9 || Chid == 17 || Chid == 25 || Chid == 33)
+	{
+		Pid_Ch = 1;
+	}
+	else if (Chid == 2 || Chid == 10 || Chid == 18 || Chid == 26 || Chid == 34)
+	{
+		Pid_Ch = 2;
+	}
+	else if (Chid == 3 || Chid == 11 || Chid == 19 || Chid == 27 || Chid == 35)
+	{
+		Pid_Ch = 3;
+	}
+	else if (Chid == 4 || Chid == 12 || Chid == 20 || Chid == 28 || Chid == 36)
+	{
+		Pid_Ch = 4;
+	}
+	else if (Chid == 5 || Chid == 13 || Chid == 21 || Chid == 29 || Chid == 37)
+	{
+		Pid_Ch = 5;
+	}
+	else if (Chid == 6 || Chid == 14 || Chid == 22 || Chid == 30 || Chid == 38)
+	{
+		Pid_Ch = 6;
+	}
+	else if (Chid == 7 || Chid == 15 || Chid == 23 || Chid == 31 || Chid == 39)
+	{
+		Pid_Ch = 7;
+	}
+	else if (Chid == 8 || Chid == 16 || Chid == 24 || Chid == 32 || Chid == 40)
+	{
+		Pid_Ch = 8;
+	}
+	else if (Chid == 41 || Chid == 49 || Chid == 57 || Chid == 65 || Chid == 73)
+	{
+		Pid_Ch = 9;
+	}
+	else if (Chid == 42 || Chid == 50 || Chid == 58 || Chid == 66 || Chid == 74)
+	{
+		Pid_Ch = 10;
+	}
+	else if (Chid == 43 || Chid == 51 || Chid == 59 || Chid == 67 || Chid == 75)
+	{
+		Pid_Ch = 11;
+	}
+	else if (Chid == 44 || Chid == 52 || Chid == 60 || Chid == 68 || Chid == 76)
+	{
+		Pid_Ch = 12;
+	}
+	else if (Chid == 45 || Chid == 53 || Chid == 61 || Chid == 69 || Chid == 77)
+	{
+		Pid_Ch = 13;
+	}
+	else if (Chid == 46 || Chid == 54 || Chid == 62 || Chid == 70 || Chid == 78)
+	{
+		Pid_Ch = 14;
+	}
+	else if (Chid == 47 || Chid == 55 || Chid == 63 || Chid == 71 || Chid == 79)
+	{
+		Pid_Ch = 15;
+	}
+	else if (Chid == 48 || Chid == 56 || Chid == 64 || Chid == 72 || Chid == 80)
+	{
+		Pid_Ch = 16;
+	}
+	lpModelInfo->m_nFuncCableOpen = TRUE;
+	m_pApp->pCommand->Gf_getCableOpenCheck(rack);
+
+	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_OK)
+	{
+		//AfxMessageBox(_T("PCHK OK, Cable Connect"));
+		pDlg->Lf_setAgingSTART_PID(rack, Chid);
+	}
+	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_NG)
+	{
+		//AfxMessageBox(_T("PCHK OK, Cable DisConnect"));
+	}
+
+	/*CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+	CCableOpen cable_dlg;
+	cable_dlg.m_nRackNo = rack;
+	cable_dlg.DoModal();
+	pDlg->Lf_setAgingSTART_PID(rack, Chid);*/
+
 }
