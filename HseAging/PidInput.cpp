@@ -828,6 +828,19 @@ void CPidInput::OnTimer(UINT_PTR nIDEvent)
 		}*/
 		CDialog::OnOK();
 	}
+	if (nIDEvent == 5)
+	{
+		m_pApp->pCommand->Gf_getCableOpenCheck(0);
+		if (lpInspWorkInfo->m_ast_CableOpenCheck[lpInspWorkInfo->m_CableRackId][lpInspWorkInfo->m_CableRackLayer][lpInspWorkInfo->m_CableRackCh] == CABLE_CHECK_NG)
+		{
+			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+			if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID)
+			{
+				pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+				CDialog::OnOK();
+			}
+		}
+	}
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -3077,7 +3090,6 @@ void CPidInput::Lf_Send_checkBcrRackChIDInput(CString RackID, CString ChID)
 
 void CPidInput::Lf_CableOpenCheck(int rack)
 {
-	//lpInspWorkInfo->m_RackID
 	int Chid = (_ttoi(lpInspWorkInfo->m_ChID));
 	int Pid_Layer, Pid_Ch;
 
@@ -3163,13 +3175,19 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 		Pid_Ch = 16;
 	}
 	lpModelInfo->m_nFuncCableOpen = TRUE;
+	//for (int i = 0; i < 10; i++)
 	m_pApp->pCommand->Gf_getCableOpenCheck(rack);
 
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_OK)
 	{
+		lpInspWorkInfo->m_CableRackId = rack;
+		lpInspWorkInfo->m_CableRackLayer = Pid_Layer - 1;
+		lpInspWorkInfo->m_CableRackCh = Pid_Ch - 1;
 		//AfxMessageBox(_T("PCHK OK, Cable Connect"));
 		pDlg->Lf_setAgingSTART_PID(rack, Chid);
+
+		SetTimer(5, 5000, NULL);
 	}
 	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_NG)
 	{
