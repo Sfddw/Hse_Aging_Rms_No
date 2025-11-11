@@ -1097,12 +1097,23 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.4"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.6"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
 		m_bFwMismatchNotified[i] = FALSE;
 		lpInspWorkInfo->m_nAgingStatusS[i] = 0;
+	}
+
+	if (m_pApp->m_sUserID == "WD")
+	{
+		CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+		if (pDlg)
+		{
+			CWnd* pBtnDoor3 = pDlg->GetDlgItem(IDC_BUTTON_DOOR3);
+			if (pBtnDoor3)
+				pBtnDoor3->ShowWindow(SW_SHOW);  // 버튼 표시
+		}
 	}
 
 	/*lpInspWorkInfo->m_nAgingStatusS[0] = 0;

@@ -2894,6 +2894,9 @@ BOOL CPidInput::Lf_setExecuteMesAGNIN() // AGN_IN
 			if (m_pApp->Gf_gmesSendHost(HOST_AGN_IN, m_nSelRack, layer, ch) == TRUE)
 			//if (m_pApp->Gf_gmesSendHost(HOST_PCHK, m_nSelRack, layer, ch) == TRUE)
 			{
+
+				//m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
+
 				sLog.Format(_T("<MES> AGN_IN Send OK - %s"), sdata);
 				m_pApp->Gf_writeMLog(sLog);
 

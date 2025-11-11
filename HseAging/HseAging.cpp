@@ -2124,7 +2124,7 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_AGN_IN)
 	{
-		/*if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
+		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
 		{
 			Gf_gmesSetValueAgcm(rack, layer, ch);
 			lpInspWorkInfo->m_AgnInStartRack = rack;
@@ -2135,12 +2135,12 @@ Send_RETRY:
 		else
 		{
 			return TRUE;
-		}*/
-		Gf_gmesSetValueAgcm(rack, layer, ch);
+		}
+		/*Gf_gmesSetValueAgcm(rack, layer, ch);
 		lpInspWorkInfo->m_AgnInStartRack = rack;
 		lpInspWorkInfo->m_AgnInStartLayer = layer;
 		lpInspWorkInfo->m_AgnInStartChannel = ch;
-		nRtnCD = pCimNet->AGN_IN();
+		nRtnCD = pCimNet->AGN_IN();*/
 	}
 	else if (hostCMD == HOST_AGN_OUT)
 	{

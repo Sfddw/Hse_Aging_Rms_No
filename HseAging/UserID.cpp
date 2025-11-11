@@ -5,6 +5,7 @@
 #include "HseAging.h"
 #include "UserID.h"
 #include "afxdialogex.h"
+#include "HseAgingDlg.h"
 
 
 // CUserID 대화 상자
@@ -247,6 +248,15 @@ BOOL CUserID::Lf_confirmUserID()
 		m_pApp->m_sUserName.Empty();
 		m_pApp->m_bUserIdAdmin = TRUE;
 		lpInspWorkInfo->m_nConnectInfo[CONNECT_MES] = FALSE;
+	}
+	else if (!m_sUserId.CompareNoCase(_T("WD")))
+	{
+		m_sUserId.MakeUpper();
+		m_pApp->m_sUserID = m_sUserId;
+		m_pApp->m_sUserName.Empty();
+		m_pApp->m_bUserIdAdmin = FALSE;
+		lpInspWorkInfo->m_nConnectInfo[CONNECT_MES] = FALSE;
+
 	}
 	else
 	{
