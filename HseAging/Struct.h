@@ -139,6 +139,7 @@ typedef struct _ST_SYSTEMINFO_{
 	CString m_sRmsDaemonPort;
 	CString m_sRmsLocalSubject;
 	CString m_sRmsRemoteSubject;
+	CString m_sRmsEqp;
 
 	// SW VERSION 설정 //
 	CString m_SwVersion;

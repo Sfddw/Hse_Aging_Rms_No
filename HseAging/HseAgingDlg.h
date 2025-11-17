@@ -51,6 +51,8 @@ public:
 	void Lf_setChannelUseUnuse_PID_ON(int rack, int ch);
 	void Lf_setChannelUseUnuse_PID_OFF(int rack);
 
+	CCimNetCommApi* pCimNet;
+
 protected:
 	void Lf_InitLocalValue();
 	void Lf_InitFontset();
@@ -102,6 +104,8 @@ protected:
 	void Lf_savePowerMeasureMinMax(int rack, int layer, int ch);
 	void Lf_flickerCompleteRackNumber();
 	void Lf_AgingProgressLog();
+
+	void Lf_rmsErcpSet();
 
 	LPMODELINFO			lpModelInfo;
 	LPSYSTEMINFO		lpSystemInfo;

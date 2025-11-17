@@ -183,6 +183,9 @@ public:
 	void SetWDRInfo(CString strBuff);
 	void SetWDREnd(CString strBuff);
 	void SetAPDInfo(CString strBuff);
+
+	void SetERCPInfo(CString strBuff);
+
 	void SetDefectCommentCode(CString strBuff);
 	void SetFullYN(CString strBuff);
 	void SetGibCode(CString strBuff);
@@ -246,6 +249,7 @@ protected:
 	CString m_strServicePortRMS;
 	CString m_strDaemonRMS;
 	CString m_strLocalIPRMS;
+	CString m_strEqpRMS;
 
 	CString m_strNgComment;
 
@@ -284,6 +288,9 @@ protected:
 	CString m_strWDRInfo;
 	CString m_strWDREnd;
 	CString m_strAPDInfo;
+
+	CString m_strERCPInfo;
+
 	CString m_strFullYN;
 	CString m_strGibCode;
 	CString m_strToOper;

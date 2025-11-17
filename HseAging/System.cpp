@@ -329,6 +329,7 @@ void CSystem::Lf_InitDialogControl()
 	GetDlgItem(IDC_EDT_SY_RMS_DAEMON_PORT2)->SetWindowText(lpSystemInfo->m_sRmsDaemonPort);
 	GetDlgItem(IDC_EDT_SY_RMS_LOCAL_SUBJECT2)->SetWindowText(lpSystemInfo->m_sRmsLocalSubject);
 	GetDlgItem(IDC_EDT_SY_RMS_REMOTE_SUBJECT2)->SetWindowText(lpSystemInfo->m_sRmsRemoteSubject);
+	GetDlgItem(IDC_EDT_SY_RMS_EQP)->SetWindowText(lpSystemInfo->m_sRmsEqp);
 
 
 
@@ -405,6 +406,8 @@ void CSystem::Lf_saveSystemInfo()
 	Write_SysIniFile(_T("RMS"), _T("RMS_LOCAL_SUBJECT"), lpSystemInfo->m_sRmsLocalSubject);
 	GetDlgItem(IDC_EDT_SY_RMS_REMOTE_SUBJECT2)->GetWindowText(lpSystemInfo->m_sRmsRemoteSubject);
 	Write_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), lpSystemInfo->m_sRmsRemoteSubject);
+	GetDlgItem(IDC_EDT_SY_RMS_EQP)->GetWindowText(lpSystemInfo->m_sRmsEqp);
+	Write_SysIniFile(_T("RMS"), _T("RMS_EQP"), lpSystemInfo->m_sRmsEqp);
 
 
 

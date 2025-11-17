@@ -1309,6 +1309,7 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("RMS"), _T("RMS_DAEMON_PORT"), &lpSystemInfo->m_sRmsDaemonPort);
 	Read_SysIniFile(_T("RMS"), _T("RMS_LOCAL_SUBJECT"), &lpSystemInfo->m_sRmsLocalSubject);
 	Read_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), &lpSystemInfo->m_sRmsRemoteSubject);
+	Read_SysIniFile(_T("RMS"), _T("RMS_EQP"), &lpSystemInfo->m_sRmsEqp);
 	
 	Read_SysIniFile(_T("SW_VERSION"), _T("SW_VERSION"), &lpSystemInfo->m_SwVersion);
 	
