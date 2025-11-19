@@ -41,7 +41,6 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 	float elapsedTimeToSubtract = 0;
 	CPidInput idDlg; 
 	DWORD condStartTick[MAX_RACK] = { 0 };
-	
 
 	while (1)
 	{
@@ -369,9 +368,30 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 
 					if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == TRUE)
 					{
+						static DWORD tempStartTick[MAX_RACK] = { 0 };   // NG 연속 체크용
+						DWORD now = ::GetTickCount();
+
+						BOOL isNG =
+							(lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack]) ||
+							(lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack]);
+
 						// AGING 시간 동안 온도가 모델 값에 안맞을 경우 AGING 시간 멈춤
 						/*if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack] +2 || lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack] - 2)*/
-						if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack] || lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
+						if (isNG)
+						{
+
+							if (tempStartTick[rack] == 0)
+								tempStartTick[rack] = now;
+
+							// 3초 미만 NG → 아래 코드 실행 금지 → continue로 올라감
+							if ((now - tempStartTick[rack]) < 3000)
+								continue;
+						}
+						else
+						{
+							tempStartTick[rack] = 0;
+						}
+						if (isNG)
 						{
 							if (temTick[rack] == 0)
 							{
@@ -394,8 +414,6 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 												lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_TEMP;
 											}
 										}
-									
-									
 								}
 
 								//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
@@ -1097,7 +1115,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.8"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.9"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
