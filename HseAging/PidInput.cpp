@@ -349,8 +349,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 				if (P_Chk == TRUE)
 				{
-					OnBnClickedBtnPiSaveExit_B(); // 저장
-					//OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
+					//OnBnClickedBtnPiSaveExit_B(); // 저장
+					OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
 					if (m_nMainKeyInData != "")
 					{
 						sdata.Format(_T("PCHK OK [%s]"), m_nMainKeyInData);

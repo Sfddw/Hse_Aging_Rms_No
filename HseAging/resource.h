@@ -52,6 +52,7 @@
 #define IDD_CABLE_OPEN                  182
 #define IDD_PASSWORD                    185
 #define IDI_ICON_BUZZ_OFF               188
+#define IDD_ERCP_TEST                   189
 #define IDC_BTN_MA_MODEL                1000
 #define IDC_BTN_MA_USER                 1001
 #define IDC_BTN_MA_SYSTEM               1002
@@ -1553,7 +1554,6 @@
 #define IDC_MBC_MA_FUSING_RACK1         2033
 #define IDC_EDT_SY_RMS_REMOTE_SUBJECT2  2033
 #define IDC_MBC_MA_FUSING_RACK2         2034
-#define IDC_EDT_SY_RMS_REMOTE_SUBJECT3  2034
 #define IDC_EDT_SY_RMS_EQP              2034
 #define IDC_MBC_MA_FUSING_RACK3         2035
 #define IDC_MBC_MA_FUSING_RACK4         2036
@@ -2064,14 +2064,17 @@
 #define IDC_STT_MA_AGING_COUNT          2434
 #define IDC_STT_MA_AGING_NG_COUNT       2435
 #define IDC_STATIC_NG_COUNT             2436
+#define IDC_ERCP_SEND                   2437
+#define IDC_ERCP_RECIVE                 2438
+#define IDC_ERCP_RECEIVE                2438
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        189
+#define _APS_NEXT_RESOURCE_VALUE        191
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2437
+#define _APS_NEXT_CONTROL_VALUE         2438
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

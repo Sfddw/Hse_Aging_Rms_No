@@ -165,6 +165,7 @@ typedef struct _ST_INSPWORKINFO_
 	float m_fTempReadVal[MAX_TEMP_SENSOR];
 
 	int TempTest = 0;
+	CString Ercp_Test_Message;
 
 	float m_fTempReadValST590_2[MAX_TEMP_SENSOR];
 	float m_fTempReadValST590_3[MAX_TEMP_SENSOR];

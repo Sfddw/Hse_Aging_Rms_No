@@ -16,6 +16,7 @@
 #include "AutoFirmware.h"
 #include "CableOpen.h"
 #include "Password.h"
+#include "ErcpTest.h"
 
 #pragma comment(lib, "UxTheme.lib")
 #pragma comment(lib, "setupapi.lib")
@@ -36,7 +37,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 
 	CString sLog;
 	DWORD preTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 };
-	DWORD temTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 };
+	DWORD temTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 }; 
 	BOOL debugDoorOpen = DOOR_CLOSE;
 	float elapsedTimeToSubtract = 0;
 	CPidInput idDlg; 
@@ -400,7 +401,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 								sLog.Format(_T("Temp Not Matching"));
 								pDlg->Lf_writeRackMLog(rack, sLog);
 
-								m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
+								m_pApp->pCommand->Gf_dio_setDIOWriteOutput(0x09, 0x01);
 
 								if (bTempErrorOnce[rack] == FALSE)
 								{
@@ -893,6 +894,7 @@ END_MESSAGE_MAP()
 
 CHseAgingDlg::CHseAgingDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_HSEAGING_DIALOG, pParent)
+	, m_dlgErcpTest(this)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
@@ -1115,7 +1117,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.1.9"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.0"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -1133,7 +1135,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 				pBtnDoor3->ShowWindow(SW_SHOW);  // 버튼 표시
 		}
 	}
-
+	
 	pCimNet = new CCimNetCommApi;
 
 	/*lpInspWorkInfo->m_nAgingStatusS[0] = 0;
@@ -6798,14 +6800,18 @@ void CHseAgingDlg::OnBnClickedButtonDoor3()
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	//Lf_setDoorOnOff(RACK_3);
 	//m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
-	Lf_rmsErcpSet();
+
+	m_dlgErcpTest.DoModal();
+
+	//Lf_rmsErcpSet();
 }
 
 
 void CHseAgingDlg::OnBnClickedButtonDoor4()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	Lf_setDoorOnOff(RACK_4);
+	//Lf_setDoorOnOff(RACK_4);
+	Lf_rmsErcpSet();
 }
 
 

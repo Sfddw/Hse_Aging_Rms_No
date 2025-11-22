@@ -1,4 +1,4 @@
-﻿
+﻿#include "ErcpTest.h"
 // HseAgingDlg.h: 헤더 파일
 //
 
@@ -11,7 +11,7 @@ class CHseAgingDlg : public CDialogEx
 // 생성입니다.
 public:
 	CHseAgingDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
-
+	ErcpTest m_dlgErcpTest;
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_HSEAGING_DIALOG };

@@ -432,10 +432,11 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 		m_strHostSendMessage = m_strDMOU;
 		break;
 	case ECS_MODE_RMSO:
-		m_strHostSendMessage = m_strERCP;
+		m_strHostSendMessage = m_strRMSO;
 		break;
 	case ECS_MODE_ERCP:
 		m_strHostSendMessage = m_strERCP;
+		break;
 	default:
 		return RTN_MSG_NOT_SEND;	// 통신 NG
 	}
@@ -447,7 +448,7 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 
 	Sleep (10);
 
-	if(nMode != ECS_MODE_APDR && nMode != ECS_MODE_RMSO)
+	if(nMode != ECS_MODE_APDR && nMode != ECS_MODE_RMSO && nMode != ECS_MODE_ERCP)
 	{
 		if (m_pApp->m_bIsGmesConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
@@ -491,7 +492,7 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 
 
 	}
-	else if (nMode == ECS_MODE_RMSO) // RMS 온도값 메시지
+	else if (nMode == ECS_MODE_RMSO || nMode == ECS_MODE_ERCP) // RMS 온도값 메시지
 	{
 		if (m_pApp->m_blsRmsConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
@@ -1309,7 +1310,7 @@ BOOL CCimNetCommApi::ERCP()
 	m_strClientDate*/
 	);
 
-	int nRetCode = MessageSend(ECS_MODE_RMSO);
+	int nRetCode = MessageSend(ECS_MODE_ERCP);
 	if (nRetCode != RTN_OK)
 	{
 		return nRetCode;
@@ -2491,13 +2492,8 @@ BOOL CCimNetCommApi::RMSO()
 
 	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
-	m_strRMSO.Format(_T("RMSO ADDR=%s,%s EQP=%s DURABLE_ID=%s MODE=AUTO USER_ID=%s CLIENT_DATE=%s COMMENT=[]")
-		, m_strLocalSubjectMesF
-		, m_strLocalSubjectMesF
-		, m_strMachineName
-		, m_strDurableID
-		, m_strUserID
-		, m_strClientDate);
+	m_strRMSO.Format(_T("%s")
+		, lpInspWorkInfo->Ercp_Test_Message);
 
 	/*m_strRMSO.Format(_T("RMSO ADDR=%s,%s EQP=%s DURABLE_ID=%f MODE=AUTO USER_ID=%f CLIENT_DATE=%f COMMENT=[]")
 		, m_strLocalSubjectMesF

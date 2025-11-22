@@ -9,6 +9,7 @@
 #include "MessageError.h"
 #include "MessageQuestion.h"
 #include "UserID.h"
+#include "ErcpTest.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -2216,6 +2217,25 @@ Send_RETRY:
 	else if (hostCMD == HOST_RMSO)
 	{
 		nRtnCD = pCimNet->RMSO();
+	}
+	else if (hostCMD == HOST_ERCP_TEST)
+	{
+		nRtnCD = pCimNet->RMSO();
+		CString recvMsg = pCimNet->GetHostRecvMessage();
+
+		// 메인 다이얼로그 가져오기
+		CHseAgingDlg* pMain = (CHseAgingDlg*)AfxGetMainWnd();
+		if (pMain)
+		{
+			// ErcpTest 대화상자 객체 접근
+			ErcpTest* pErcp = &(pMain->m_dlgErcpTest);
+
+			if (pErcp && ::IsWindow(pErcp->m_hWnd))
+			{
+				pErcp->SetDlgItemText(IDC_ERCP_RECEIVE, recvMsg);
+				m_pApp->Gf_writeMLog(recvMsg);
+			}
+		}
 	}
 
 	sLog.Format(_T("<HOST_R> %s"), pCimNet->GetHostRecvMessage());

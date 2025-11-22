@@ -188,6 +188,7 @@
     <ClInclude Include="CableOpen.h" />
     <ClInclude Include="CIMNetCommApp.h" />
     <ClInclude Include="Command.h" />
+    <ClInclude Include="ErcpTest.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GradientStatic.h" />
     <ClInclude Include="HseAging.h" />
@@ -215,6 +216,7 @@
     <ClCompile Include="CableOpen.cpp" />
     <ClCompile Include="CIMNetCommApp.cpp" />
     <ClCompile Include="Command.cpp" />
+    <ClCompile Include="ErcpTest.cpp" />
     <ClCompile Include="GradientStatic.cpp" />
     <ClCompile Include="HseAging.cpp" />
     <ClCompile Include="HseAgingDlg.cpp" />
