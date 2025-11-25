@@ -334,6 +334,83 @@ void CHseAgingApp::Gf_writeMLog(CString sLogData)
 	}
 }
 
+void CHseAgingApp::Gf_writeMLog_Rack(CString sLogData, int RackNum)
+{
+	if (RackNum < 1 || RackNum > 6)
+		return;  // 유효 RackNum 아니면 무시
+
+	CFile cfp;
+	USHORT nShort = 0xfeff;
+	CString strLog, filePath, rackDir, strDate;
+
+	// 로그 문자열 정리
+	sLogData.Replace(_T("\r\n"), _T(" | "));
+
+	SYSTEMTIME sysTime;
+	::GetSystemTime(&sysTime);
+	CTime time = CTime::GetCurrentTime();
+
+	strLog.Format(_T("[%02d:%02d:%02d %03d] %06d%03d\t: %s\r\n"),
+		time.GetHour(), time.GetMinute(), time.GetSecond(), sysTime.wMilliseconds,
+		(time.GetHour() * 3600) + (time.GetMinute() * 60) + time.GetSecond(),
+		sysTime.wMilliseconds,
+		sLogData);
+
+	// 날짜 문자열
+	strDate.Format(_T("%04d%02d%02d"), time.GetYear(), time.GetMonth(), time.GetDay());
+
+	//
+	// -----------------------------
+	//  기본 폴더 생성
+	// -----------------------------
+	//
+	if (GetFileAttributes(_T("./Logs/")) == INVALID_FILE_ATTRIBUTES)
+		CreateDirectory(_T("./Logs/"), NULL);
+
+	if (GetFileAttributes(_T("./Logs/MLog")) == INVALID_FILE_ATTRIBUTES)
+		CreateDirectory(_T("./Logs/MLog"), NULL);
+
+	//
+	// -----------------------------
+	//  Rack별 폴더 생성
+	// -----------------------------
+	//
+	rackDir.Format(_T("./Logs/MLog/Rack%d"), RackNum);
+
+	if (GetFileAttributes(rackDir) == INVALID_FILE_ATTRIBUTES)
+		CreateDirectory(rackDir, NULL);
+
+	//
+	// -----------------------------
+	//  최종 파일 경로
+	// -----------------------------
+	//
+	filePath.Format(_T("%s/%s_Rack%d_%s.txt"),
+		rackDir,
+		lpSystemInfo->m_sEqpName,
+		RackNum,
+		strDate);
+
+	//
+	// -----------------------------
+	//  파일 쓰기
+	// -----------------------------
+	//
+	if (cfp.Open(filePath, CFile::modeCreate | CFile::modeNoTruncate |
+		CFile::modeWrite | CFile::typeBinary))
+	{
+		// 새 파일이면 BOM 기록
+		if (cfp.GetLength() == 0)
+			cfp.Write(&nShort, 2);
+
+		cfp.SeekToEnd();
+		cfp.Write(strLog, (strLog.GetLength() * 2));
+		cfp.Close();
+	}
+}
+
+
+
 void CHseAgingApp::Gf_writeAlarmLog(int rack, int layer, int ch, CString strError)
 {
 	FILE* fp;
@@ -2063,20 +2140,6 @@ BOOL CHseAgingApp::Gf_gmesSendHost_PCHK(int hostCMD, CString PID)
 	}
 
 Send_RETRY:
-
-	/*if (hostCMD == HOST_EAYT)
-	{
-		nRtnCD = pCimNet->EAYT();
-	}
-	else if (hostCMD == HOST_PCHK)
-	{
-		Gf_gmesSetValueAgcm(1, 1, 1);
-		nRtnCD = pCimNet->PCHK_B(PID);
-		if (nRtnCD == RTN_OK)
-		{
-			pCimNet->GetFieldData(&lpInspWorkInfo->m_sMesPchkRtnPID[1][1][1], _T("RTN_PID"));
-		}
-	}*/
 	if (hostCMD == HOST_PCHK)
 	{
 		Gf_gmesSetValueAgcm(1, 1, 1);

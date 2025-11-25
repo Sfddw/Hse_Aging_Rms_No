@@ -202,6 +202,8 @@ BOOL CCimNetCommApi::Init(int nServerType)
 {
 	CString sLog;
 
+	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
 	// Host 접속 정보를 가져온다.
 	if(nServerType == SERVER_MES){
 		
@@ -1824,12 +1826,15 @@ BOOL CCimNetCommApi::AGN_IN ()
 		m_strUserID,
 		m_strClientDate
 		);
-
-	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 	
-
+	CString sLog;
 
 	int nRetCode = MessageSend (ECS_MODE_AGN_IN);
+	sLog.Format(_T("Send %s"), m_strAGN_IN);
+	m_pApp->Gf_writeMLog_Rack(sLog, (lpInspWorkInfo->m_AgnInStartRack) + 1);
+	sLog.Format(_T("Receive %s"), m_strHostRecvMessage);
+	m_pApp->Gf_writeMLog_Rack(sLog, (lpInspWorkInfo->m_AgnInStartRack) + 1);
+
 	if (nRetCode != RTN_OK)
 	{	
 		return nRetCode;
@@ -1862,7 +1867,11 @@ BOOL CCimNetCommApi::AGN_OUT()
 		m_strUserID,
 		m_strClientDate
 		);
-
+	CString sLog;
+	sLog.Format(_T("Send %s"), m_strAGN_OUT);
+	m_pApp->Gf_writeMLog_Rack(sLog, (lpInspWorkInfo->m_AgnInStartRack) + 1);
+	sLog.Format(_T("Receive %s"), m_strHostRecvMessage);
+	m_pApp->Gf_writeMLog_Rack(sLog, (lpInspWorkInfo->m_AgnInStartRack) + 1);
 	int nRetCode = MessageSend (ECS_MODE_AGN_OUT);
 	if (nRetCode != RTN_OK)
 	{	

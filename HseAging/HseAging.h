@@ -45,6 +45,8 @@ public:
 
 	void Gf_SoftwareStartLog();
 	void Gf_writeMLog(CString sLogData);
+	void Gf_writeMLog_Rack(CString sLogData, int RackNum);
+
 	void Gf_writeAlarmLog(int rack, int layer, int ch, CString strError);
 	BOOL Gf_ShowMessageBox(CString errMessage);
 

@@ -65,6 +65,8 @@ public:
 	ICallEASClass *eas;
 	ICallRMSClass *rms;
 
+	LPINSPWORKINFO lpInspWorkInfo;
+
 	CLSID			clsid_ECS;
 	HRESULT			hr;
 

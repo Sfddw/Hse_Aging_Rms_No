@@ -411,7 +411,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
-					Lf_checkBcrRackChIDInput(rackId, chId);
+					Lf_checkBcrRackChIDInput(rackId, chId); // RACK 변경
 
 					lpInspWorkInfo->m_RackID = rackId.Right(2);
 					lpInspWorkInfo->m_ChID = chId.Right(2);
@@ -1771,107 +1771,13 @@ void CPidInput::OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid)
 
 	int Pid_Layer, Pid_Ch;
 
-	if ((Chid >= 1 && Chid <= 8) || (Chid >= 41 && Chid <= 42)) {
-		Pid_Layer = 1;
-	}
-	else if ((Chid >= 9 && Chid <= 16) || (Chid >= 49 && Chid <= 56)) {
-		Pid_Layer = 2;
-	}
-	else if ((Chid >= 17 && Chid <= 24) || (Chid >= 57 && Chid <= 64)) {
-		Pid_Layer = 3;
-	}
-	else if ((Chid >= 25 && Chid <= 32) || (Chid >= 65 && Chid <= 72)) {
-		Pid_Layer = 4;
-	}
-	else if ((Chid >= 33 && Chid <= 40) || (Chid >= 73 && Chid <= 80)) {
-		Pid_Layer = 5;
-	}
+	// 1) Layer 계산 (Left+Right 동일 공식)
+	Pid_Layer = ((Chid - 1) % 40) / 8 + 1;
 
-
-	if (Chid == 1 || Chid == 9 || Chid == 17 || Chid == 25 || Chid == 33)
-	{
-		Pid_Ch = 1;
-	}
-	else if (Chid == 2 || Chid == 10 || Chid == 18 || Chid == 26 || Chid == 34)
-	{
-		Pid_Ch = 2;
-	}
-	else if (Chid == 3 || Chid == 11 || Chid == 19 || Chid == 27 || Chid == 35)
-	{
-		Pid_Ch = 3;
-	}
-	else if (Chid == 4 || Chid == 12 || Chid == 20 || Chid == 28 || Chid == 36)
-	{
-		Pid_Ch = 4;
-	}
-	else if (Chid == 5 || Chid == 13 || Chid == 21 ||Chid == 29 || Chid == 37)
-	{
-		Pid_Ch = 5;
-	}
-	else if (Chid == 6 || Chid == 14 || Chid == 22 || Chid == 30 || Chid == 38)
-	{
-		Pid_Ch = 6;
-	}
-	else if (Chid == 7 ||Chid == 15 ||Chid == 23 || Chid == 31 || Chid == 39)
-	{
-		Pid_Ch = 7;
-	}
-	else if (Chid == 8 || Chid == 16 || Chid == 24 || Chid == 32 || Chid == 40)
-	{
-		Pid_Ch = 8;
-	}
-	else if (Chid == 41 || Chid == 49 || Chid == 57 || Chid == 65 || Chid == 73)
-	{
-		Pid_Ch = 9;
-	}
-	else if (Chid == 42 || Chid == 50 || Chid == 58 || Chid == 66 || Chid == 74)
-	{
-		Pid_Ch = 10;
-	}
-	else if (Chid == 43 || Chid == 51 || Chid == 59 || Chid == 67 || Chid == 75)
-	{
-		Pid_Ch = 11;
-	}
-	else if (Chid == 44 || Chid == 52 || Chid == 60 || Chid == 68 || Chid == 76)
-	{
-		Pid_Ch = 12;
-	}
-	else if (Chid == 45 || Chid == 53 || Chid == 61 || Chid == 69 || Chid == 77)
-	{
-		Pid_Ch = 13;
-	}
-	else if (Chid == 46 || Chid == 54 || Chid == 62 || Chid == 70 || Chid == 78)
-	{
-		Pid_Ch = 14;
-	}
-	else if (Chid == 47 || Chid == 55 || Chid == 63 || Chid == 71 || Chid == 79)
-	{
-		Pid_Ch = 15;
-	}
-	else if (Chid == 48 || Chid == 56 || Chid == 64 || Chid == 72 || Chid == 80)
-	{
-		Pid_Ch = 16;
-	}
-
-	CString sSection, sKey, sValue;
-
-	sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
-
-	// RACK ID 저장
-	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
-
-	lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
-	sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
-	Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
-
-	// CHANNEL PID 저장
-	// 
-			// Channel PID Save
-			sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, Pid_Layer, Pid_Ch);
-			m_pedtPannelID[Pid_Layer-1][Pid_Ch-1]->GetWindowText(sValue);
-			lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer][Pid_Ch] = sValue;
-			Write_MesPIDInfo(sSection, sKey, sValue);
-
+	// 2) CH 번호 계산
+	Pid_Ch = ((Chid - 1) % 8) + 1;
+	if (Chid > 40)
+		Pid_Ch += 8;
 
 	//CString sSection, sKey, sValue;
 
@@ -1884,11 +1790,26 @@ void CPidInput::OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid)
 	//sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
 	//Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
 
-	//		// Channel PID Save
-	//		sKey.Format(_T("RACK%d_LAYER%d_CH%d"), Rackid, Pid_Layer, Pid_Ch);
-	//		m_pedtPannelID[Pid_Layer][Pid_Ch]->GetWindowText(sValue);
+	//		sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, Pid_Layer, Pid_Ch);
+	//		m_pedtPannelID[Pid_Layer-1][Pid_Ch-1]->GetWindowText(sValue);
 	//		lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer][Pid_Ch] = sValue;
 	//		Write_MesPIDInfo(sSection, sKey, sValue);
+
+	CString sSection, sKey, sValue;
+
+	sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
+
+	// RACK ID 저장
+	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
+
+	lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
+	sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
+	Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
+
+	sKey.Format(_T("RACK%d_LAYER%d_CH%d"),m_nSelRack + 1, Pid_Layer, Pid_Ch);
+	m_pedtPannelID[Pid_Layer - 1][Pid_Ch - 1]->GetWindowText(sValue);
+	lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer - 1][Pid_Ch - 1] = sValue;
+	Write_MesPIDInfo(sSection, sKey, sValue);
 }
 
 
@@ -3012,6 +2933,30 @@ BOOL CPidInput::Lf_setExecuteMesAGNOUT() // AGN_OUT
 void CPidInput::Lf_checkBcrRackChIDInput(CString RackID, CString ChID)
 {
 	// [1] RACK ID 매핑
+	//int len = RackID.GetLength();
+	//if (len < 5) return;  // 예외 보호
+
+	//// 뒤에서 2자리 숫자 추출: "01", "02" ... "06"
+	//CString rackNumStr = RackID.Right(2);
+
+	//// 숫자로 변환
+	//int rackIndex = _ttoi(rackNumStr) - 1; // 0 ~ 5 로 만들기
+
+	//// 올바른 범위인지 체크
+	//if (rackIndex < 0 || rackIndex >= 6)
+	//	return;
+
+	//// 해당 Rack 버튼 클릭 함수 호출
+	//switch (rackIndex)
+	//{
+	//case 0: OnBnClickedMbcPiRack1(); break;
+	//case 1: OnBnClickedMbcPiRack2(); break;
+	//case 2: OnBnClickedMbcPiRack3(); break;
+	//case 3: OnBnClickedMbcPiRack4(); break;
+	//case 4: OnBnClickedMbcPiRack5(); break;
+	//case 5: OnBnClickedMbcPiRack6(); break;
+	//}
+
 	CString rackKeys[6] = {
 		_T("RACK1_BCR_ID"), _T("RACK2_BCR_ID"), _T("RACK3_BCR_ID"),
 		_T("RACK4_BCR_ID"), _T("RACK5_BCR_ID"), _T("RACK6_BCR_ID")
@@ -3096,7 +3041,7 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 	int Chid = (_ttoi(lpInspWorkInfo->m_ChID));
 	int Pid_Layer, Pid_Ch;
 
-	if ((Chid >= 1 && Chid <= 8) || (Chid >= 41 && Chid <= 42)) {
+	if ((Chid >= 1 && Chid <= 8) || (Chid >= 41 && Chid <= 48)) {
 		Pid_Layer = 1;
 	}
 	else if ((Chid >= 9 && Chid <= 16) || (Chid >= 49 && Chid <= 56)) {
@@ -3177,25 +3122,34 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 	{
 		Pid_Ch = 16;
 	}
+	if (rack < 0 || rack >= MAX_RACK ||
+		Pid_Layer - 1 < 0 || Pid_Layer - 1 >= MAX_LAYER ||
+		Pid_Ch - 1 < 0 || Pid_Ch - 1 >= MAX_LAYER_CHANNEL)
+	{
+		m_pApp->Gf_ShowMessageBox(_T("BCR LABEL SCAN PLZ"));
+		return;
+	}
+
 	lpModelInfo->m_nFuncCableOpen = TRUE;
 	//for (int i = 0; i < 10; i++)
 	m_pApp->pCommand->Gf_getCableOpenCheck(rack);
 
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_OK)
-	{
-		lpInspWorkInfo->m_CableRackId = rack;
-		lpInspWorkInfo->m_CableRackLayer = Pid_Layer - 1;
-		lpInspWorkInfo->m_CableRackCh = Pid_Ch - 1;
-		//AfxMessageBox(_T("PCHK OK, Cable Connect"));
-		pDlg->Lf_setAgingSTART_PID(rack, Chid);
 
-		SetTimer(5, 5000, NULL);
-	}
-	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_NG)
-	{
-		//AfxMessageBox(_T("PCHK OK, Cable DisConnect"));
-	}
+		if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer - 1][Pid_Ch - 1] == CABLE_CHECK_OK)
+		{
+			lpInspWorkInfo->m_CableRackId = rack;
+			lpInspWorkInfo->m_CableRackLayer = Pid_Layer - 1;
+			lpInspWorkInfo->m_CableRackCh = Pid_Ch - 1;
+			//AfxMessageBox(_T("PCHK OK, Cable Connect"));
+			pDlg->Lf_setAgingSTART_PID(rack, Chid);
+
+			SetTimer(5, 5000, NULL);
+		}
+	//if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_NG)
+	//{
+	//	//AfxMessageBox(_T("PCHK OK, Cable DisConnect"));
+	//}
 
 	/*CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 	CCableOpen cable_dlg;
