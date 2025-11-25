@@ -2067,6 +2067,8 @@
 #define IDC_ERCP_SEND                   2437
 #define IDC_ERCP_RECIVE                 2438
 #define IDC_ERCP_RECEIVE                2438
+#define IDC_BUTTON1                     2438
+#define IDC_PAUSE1                      2438
 
 // Next default values for new objects
 // 
@@ -2074,7 +2076,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        191
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2438
+#define _APS_NEXT_CONTROL_VALUE         2439
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

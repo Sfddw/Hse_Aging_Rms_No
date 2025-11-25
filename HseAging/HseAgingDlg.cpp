@@ -25,8 +25,6 @@
 #define new DEBUG_NEW
 #endif
 
-//static int lastDay = -1;
-
 static BOOL bTempErrorOnce[MAX_RACK] = { FALSE };
 
 UINT ThreadAgingStartRack(LPVOID pParam)
@@ -49,147 +47,6 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 		{
 			if (pDlg->m_nAgingStart[rack] == FALSE)
 				continue;
-
-			// 2025-02-18 PDH. AGING START시 DOOR CLOSE 상태 Check 시작
-			//if (lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE)
-			//{
-			//	//lpInspWorkInfo->m_fOpeAgingTempMin[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
-
-
-			//	BOOL bDoorStatus, bTempRange;
-			//	bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
-
-
-			//	// Door 기능 사용하지 않을 경우 Door Close 체크하지 않는다.
-			//	if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
-			//		bDoorStatus = DOOR_CLOSE;
-
-			//	// Temp Range 확인하여 OK/NG 판단한다.
-			//	if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == FALSE)
-			//	{
-			//		bTempRange = OK;
-			//	}
-			//	else
-			//	{
-			//		bTempRange = OK;
-			//		if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack]+5)
-			//		{
-			//			bTempRange = NG; // NG 상태 설정
-			//		}
-
-			//		if (lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
-			//		{
-			//			bTempRange = NG; // NG 상태 설정
-			//		}
-			//	}
-
-			//	// DOOR CLOSE 상태 체크되면 AGING RUNNING 상태로 변경하고 AGING을 시작한다.
-			//	//if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
-			//	//{
-			//	//	Sleep(4000);
-			//	//	//lpInspWorkInfo->m_nDoorOpenClose[rack] = lpInspWorkInfo->m_nDioInputData[rack + DIO_IN_DOOR1];
-			//	//	if ((bTempRange == OK) && (lpInspWorkInfo->m_nDoorOpenClose[rack] == 1))
-			//	//	{
-			//	//		// Aging 상태를 Running 으로 변경한다.
-			//	//		lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
-
-			//	//		idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-			//	//		lpInspWorkInfo->m_nAgnIn = TRUE;
-			//	//		AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
-
-			//	//		// AGING Start Time 을 기록한다. (시/분/초 Summary Log 기록 위함)
-			//	//		m_pApp->Gf_sumSetStartTime(rack);
-
-			//	//		// AGING Start Tick 을 기록한다. (Thread 에서 경과시간 확인을 위함)
-			//	//		lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
-
-			//	//		// RACK Log 출력
-			//	//		//sLog.Format(_T("DOOR Close Check : OK"));
-			//	//		sLog.Format(_T("DOOR&TEMP Check : OK"));
-			//	//		pDlg->Lf_writeRackMLog(rack, sLog);
-			//	//	}
-			//	//	else if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE) // Door Enable
-			//	//	{
-			//	//		lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
-
-			//	//		idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-			//	//		lpInspWorkInfo->m_nAgnIn = TRUE;
-			//	//		AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
-
-			//	//		// AGING Start Time 을 기록한다. (시/분/초 Summary Log 기록 위함)
-			//	//		m_pApp->Gf_sumSetStartTime(rack);
-
-			//	//		// AGING Start Tick 을 기록한다. (Thread 에서 경과시간 확인을 위함)
-			//	//		lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
-
-			//	//		// RACK Log 출력
-			//	//		//sLog.Format(_T("DOOR Close Check : OK"));
-			//	//		sLog.Format(_T("DOOR&TEMP Check : OK"));
-			//	//		pDlg->Lf_writeRackMLog(rack, sLog);
-			//	//	}
-			//	//	else
-			//	//	{
-			//	//		continue;
-			//	//	}
-			//	//	
-			//	//}
-			//	//else
-			//	//{
-			//	//	continue;
-			//	//}
-			//	if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
-			//	{
-			//		// 조건이 처음 만족되면 시작 시간 기록
-			//		if (condStartTick[rack] == 0)
-			//		{
-			//			condStartTick[rack] = ::GetTickCount();
-			//		}
-
-			//		// 4초 이상 조건 유지 시 실행
-			//		if ((::GetTickCount() - condStartTick[rack]) >= 4000)
-			//		{
-			//			//lpInspWorkInfo->m_nDoorOpenClose[rack] = lpInspWorkInfo->m_nDioInputData[rack + DIO_IN_DOOR1];
-			//			if ((bTempRange == OK) && (lpInspWorkInfo->m_nDoorOpenClose[rack] == 1))
-			//			{
-			//				// Aging 상태를 Running 으로 변경
-			//				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
-
-			//				/*idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-			//				lpInspWorkInfo->m_nAgnIn = TRUE;
-			//				AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);*/
-
-			//				m_pApp->Gf_sumSetStartTime(rack);
-			//				lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
-
-			//				sLog.Format(_T("DOOR&TEMP Check : OK"));
-			//				pDlg->Lf_writeRackMLog(rack, sLog);
-
-			//				condStartTick[rack] = 0; // 실행 후 초기화
-			//			}
-			//			else if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
-			//			{
-			//				lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
-
-			//				idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-			//				lpInspWorkInfo->m_nAgnIn = TRUE;
-			//				AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
-
-			//				m_pApp->Gf_sumSetStartTime(rack);
-			//				lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
-
-			//				sLog.Format(_T("DOOR&TEMP Check : OK"));
-			//				pDlg->Lf_writeRackMLog(rack, sLog);
-
-			//				condStartTick[rack] = 0; // 실행 후 초기화
-			//			}
-			//		}
-			//	}
-			//	else
-			//	{
-			//		// 조건이 깨지면 타이머 초기화
-			//		condStartTick[rack] = 0;
-			//	}
-			//}
 
 			// 2025-02-18 KDW. AGING START시 DELAY동안 RUNTIME값 수정
 				if ((lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE || lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_ERROR) &&
@@ -359,10 +216,6 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 								pDlg->Lf_writeRackMLog(rack, sLog);
 
 								preTick[rack] = 0;
-
-								/*lpInspWorkInfo->m_nDioOutputData = lpInspWorkInfo->m_nDioOutputData & ~DIO_OUT_BUZZER;
-
-								m_pApp->pCommand->Gf_dio_setDIOWriteOutput(lpInspWorkInfo->m_nDioOutputData, lpInspWorkInfo->m_nDioOutputMode);*/
 							}
 						}
 					}
@@ -416,8 +269,6 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 											}
 										}
 								}
-
-								//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
 							}
 							else
 							{
@@ -436,10 +287,6 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 								pDlg->Lf_writeRackMLog(rack, sLog);
 
 								temTick[rack] = 0;
-
-								/*lpInspWorkInfo->m_nDioOutputData = lpInspWorkInfo->m_nDioOutputData & ~DIO_OUT_BUZZER;
-
-								m_pApp->pCommand->Gf_dio_setDIOWriteOutput(lpInspWorkInfo->m_nDioOutputData, lpInspWorkInfo->m_nDioOutputMode);*/
 							}
 						}
 					}
@@ -566,261 +413,6 @@ UINT ThreadFwVersionRead(LPVOID pParam)
 	return (0);
 }
 
-UINT ThreadTempControler(LPVOID pParam)
-{
-	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
-	
-	LPSYSTEMINFO lpSystemInfo = m_pApp->GetSystemInfo();
-	//CString portNameStr = _T("\\\\.\\COM10");
-	CString portNameStr;
-	portNameStr.Format(_T("\\\\.\\COM%d"), lpSystemInfo->m_nTempControllerPort);
-
-	//LPCWSTR portName = L"\\\\.\\COM10";  // 본인 환경에 맞는 COM 포트 번호로 변경
-	LPCWSTR portName = (LPCWSTR)portNameStr.GetString();
-	DCB dcbSerialParams = { 0 };
-	COMMTIMEOUTS timeouts = { 0 };
-	HANDLE hSerial;
-
-	// Serial 포트 열기
-	hSerial = CreateFile(portName,
-		GENERIC_READ | GENERIC_WRITE,
-		0, NULL, OPEN_EXISTING, 0, NULL);
-
-	if (hSerial == INVALID_HANDLE_VALUE) {
-		return 1;
-	}
-
-	// DCB 설정
-	dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-	if (!GetCommState(hSerial, &dcbSerialParams)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	dcbSerialParams.BaudRate = 115200;  // Baud Rate: 9600
-	dcbSerialParams.ByteSize = 8;         // Data Bits: 8
-	dcbSerialParams.Parity = NOPARITY;    // Parity: None
-	dcbSerialParams.StopBits = ONESTOPBIT;  // Stop Bits: 1
-	if (!SetCommState(hSerial, &dcbSerialParams)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// Timeouts 설정
-	timeouts.ReadIntervalTimeout = 50;
-	timeouts.ReadTotalTimeoutConstant = 50;
-	timeouts.ReadTotalTimeoutMultiplier = 10;
-	timeouts.WriteTotalTimeoutConstant = 50;
-	timeouts.WriteTotalTimeoutMultiplier = 10;
-
-	if (!SetCommTimeouts(hSerial, &timeouts)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 2. ST540E 프로토콜에 따른 명령어 설정
-	unsigned char command1[] = {
-		0x02, 0x30, 0x32, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
-	};
-
-	unsigned char command2[] = {
-		0x02, 0x30, 0x31, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
-	};
-
-	unsigned char command3[] = {
-		0x02, 0x30, 0x31, 0x52, 0x53, 0x44, 0x2C, 0x30, 0x32, 0x2C, 0x30, 0x30, 0x30, 0x31, 0x0D, 0x0A
-	};
-
-	// 번갈아 가면서 명령어 전송 및 응답 수신 (무한 루프)
-	// 
-		// 명령어 1 전송
-	DWORD bytesWritten;
-	if (!WriteFile(hSerial, command1, sizeof(command1), &bytesWritten, NULL)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 응답 수신 및 데이터 처리
-	unsigned char buffer[256] = { 0 };
-	DWORD bytesRead;
-	if (!ReadFile(hSerial, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 수신된 데이터 출력
-	if (bytesRead > 0) {
-		buffer[bytesRead] = 0;  // Null-terminate
-
-		// CString으로 변환
-		CStringA strA((char*)buffer);     // ANSI 버퍼
-		CString strW(strA);               // 유니코드 변환 (필요 시)
-
-		// 디버그 출력
-		OutputDebugString(_T("명령어 1 수신된 데이터: "));
-		OutputDebugString(strW);
-		OutputDebugString(_T("\n"));
-
-		// 마지막 6글자 추출
-		if (strA.GetLength() >= 6) {
-			CStringA target = strA.Right(6);  // 맨 뒤 6글자
-
-			OutputDebugString(_T("추출된 16진수 문자열: "));
-			OutputDebugString(CString(target));
-			OutputDebugString(_T("\n"));
-
-			// 16진수를 정수로 변환
-			unsigned int decimalValue = 0;
-			sscanf_s(target, "%x", &decimalValue);  // ANSI 기반 파싱
-
-			// 10진수 값 변환 후 표시
-			double realValue = decimalValue * 0.1;
-			CString result;
-			result.Format(_T("10진수 값: %.1f\n"), realValue);
-			OutputDebugString(result);
-			lpInspWorkInfo->m_nTempSt590_01 = realValue;
-			CString strTemp;
-			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-			if (pDlg)
-			{
-				CString strTemp;
-				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_01);
-				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR2, strTemp);
-			}
-		}
-		else {
-			OutputDebugString(_T("수신된 데이터 길이가 6보다 작습니다.\n"));
-		}
-	}
-
-	// 1초 대기
-	Sleep(1000);
-
-	// 명령어 2 전송
-	if (!WriteFile(hSerial, command2, sizeof(command2), &bytesWritten, NULL)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 응답 수신 및 데이터 처리
-	memset(buffer, 0, sizeof(buffer)); // 버퍼 초기화
-	bytesRead = 0;
-	if (!ReadFile(hSerial, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 수신된 데이터 출력
-	if (bytesRead > 0) {
-		buffer[bytesRead] = 0;  // Null-terminate
-
-		// CString으로 변환
-		CStringA strA((char*)buffer);     // ANSI 버퍼
-		CString strW(strA);               // 유니코드 변환 (필요 시)
-
-		// 디버그 출력
-		OutputDebugString(_T("명령어 2 수신된 데이터: "));
-		OutputDebugString(strW);
-		OutputDebugString(_T("\n"));
-
-		// 마지막 6글자 추출
-		if (strA.GetLength() >= 6) {
-			CStringA target = strA.Right(6);  // 맨 뒤 6글자
-
-			OutputDebugString(_T("추출된 16진수 문자열: "));
-			OutputDebugString(CString(target));
-			OutputDebugString(_T("\n"));
-
-			// 16진수를 정수로 변환
-			unsigned int decimalValue = 0;
-			sscanf_s(target, "%x", &decimalValue);  // ANSI 기반 파싱
-
-			// 10진수 값 변환 후 표시
-			double realValue = decimalValue * 0.1;
-			CString result;
-			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-			lpInspWorkInfo->m_nTempSt590_02 = realValue;
-			if (pDlg)
-			{
-				CString strTemp;
-				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_02);
-				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR3, strTemp);
-			}
-			OutputDebugString(result);
-		}
-		else {
-			OutputDebugString(_T("수신된 데이터 길이가 6보다 작습니다.\n"));
-		}
-	}
-
-	// 1초 대기
-	Sleep(1000);
-
-	// 명령어 3 전송
-	if (!WriteFile(hSerial, command3, sizeof(command3), &bytesWritten, NULL)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 응답 수신 및 데이터 처리
-	memset(buffer, 0, sizeof(buffer)); // 버퍼 초기화
-	bytesRead = 0;
-	if (!ReadFile(hSerial, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
-		CloseHandle(hSerial);
-		return 1;
-	}
-
-	// 수신된 데이터 출력
-	if (bytesRead > 0) {
-		buffer[bytesRead] = 0;  // Null-terminate
-
-		// CString으로 변환
-		CStringA strA((char*)buffer);     // ANSI 버퍼
-		CString strW(strA);               // 유니코드 변환 (필요 시)
-
-		// 디버그 출력
-		OutputDebugString(_T("명령어 3 수신된 데이터: "));
-		OutputDebugString(strW);
-		OutputDebugString(_T("\n"));
-
-		// 마지막 6글자 추출
-		if (strA.GetLength() >= 6) {
-			CStringA target = strA.Right(6);  // 맨 뒤 6글자
-
-			OutputDebugString(_T("추출된 16진수 문자열: "));
-			OutputDebugString(CString(target));
-			OutputDebugString(_T("\n"));
-
-			// 16진수를 정수로 변환
-			unsigned int decimalValue = 0;
-			sscanf_s(target, "%x", &decimalValue);  // ANSI 기반 파싱
-
-			// 10진수 값 변환 후 표시
-			double realValue = decimalValue * 0.1;
-			CString result;
-			CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-			lpInspWorkInfo->m_nTempSt590_03 = realValue;
-			if (pDlg)
-			{
-				CString strTemp;
-				strTemp.Format(_T("%d"), lpInspWorkInfo->m_nTempSt590_03);
-				pDlg->SetDlgItemText(IDC_STT_TEMP_SENSOR4, strTemp);
-			}
-			OutputDebugString(result);
-		}
-		else {
-			OutputDebugString(_T("수신된 데이터 길이가 6보다 작습니다.\n"));
-		}
-	}
-
-	// 1초 대기
-	Sleep(1000);
-
-	// 4. Serial 포트 닫기
-	CloseHandle(hSerial);
-	return (0);
-}
-
 UINT ThreadTempST590_1(LPVOID pParam)
 {
 	/*m_pApp->m_pTemp2xxx->TempSDR100_readTemp();
@@ -841,19 +433,6 @@ UINT ThreadTempST590_1(LPVOID pParam)
 	Sleep(300);
 	return (0);
 }
-
-UINT ThreadTempST590_1_SET(LPVOID pParam)
-{
-	/*m_pApp->m_pTemp2xxx->TempST590_SET_readTemp2();
-	Sleep(100);
-	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp3();
-	Sleep(100);
-	m_pApp->m_pTemp2xxx->TempST590_SET_readTemp4();
-	Sleep(100);*/
-	return (0);
-}
-
-
 
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
 
@@ -1015,6 +594,7 @@ BEGIN_MESSAGE_MAP(CHseAgingDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_DOOR4, &CHseAgingDlg::OnBnClickedButtonDoor4)
 	ON_BN_CLICKED(IDC_BUTTON_DOOR5, &CHseAgingDlg::OnBnClickedButtonDoor5)
 	ON_BN_CLICKED(IDC_BUTTON_DOOR6, &CHseAgingDlg::OnBnClickedButtonDoor6)
+	ON_BN_CLICKED(IDC_PAUSE1, &CHseAgingDlg::OnBnClickedPause1)
 END_MESSAGE_MAP()
 
 
@@ -1117,7 +697,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.0"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.1"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -1138,13 +718,6 @@ BOOL CHseAgingDlg::OnInitDialog()
 	
 	pCimNet = new CCimNetCommApi;
 
-	/*lpInspWorkInfo->m_nAgingStatusS[0] = 0;
-	lpInspWorkInfo->m_nAgingStatusS[1] = 0;
-	lpInspWorkInfo->m_nAgingStatusS[2] = 0;
-	lpInspWorkInfo->m_nAgingStatusS[3] = 0;
-	lpInspWorkInfo->m_nAgingStatusS[4] = 0;
-	lpInspWorkInfo->m_nAgingStatusS[5] = 0;*/
-
 	lpInspWorkInfo->m_nLampColor = 0;
 
 	// Dialog의 기본 FONT 설정.
@@ -1162,7 +735,6 @@ BOOL CHseAgingDlg::OnInitDialog()
 
 	// Aging Thread 를 시작한다.
 	AfxBeginThread(ThreadAgingStartRack, this);
-	//AfxBeginThread(ThreadHandBcrSearch, this);
 
 	ShowWindow(SW_MAXIMIZE);
 
@@ -1953,42 +1525,6 @@ HBRUSH CHseAgingDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	return hbr;
 }
 
-//BOOL CHseAgingDlg::PreTranslateMessage(MSG* pMsg)
-//{
-//	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
-//	if (pMsg->message == WM_SYSKEYDOWN && pMsg->wParam == VK_F4)
-//	{
-//		if (::GetKeyState(VK_MENU) < 0)	return TRUE;
-//	}
-//
-//	// 일반 Key 동작에 대한 Event
-// 	if (pMsg->message == WM_KEYDOWN)
-//	{
-//		if (pMsg->wParam == VK_ESCAPE)
-//		{
-//			return 1;
-//		}
-//		else if (pMsg->wParam == VK_RETURN)
-//		{
-//			return 1;
-//		}
-//		else if (pMsg->wParam == VK_SPACE)
-//		{
-//			return 1;
-//		}
-//		else if ((pMsg->wParam >= 33) && (pMsg->wParam <= 'z'))	// ! ~ z 까지의문자만 입력받음
-//		{
-// 			CString sdata;
-// 			sdata.Format(_T("%c"), pMsg->wParam);
-// 			m_nMainKeyInData.Append(sdata);
-// 			Lf_checkBcrRackIDInput();
-//			return 1;
-//		}
-//	}
-//
-//	return CDialogEx::PreTranslateMessage(pMsg);
-//}
-
 BOOL CHseAgingDlg::PreTranslateMessage(MSG* pMsg)
 {
 	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
@@ -2113,7 +1649,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		Lf_getTemperature();
 		Lf_getDIOStatus();
 		// Sensing Log
-		Lf_writeSensingLog();
+		//Lf_writeSensingLog();
 		Lf_AgingProgressLog();
 
 		//CTime t = CTime::GetCurrentTime();
@@ -2169,9 +1705,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 	}
 
 	if (nIDEvent == 8)
-	{
-		//AfxBeginThread(ThreadTempST590_1_SET, this);
-		
+	{	
 		if (lpInspWorkInfo->m_bAlarmOccur == TRUE)
 		{
 			KillTimer(8);
@@ -5263,8 +4797,6 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			outData = outData | (DIO_OUT_RED | DIO_OUT_BUZZER);
 			blinkMode = blinkMode | DIO_OUT_RED_BLINK;
 
-			Dxt.Format(_T("빨간색"));
-			OutputDebugString(Dxt);
 			Sleep(5000);
 			if (lpInspWorkInfo->m_nAgingInYN[lpInspWorkInfo->m_AgingErrorRack] == TRUE)
 			{
@@ -5274,8 +4806,8 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 		if (towerStatus & TOWER_LAMP_RUNNING)
 		{
 			outData = outData | DIO_OUT_GREEN;
-			Dxt.Format(_T("초록색"));
-			OutputDebugString(Dxt);
+			/*Dxt.Format(_T("초록색"));
+			OutputDebugString(Dxt);*/
 		}
 		if (towerStatus & TOWER_LAMP_COMPLETE)
 		{
@@ -5285,14 +4817,14 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			Lf_setDIOWrite(outData, 0);
 			outData = outData | DIO_OUT_YELLOW;
 			Lf_setDIOWrite(outData, 0);
-			Dxt.Format(_T("초록 노랑"));
-			OutputDebugString(Dxt);
+			/*Dxt.Format(_T("초록 노랑"));
+			OutputDebugString(Dxt);*/
 		}
 		if(towerStatus & TOWER_LAMP_READY)
 		{
 			outData = outData | DIO_OUT_YELLOW;
-			Dxt.Format(_T("노란색"));
-			OutputDebugString(Dxt);
+			/*Dxt.Format(_T("노란색"));
+			OutputDebugString(Dxt);*/
 		}
 
 		for (int rack = 0; rack < MAX_RACK; rack++)
@@ -5301,8 +4833,8 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			{
 				outData = outData | (DIO_OUT_GREEN | DIO_OUT_BUZZER);
 				blinkMode = blinkMode | DIO_OUT_GREEN_BLINK;
-				Dxt.Format(_T("초록반짝"));
-				OutputDebugString(Dxt);
+				/*Dxt.Format(_T("초록반짝"));
+				OutputDebugString(Dxt);*/
 			}
 			
 		}
@@ -5402,16 +4934,6 @@ void CHseAgingDlg::Lf_getTemperature()
 		lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP]--;
 
 	m_pApp->m_pTemp2xxx->TempSDR100_readTemp();
-	/*m_pApp->m_pTemp2xxx->TempST590_readTemp2();
-	Sleep(150);
-	m_pApp->m_pTemp2xxx->TempST590_readTemp2();
-	Sleep(150);
-	
-	m_pApp->m_pTemp2xxx->TempST590_readTemp2();
-	Sleep(150);
-	m_pApp->m_pTemp2xxx->TempSDR100_readTemp();
-	Sleep(150);*/
-	
 
 	// Temp Log Interval 시간이되면 Temperature Log 를 기록한다.
 	if (lpSystemInfo->m_nTempLogInterval != 0)
@@ -5426,77 +4948,76 @@ void CHseAgingDlg::Lf_getTemperature()
 		{
 			m_nTempLogWriteHour = currentHour; // 현재 시간을 저장
 			m_nTempLogWriteMin = currentMinute; // 현재 분을 저장
+
 			Lf_writeTempLog();
+			Lf_writeTempLog_Rackfile();
 
 			Lf_saveTempMinMax();
 
 			// Sensing Log 기록한다.
-			FILE* fp;
-			char filepath[128] = { 0 };
-			char buff[256] = { 0 };
-			char dataline[1024] = { 0 };
+			char dateStr[64];
+			sprintf_s(dateStr, "%04d%02d%02d", time.GetYear(), time.GetMonth(), time.GetDay());
 
-			sprintf_s(filepath, "./Logs/SensingLog/SensingLog_%04d%02d%02d.csv", time.GetYear(), time.GetMonth(), time.GetDay());
-			fopen_s(&fp, filepath, "r+");
-			if (fp == NULL)
-			{
-				if ((_access("./Logs/SensingLog", 0)) == -1)
-					_mkdir("./Logs/SensingLog");
+			char basePath[256] = ".\\Logs\\SensingLog";
+			if (_access(basePath, 0) == -1)
+				_mkdir(basePath);
 
-				delayMs(1);
-				fopen_s(&fp, filepath, "a+");
-				if (fp == NULL)
-				{
-					if ((_access(filepath, 2)) != -1)
-					{
-						delayMs(1);
-						fopen_s(&fp, filepath, "a+");
-						if (fp == NULL)
-						{
-							return;
-						}
-					}
-				}
-				sprintf_s(buff, "TIME,RACK,LAYER,CH,PID,VCC,ICC,VBL,IBL,TEMP\n");
-				fprintf(fp, "%s", buff);
-			}
+			char timeKey[32];
+			sprintf_s(timeKey, "%02d:%02d:%02d",
+				time.GetHour(), time.GetMinute(), time.GetSecond());
 
-			fseek(fp, 0L, SEEK_END);
-
-			char timeKey[100] = { 0, };
-			char panelID[100] = { 0, };
-			sprintf_s(timeKey, "%02d:%02d:%02d", time.GetHour(), time.GetMinute(), time.GetSecond());
+			// RACK별 파일 생성
 			for (int rack = 0; rack < MAX_RACK; rack++)
 			{
+				char rackPath[256];
+				sprintf_s(rackPath, "%s\\Rack%d", basePath, rack + 1);
+
+				if (_access(rackPath, 0) == -1)
+					_mkdir(rackPath);
+
+				char filePath[256];
+				sprintf_s(filePath, "%s\\SensingLog%d_%s.csv",
+					rackPath, rack + 1, dateStr);
+
+				FILE* fp;
+				fopen_s(&fp, filePath, "r+");
+
+				if (fp == NULL)   // 새 파일 생성
+				{
+					fopen_s(&fp, filePath, "a+");
+					if (fp == NULL) continue;
+
+					// ★ 헤더 작성
+					fprintf(fp, "TIME,RACK,LAYER,CH,PID,VCC,ICC,VBL,IBL,TEMP\n");
+				}
+
+				fseek(fp, 0L, SEEK_END);
+
 				for (int layer = 0; layer < MAX_LAYER; layer++)
 				{
 					for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 					{
-						sprintf_s(panelID, "%S", lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetString());
+						char panelID[128];
+						sprintf_s(panelID, "%S",
+							lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetString());
 
-						sprintf_s(buff, "%s,%d,%d,%d,%s,%.2fV,%.2fA,%.2fV,%.2fV,%.1f",
+						float measVCC = lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f;
+						float measICC = lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f;
+						float measVBL = lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f;
+						float measIBL = lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f;
+						float tempVal = lpInspWorkInfo->m_fTempReadVal[rack];
+
+						// ★ 데이터 라인 작성
+						fprintf(fp, "%s,%d,%d,%d,%s,%.2f,%.2f,%.2f,%.2f,%.1f\n",
 							timeKey,
 							rack + 1,
 							layer + 1,
 							ch + 1,
 							panelID,
-							(float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f,
-							(float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f,
-							(float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f,
-							(float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f,
-							(lpInspWorkInfo->m_fTempReadVal[rack])
-						);
+							measVCC, measICC, measVBL, measIBL,
+							tempVal);
 
-						char* pos = dataline;
-						sprintf_s(dataline, "%s\n", buff);
-						fprintf(fp, "%s", pos);
-
-						// Summary 및 실처리 전송을 위한 Min/Max/Avg 값을 저장한다.
-						float measVCC = (float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f;
-						float measICC = (float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f;
-						float measVBL = (float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f;
-						float measIBL = (float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f;
-
+						// ★ Min/Max/Avg 처리는 기존대로 유지
 						lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][ch] += measVCC;
 						lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][ch] += measICC;
 						lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][ch] += measVBL;
@@ -5507,15 +5028,8 @@ void CHseAgingDlg::Lf_getTemperature()
 						Lf_savePowerMeasureMinMax(rack, layer, ch);
 					}
 				}
-				//lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = lpInspWorkInfo->m_nAgingPowerMeasCount[rack] + 1;
+				fclose(fp);
 			}
-
-			/*for (int rack = 0; rack < MAX_RACK; rack++)
-			{
-				lpInspWorkInfo->m_nAgingPowerMeasCount[rack]++;
-			}*/
-
-			fclose(fp);
 		}
 	}
 
@@ -5591,6 +5105,82 @@ void CHseAgingDlg::Lf_writeTempLog()
 	fprintf(fp, "%s", pos);
 
 	fclose(fp);
+}
+
+void CHseAgingDlg::Lf_writeTempLog_Rackfile()
+{
+	FILE* fp;
+	char basePath[256] = ".\\Logs\\TemperatureLog";
+	char rackPath[256];
+	char filePath[256];
+
+	SYSTEMTIME st;
+	::GetLocalTime(&st);
+
+	char dateStr[32];
+	sprintf_s(dateStr, "%04d%02d%02d", st.wYear, st.wMonth, st.wDay);
+
+	// TemperatureLog 폴더 생성
+	if (_access(basePath, 0) == -1)
+		_mkdir(basePath);
+
+	for (int rack = 0; rack < MAX_RACK; rack++)
+	{
+		sprintf_s(rackPath, "%s\\Rack%d", basePath, rack + 1);
+
+		if (_access(rackPath, 0) == -1)
+			_mkdir(rackPath);
+
+		sprintf_s(filePath, "%s\\TempLog%d_%s.csv", rackPath, rack + 1, dateStr);
+
+		fopen_s(&fp, filePath, "r+");
+		if (fp == NULL)
+		{
+			fopen_s(&fp, filePath, "a+");
+			if (fp == NULL) continue;
+
+			// ★ Rack별 zone 그룹 계산
+			int zoneIndex = rack / 2 + 1;   // 0,1→1 / 2,3→2 / 4,5→3
+
+			fprintf(fp,
+				"Hour, Minute, RACK%d, ZONE%d, ZONE%d_SET\n",
+				rack + 1, zoneIndex, zoneIndex);
+		}
+
+		fseek(fp, 0L, SEEK_END);
+
+		// ★ Rack별 Zone 매핑
+		float rackTemp = lpInspWorkInfo->m_fTempReadVal[rack];
+
+		float zoneTemp, zoneSetVal;
+
+		if (rack < 2)              // Rack1, Rack2 → Zone1
+		{
+			zoneTemp = lpInspWorkInfo->m_fTempReadValST590_2[rack];
+			zoneSetVal = lpInspWorkInfo->m_fTempReadValST590_2_SET[rack];
+		}
+		else if (rack < 4)        // Rack3, Rack4 → Zone2
+		{
+			zoneTemp = lpInspWorkInfo->m_fTempReadValST590_3[rack - 2];
+			zoneSetVal = lpInspWorkInfo->m_fTempReadValST590_3_SET[rack - 2];
+		}
+		else                      // Rack5, Rack6 → Zone3
+		{
+			zoneTemp = lpInspWorkInfo->m_fTempReadValST590_4[rack - 4];
+			zoneSetVal = lpInspWorkInfo->m_fTempReadValST590_4_SET[rack - 4];
+		}
+
+		fprintf(fp,
+			"%02d, %02d, %.1f, %.1f, %.1f\n",
+			st.wHour,
+			st.wMinute,
+			rackTemp,
+			zoneTemp,
+			zoneSetVal
+		);
+
+		fclose(fp);
+	}
 }
 
 void CHseAgingDlg::Lf_updateTempature()
@@ -5974,21 +5564,21 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 						m_pApp->Gf_writeAlarmLog(rack, layer, ch, sdata);
 
-						if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)
-						{
-							//////////////////////////////////////////////////////////////////////////////////////////////////
-							CString skey = _T(""), stime = _T("");
-							CTime time = CTime::GetCurrentTime();
-							stime.Format(_T("%02d:%02d:%02d"), time.GetHour(), time.GetMinute(), time.GetSecond());
-							skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
-							Write_SummaryInfo(_T("FAIL_MESSAGE"), skey, errString);
-							Write_SummaryInfo(_T("FAIL_TIME"), skey, stime);
-							//////////////////////////////////////////////////////////////////////////////////////////////////
-						}
+						//if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)
+						//{
+						//	//////////////////////////////////////////////////////////////////////////////////////////////////
+						//	CString skey = _T(""), stime = _T("");
+						//	CTime time = CTime::GetCurrentTime();
+						//	stime.Format(_T("%02d:%02d:%02d"), time.GetHour(), time.GetMinute(), time.GetSecond());
+						//	skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+						//	Write_SummaryInfo(_T("FAIL_MESSAGE"), skey, errString);
+						//	Write_SummaryInfo(_T("FAIL_TIME"), skey, stime);
+						//	//////////////////////////////////////////////////////////////////////////////////////////////////
+						//}
 
 						lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] = LIMIT_NONE;
 						lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_NONE;
-						lpInspWorkInfo->m_ast_AgingTempError[rack][layer][ch] = TRUE;
+						//lpInspWorkInfo->m_ast_AgingTempError[rack][layer][ch] = TRUE; // Temp Error Agn_out 없애는 거
 						continue;
 					}
 				}
@@ -7012,4 +6602,9 @@ void CHseAgingDlg::Lf_rmsErcpSet()
 	m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
 	m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
+}
+
+void CHseAgingDlg::OnBnClickedPause1()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 }

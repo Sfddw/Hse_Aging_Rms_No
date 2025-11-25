@@ -1522,54 +1522,22 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MIN].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMin[rack]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MAX].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMax[rack]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingTempMeasCount[rack]));
-	//m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	/*CString dbg;
-	dbg.Format(_T("tempavg = %f, tempCount = %f"),
-		(float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack],
-			(float)lpInspWorkInfo->m_nAgingTempMeasCount[rack][layer][channel]));
-
-	OutputDebugString(dbg);*/
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVccMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVccMax[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	/*dbg.Format(_T("vccavg = %f, vccCount = %f"),
-		(float)(lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	OutputDebugString(dbg);*/
-
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIccMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIccMax[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	/*dbg.Format(_T("iccavg = %f, iccCount = %f"),
-		(float)(lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	OutputDebugString(dbg);*/
 
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVblMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVblMax[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
-	/*dbg.Format(_T("vblavg = %f, vblCount = %f"),
-		(float)(lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	OutputDebugString(dbg);*/
-
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIblMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIblMax[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	/*dbg.Format(_T("iblavg = %f, iblCount = %f"),
-		(float)(lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel],
-			(float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
-
-	OutputDebugString(dbg);*/
 
 	if (bNewCsv == TRUE)
 	{
@@ -1595,7 +1563,6 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		strFailMsg = _T("\"") + strFailMsg + _T("\"");
 	if (strFailTime.FindOneOf(_T(",\r\n")) >= 0)
 		strFailTime = _T("\"") + strFailTime + _T("\"");
-	
 
 	sprintf_s(buff, "%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S\n",
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_SW_VER].GetBuffer(0),
@@ -1640,6 +1607,96 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	fprintf(fp, "%s", buff);
 
 	fclose(fp);
+
+	Gf_sumWriteSummaryLog_Rack(rack, layer, channel, time, strFailMsg, strFailTime);
+}
+
+void CHseAgingApp::Gf_sumWriteSummaryLog_Rack(int rack, int layer, int ch, CTime time, CString FailMessage, CString FailTime)
+{
+	char Buff[2048] = { 0 };
+
+	char basePath[256] = ".\\Logs\\SummaryLog";
+	if (_access(basePath, 0) == -1)
+		_mkdir(basePath);
+
+	// Rack 폴더 생성
+	char rackDir[256];
+	sprintf_s(rackDir, "%s\\Rack%d", basePath, rack + 1);
+	if (_access(rackDir, 0) == -1)
+		_mkdir(rackDir);
+
+	// 날짜로 파일명 구성
+	char dateStr[64];
+	sprintf_s(dateStr, "%04d%02d%02d", time.GetYear(), time.GetMonth(), time.GetDay());
+
+	char filePath[256];
+	sprintf_s(filePath, "%s\\Summary%d_%s.csv", rackDir, rack + 1, dateStr);
+
+	FILE* fpRack;
+	
+	bool isNewFile = (_access(filePath, 0) == -1);
+
+	fopen_s(&fpRack, filePath, "a+");   // ★ append 모드 매우 중요 ★
+	if (fpRack == NULL)
+		return;
+	/*if (newRackFile)
+	{*/
+	if (isNewFile)
+	{
+		fprintf(fpRack,
+			"SW_VER,FW_VER,MODEL,EQP_NAME,PID,RACK,LAYER,CHANNEL,USER_ID,"
+			"AGING_TIME,START_TIME,END_TIME,RESULT,FAILED_MESSAGE,FAILED_MESSAGE_TIME,"
+			"VCC,ICC,VBL,IBL,"
+			"AGING_TEMP_MIN,AGING_TEMP_MAX,AGING_TEMP_AVG,"
+			"AGING_VCC_MIN,AGING_VCC_MAX,AGING_VCC_AVG,"
+			"AGING_ICC_MIN,AGING_ICC_MAX,AGING_ICC_AVG,"
+			"AGING_VBL_MIN,AGING_VBL_MAX,AGING_VBL_AVG,"
+			"AGING_IBL_MIN,AGING_IBL_MAX,AGING_IBL_AVG\n");
+	}
+
+		fprintf(fpRack, "%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S",
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_SW_VER].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_FW_VER].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MODEL].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_EQP_NAME].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_PID].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_RACK].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_LAYER].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_CHANNEL].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_USER_ID].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_AGING_TIME].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_END_TIME].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_RESULT].GetBuffer(0),
+			FailMessage.GetBuffer(),
+			FailTime.GetBuffer(),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_VCC].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_ICC].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_VBL].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_IBL].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_MIN].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_MAX].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_AVG].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_MIN].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_MAX].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_AVG].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_MIN].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_MAX].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_AVG].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_MIN].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_MAX].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_AVG].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_MIN].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_MAX].GetBuffer(0),
+			m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_AVG].GetBuffer(0)
+		);
+	//}
+	// 데이터 라인 추가
+	fprintf(fpRack, "%s\n", Buff);
+
+	fclose(fpRack);
+
+SkipRackSummary:;
 }
 
 void CHseAgingApp::Gf_sumInitSummaryInfo(int rack)

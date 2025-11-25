@@ -86,6 +86,9 @@ public:
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	void Gf_sumWriteSummaryLog(int rack, int layer, int channel);
+
+	void Gf_sumWriteSummaryLog_Rack(int rack, int layer, int channel, CTime CTime, CString FailMassage, CString FailTime);
+
 	void Gf_sumInitSummaryInfo(int rack);
 	void Gf_sumSetSummaryInfo(int rack, int layer, int ch, int sumIndex, CString sdata);
 	void Gf_sumSetStartTime(int rack);

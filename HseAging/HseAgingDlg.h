@@ -80,6 +80,8 @@ protected:
 	void Lf_setDIOBoardInitial();
 	void Lf_getDIOStatus();
 
+	void Lf_writeTempLog_Rackfile(); // rack별 temp 폴더 생성
+
 	void Lf_readSummaryIni(int rack);
 	void Lf_getTemperature();
 	void Lf_writeTempLog();
@@ -258,4 +260,5 @@ public:
 	afx_msg void OnBnClickedButtonDoor4();
 	afx_msg void OnBnClickedButtonDoor5();
 	afx_msg void OnBnClickedButtonDoor6();
+	afx_msg void OnBnClickedPause1();
 };
