@@ -1393,6 +1393,8 @@ void CHseAgingApp::Gf_LoadSystemData()
 	
 	Read_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), &lpSystemInfo->m_Aging_Count);
 	Read_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), &lpSystemInfo->m_Aging_Ng_Count);
+	Read_SysIniFile(_T("COUNT"), _T("AGING_MONTH_COUNT"), &lpSystemInfo->m_Aging_Month_Count);
+	Read_SysIniFile(_T("COUNT"), _T("AGING_MONTH_NG_COUNT"), &lpSystemInfo->m_Aging_Month_Ng_Count);
 
 	CString sSection, sKey, sValue;
 	for (int rack = 0; rack < MAX_RACK; rack++)
@@ -1631,6 +1633,7 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	if (sResult == "NG")
 	{
 		lpSystemInfo->m_Aging_Ng_Count++;
+		lpSystemInfo->m_Aging_Month_Ng_Count++;
 	}
 
 	CString strFailMsg = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE];

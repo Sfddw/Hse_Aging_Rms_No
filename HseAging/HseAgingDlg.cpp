@@ -887,7 +887,8 @@ HBRUSH CHseAgingDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 				return m_Brush[COLOR_IDX_SKYBLUE];
 			}
 			else if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
-				|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT))
+				|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT)
+				|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT2))
 			{
 				pDC->SetBkColor(COLOR_SKYBLUE);
 				pDC->SetTextColor(COLOR_RED);
@@ -1651,19 +1652,6 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		// Sensing Log
 		//Lf_writeSensingLog();
 		Lf_AgingProgressLog();
-
-		//CTime t = CTime::GetCurrentTime();
-		//int today = t.GetDay();
-
-		//if (lastDay != today)   // 날짜가 바뀐 경우에만 실행
-		//{
-		//	lpSystemInfo->m_Aging_Count = 0;
-		//	lpSystemInfo->m_Aging_Ng_Count = 0;
-		//	lastDay = today;
-
-		//	Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
-		//	Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count);
-		//}
 	}
 	if (nIDEvent == 3)
 	{
@@ -4719,6 +4707,7 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 							continue;
 						}
 						lpSystemInfo->m_Aging_Count++;
+						lpSystemInfo->m_Aging_Month_Count++;
 						m_pApp->Gf_gmesSendHost(HOST_APDR, rack, layer, ch);
 						///////////////////////////////////////////////////////////////////////////////////////////////
 						///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4737,6 +4726,8 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 
 				Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
 				Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count);
+				Write_SysIniFile(_T("COUNT"), _T("AGING_MONTH_COUNT"), lpSystemInfo->m_Aging_Month_Count);
+				Write_SysIniFile(_T("COUNT"), _T("AGING_MONTH_NG_COUNT"), lpSystemInfo->m_Aging_Month_Ng_Count);
 
 			}
 
@@ -5046,12 +5037,35 @@ void CHseAgingDlg::Lf_writeTempLog()
 
 	sprintf_s(filepath, ".\\Logs\\TemperatureLog\\TempLog_%04d%02d%02d.csv", time.GetYear(), time.GetMonth(), time.GetDay());
 	fopen_s(&fp, filepath, "r+");
+
+	static int lastInitMonth = -1;
+	int curDay = time.GetDay();
+	int curMonth = time.GetMonth();
+
 	if (fp == NULL)
 	{
+
+		if (curDay == 1) // 매월 초기화
+		{
+			if (lastInitMonth != curMonth)
+			{
+				lpSystemInfo->m_Aging_Month_Count = 0;
+				lpSystemInfo->m_Aging_Month_Ng_Count = 0;
+
+				Write_SysIniFile(_T("COUNT"), _T("AGING_MONTH_COUNT"), lpSystemInfo->m_Aging_Month_Count);
+				Write_SysIniFile(_T("COUNT"), _T("AGING_MONTH_NG_COUNT"), lpSystemInfo->m_Aging_Month_Ng_Count);
+
+				lastInitMonth = curMonth;
+			}
+		}
+		else                 
+		{
+			lastInitMonth = -1;
+		}
 		lpSystemInfo->m_Aging_Count = 0;
-			lpSystemInfo->m_Aging_Ng_Count = 0;
+		lpSystemInfo->m_Aging_Ng_Count = 0;
 		Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
-		Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count);
+		Write_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), lpSystemInfo->m_Aging_Ng_Count); // 매일 초기화
 		if ((_access(".\\Logs\\TemperatureLog", 0)) == -1)
 			_mkdir(".\\Logs\\TemperatureLog");
 
@@ -6414,34 +6428,16 @@ void CHseAgingDlg::OnBnClickedButtonDoor6()
 
 void CHseAgingDlg::Lf_AgingProgressLog()
 {
-	CString Aging_Count, Aging_Ng_Count;
+	CString Aging_Count, Aging_Ng_Count, Aging_Month_Count, Aging_Month_Ng_Count;
 	Aging_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Count);
 	GetDlgItem(IDC_STT_MA_AGING_COUNT)->SetWindowText(Aging_Count);
 	Aging_Ng_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Ng_Count);
 	GetDlgItem(IDC_STT_MA_AGING_NG_COUNT)->SetWindowText(Aging_Ng_Count);
+	Aging_Month_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Month_Count);
+	GetDlgItem(IDC_STT_MA_MONTH_AGING_COUNT)->SetWindowText(Aging_Month_Count);
+	Aging_Month_Ng_Count.Format(_T("%d"), lpSystemInfo->m_Aging_Month_Ng_Count);
+	GetDlgItem(IDC_STT_MA_MONTH_AGING_NG_COUNT)->SetWindowText(Aging_Month_Ng_Count);
 
-	//for (int i = 0; i < MAX_RACK; i++)
-	//{
-	//	if (m_nAgingStart[i] == TRUE)
-	//	{
-	//		m_nProgressGauge[i] = m_pCtrMaProgress[i]->GetPos();
-
-	//		// 현재 게이지가 20, 40, 60, 80, 100 중 하나이고, 이전에 기록한 값과 다르면
-	//		if (m_nProgressGauge[i] % 20 == 0 &&
-	//			m_nProgressGauge[i] != m_nLastLoggerdProgress[i] &&
-	//			m_nProgressGauge[i] <= 100)
-	//		{
-	//			CString sLog;	
-	//			sLog.Format(_T("<MESSAGE> Aging Progress Rate - [%d%%] (RACK %d)"),
-	//				m_nProgressGauge[i], (i + 1));
-
-	//			m_pApp->Gf_writeMLog(sLog);
-
-	//			// 마지막 기록한 값 저장
-	//			m_nLastLoggerdProgress[i] = m_nProgressGauge[i];
-	//		}
-	//	}
-	//}
 	for (int i = 0; i < MAX_RACK; i++)
 	{
 		if (m_nAgingStart[i] == TRUE)

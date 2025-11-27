@@ -147,6 +147,8 @@ typedef struct _ST_SYSTEMINFO_{
 	// Aging Count 설정 //
 	int m_Aging_Count;
 	int m_Aging_Ng_Count;
+	int m_Aging_Month_Count;
+	int m_Aging_Month_Ng_Count;
 
 	// Refresh Time 설정
 	float m_fRefreshAgingStatusTime;

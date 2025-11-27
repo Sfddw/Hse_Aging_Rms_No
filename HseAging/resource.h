@@ -1864,6 +1864,7 @@
 #define IDC_CHK_PI_LAYER1_CH4           2242
 #define IDC_GRP_MA_FW_VERSION4          2242
 #define IDC_CHK_PI_LAYER1_CH5           2243
+#define IDC_GRP_MA_FW_VERSION5          2243
 #define IDC_CHK_PI_LAYER1_CH6           2244
 #define IDC_CHK_PI_LAYER1_CH7           2245
 #define IDC_CHK_PI_LAYER1_CH8           2246
@@ -2065,10 +2066,14 @@
 #define IDC_STT_MA_AGING_NG_COUNT       2435
 #define IDC_STATIC_NG_COUNT             2436
 #define IDC_ERCP_SEND                   2437
+#define IDC_STT_MA_MONTH_AGING_COUNT    2437
 #define IDC_ERCP_RECIVE                 2438
 #define IDC_ERCP_RECEIVE                2438
 #define IDC_BUTTON1                     2438
 #define IDC_PAUSE1                      2438
+#define IDC_STATIC_MONTH_NG_COUNT       2439
+#define IDC_STATIC_NG_COUNT2            2439
+#define IDC_STT_MA_MONTH_AGING_NG_COUNT 2440
 
 // Next default values for new objects
 // 
