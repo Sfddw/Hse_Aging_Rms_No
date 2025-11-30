@@ -489,6 +489,55 @@ void CHseAgingApp::Gf_writeAlarmLog(int rack, int layer, int ch, CString strErro
 	fclose(fp);
 }
 
+void CHseAgingApp::Gf_writeAlarmLog_RackOnly(int rack, int layer, int ch, CString strError)
+{
+	if (rack < 0 || rack >= MAX_RACK)
+		return;
+
+	FILE* fp = nullptr;
+	char szDir[256] = { 0 };
+	char filepath[512] = { 0 };
+	char filename[256] = { 0 };
+	char dataline[512] = { 0 };
+
+	CTime time = CTime::GetCurrentTime();
+
+	// 날짜 포맷
+	char szdate[100] = { 0 };
+	sprintf_s(szdate, "%04d-%02d-%02d %02d:%02d:%02d",
+		time.GetYear(), time.GetMonth(), time.GetDay(),
+		time.GetHour(), time.GetMinute(), time.GetSecond());
+
+	// RACK별 폴더 생성
+	sprintf_s(szDir, ".\\Logs\\AlarmLog\\RACK%d", rack + 1);
+	if ((_access(szDir, 0)) == -1)
+		_mkdir(szDir);
+
+	// 파일 이름
+	sprintf_s(filename, "%04d-%02d-%02d_AlarmLog.txt",
+		time.GetYear(), time.GetMonth(), time.GetDay());
+
+	sprintf_s(filepath, "%s\\%s", szDir, filename);
+
+	// 파일 오픈
+	fopen_s(&fp, filepath, "a+");
+	if (!fp)
+		return;
+
+	// 에러 문자열 반환
+	char szerror[512] = { 0 };
+	sprintf_s(szerror, "%S", strError.GetString());
+
+	// 한 줄 데이터 생성
+	sprintf_s(dataline, "%s\tLAYER-%d\tCH_%d\t%s\r\n",
+		szdate, layer + 1, ch + 1, szerror);
+
+	// 파일에 쓰기
+	fwrite(dataline, sizeof(char), strlen(dataline), fp);
+
+	fclose(fp);
+}
+
 BOOL CHseAgingApp::Gf_ShowMessageBox(CString errMessage)
 {
 	CMessageError errDlg;
@@ -1369,6 +1418,8 @@ void CHseAgingApp::Gf_LoadSystemData()
 	{
 		skey.Format(_T("LAST_MODELNAME_RACK%d"), (rack + 1));
 		Read_SysIniFile(_T("SYSTEM"), skey, &lpSystemInfo->m_sLastModelName[rack]);
+		/*skey.Format(_T("LAST_TIMEOUT_RACK%d"), (rack + 1));
+		Read_SysIniFile(_T("SYSTEM"), skey, &lpSystemInfo->m_sLastTimeOut[rack]);*/
 	}
 
 	Read_SysIniFile(_T("MES"), _T("MES_SERVICE_PORT"), &lpSystemInfo->m_sMesServicePort);

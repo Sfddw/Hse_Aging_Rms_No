@@ -48,6 +48,8 @@ public:
 	void Gf_writeMLog_Rack(CString sLogData, int RackNum);
 
 	void Gf_writeAlarmLog(int rack, int layer, int ch, CString strError);
+	void Gf_writeAlarmLog_RackOnly(int rack, int layer, int ch, CString strError);
+
 	BOOL Gf_ShowMessageBox(CString errMessage);
 
 	void Gf_setGradientStatic01(CGradientStatic* pGStt, CFont* pFont, BOOL bSplit = FALSE);

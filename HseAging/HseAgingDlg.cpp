@@ -32,6 +32,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)pParam;
 	ULONGLONG agingTotalSec, agingElapseSec;
 	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+	LPSYSTEMINFO lpSystemInfo = m_pApp->GetSystemInfo();
 
 	CString sLog;
 	DWORD preTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 };
@@ -92,6 +93,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 						 lpInspWorkInfo->m_nAgingInYN[rack] = TRUE;
 
 						m_pApp->Gf_sumSetStartTime(rack);
+						lpInspWorkInfo->m_nAgingResumeOffsetSec[rack] = lpSystemInfo->m_sLastTimeOut[rack] * 60;
 						lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
 
 						sLog.Format(_T("DOOR&TEMP Check : OK"));
@@ -110,7 +112,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 				}
 
 			agingTotalSec = lpInspWorkInfo->m_nAgingSetTime[rack] * 60;
-			agingElapseSec = (::GetTickCount64() - lpInspWorkInfo->m_nAgingStartTick[rack]) / 1000;
+			agingElapseSec = ((::GetTickCount64() - lpInspWorkInfo->m_nAgingStartTick[rack]) / 1000) + lpInspWorkInfo->m_nAgingResumeOffsetSec[rack];
 
 			/*if (agingElapseSec >= 20)
 			{
@@ -139,7 +141,12 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 			agingElapseSec -=  elapsedTimeToSubtract;
 
 			// Aging 경과 시간에 DOOR Open 시간을 마이너스 하여 업데이트 한다.
+			
 			lpInspWorkInfo->m_nAgingRunTime[rack] = (int)(agingElapseSec / 60);
+			sLog.Format(_T("LAST_TIMEOUT_RACK%d"), rack + 1);
+			Write_SysIniFile(_T("SYSTEM"), sLog, lpInspWorkInfo->m_nAgingRunTime[rack]);
+
+			
 
 
 			// Aging 완료되면 Start Flag Clear
@@ -697,7 +704,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.2"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.3"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -1661,7 +1668,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		AfxBeginThread(ThreadTempST590_1, this);
 		
 
-		/*for (int i = 0; i < 6; i++)
+		for (int i = 0; i < 6; i++)
 		{
 			if(i == 0)
 			{ 
@@ -1687,7 +1694,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 			{
 				lpInspWorkInfo->m_fTempReadVal[i] = 50 + lpInspWorkInfo->TempTest;
 			}
-		}*/
+		}
 
 		//AfxBeginThread(ThreadTempControler, this);
 	}
@@ -4244,7 +4251,9 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 		return;
 	}
 
-	CString sModelName, sdata, sLog;
+	CMessageQuestion msg_dlg;
+
+	CString sModelName, sdata, sLog, sTimeOut;
 
 	sLog.Format(_T("<MESSAGE> AGING START CLICK [RACK %d]"), rack + 1);
 	m_pApp->Gf_writeMLog(sLog);
@@ -4259,6 +4268,32 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	// RACK 선택된 모델명을 가져온다
 	m_pCmbMaModel[rack]->GetWindowText(sModelName);
 	m_pApp->Gf_loadModelData(sModelName);
+
+	sTimeOut.Format(_T("LAST_TIMEOUT_RACK%d"), (rack + 1));
+	Read_SysIniFile(_T("SYSTEM"), sTimeOut, &lpSystemInfo->m_sLastTimeOut[rack]);
+
+	if (lpSystemInfo->m_sLastTimeOut[rack] != 0)
+	{
+		msg_dlg.m_strQMessage.Format(_T("Aging Continue ? [%d]Minute"), lpSystemInfo->m_sLastTimeOut[rack]);
+		if (msg_dlg.DoModal() == IDOK)
+		{
+			CString Msg;
+			Msg.Format(_T("Start From [%d]Minute"), lpSystemInfo->m_sLastTimeOut[rack]);
+			Lf_writeRackMLog(rack, Msg);
+			lpInspWorkInfo->m_nAgingRunTime[rack] = lpSystemInfo->m_sLastTimeOut[rack];
+		}
+		else
+		{
+			lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
+			sTimeOut.Format(_T("LAST_TIMEOUT_RACK%d"), rack + 1);
+			Write_SysIniFile(_T("SYSTEM"), sLog, lpInspWorkInfo->m_nAgingRunTime[rack]);
+			lpSystemInfo->m_sLastTimeOut[rack] = 0;
+		}
+	}
+	else
+	{
+		lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
+	}
 
 	// Cable Open Check 진행한다.
 	if (Lf_checkCableOpen(rack) == FALSE)
@@ -4316,8 +4351,11 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	lpInspWorkInfo->m_fOpeIblSetMin[rack] = lpModelInfo->m_fVblLimitCurrLow;
 	lpInspWorkInfo->m_fOpeIblSetMax[rack] = lpModelInfo->m_fVblLimitCurrHigh;
 
+
 	// Summary Log 및 실처리 전송 관련 정보를 초기화 한다
-	lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
+	
+	//lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
+
 	lpInspWorkInfo->m_nAgingDoorOpenTime[rack] = 0;
 
 	lpInspWorkInfo->m_nAgingTempMatchTime[rack] = 0;
@@ -5571,6 +5609,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 						}
 
 						m_pApp->Gf_writeAlarmLog(rack, layer, ch, sdata);
+						m_pApp->Gf_writeAlarmLog_RackOnly(rack, layer, ch, errString);
 
 						//if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)
 						//{
@@ -5617,6 +5656,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 				// Alarm Log 를 기록한다.
 				m_pApp->Gf_writeAlarmLog(rack, layer, ch, errString);
+				m_pApp->Gf_writeAlarmLog_RackOnly(rack, layer, ch, errString);
 
 				// 2024-05-30 PDH. PID가 없는 CH은 Limit NG 정보 Summary Log 에 기록되지 않도록 한다.
 				if (lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetLength() != 0)

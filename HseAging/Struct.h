@@ -113,6 +113,7 @@ typedef struct _ST_SYSTEMINFO_{
 	int m_nMesIDType;
 
 	CString	m_sLastModelName[MAX_RACK];			// 마지막 M/C 모델명
+	int m_sLastTimeOut[MAX_RACK];
 	CString m_sChannelID[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	int m_nTempRecorderPort;
 	int m_nTempControllerPort;
@@ -181,6 +182,9 @@ typedef struct _ST_INSPWORKINFO_
 	BOOL m_nFwVerifyResult[MAX_RACK];
 
 	ULONGLONG m_nAgingStartTick[MAX_RACK];
+
+	int m_nAgingResumeOffsetSec[MAX_RACK];
+
 	int	m_nAgingStatus[MAX_RACK];
 	int m_nAgingSetTime[MAX_RACK];
 	int m_nAgingRunTime[MAX_RACK];
