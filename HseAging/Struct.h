@@ -4,7 +4,7 @@
 
 typedef struct _ST_MODELINFO_
 {
-
+	int		m_nModelNumber;
 
 	int		m_nTimingHorTotal;
 	int		m_nTimingHorActive;

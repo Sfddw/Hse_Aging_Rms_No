@@ -548,6 +548,11 @@ void CModelInfo::Lf_reloadControlData()
 	CString sdata;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Model Number
+	sdata.Format(_T("%d"), lpModelInfo->m_nModelNumber);
+	GetDlgItem(IDC_EDT_MI_SAVE_MODEL_NUM)->SetWindowText(sdata);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Timing Set
 	sdata.Format(_T("%.2f"), lpModelInfo->m_fTimingMainClock);
 	GetDlgItem(IDC_EDT_MI_MCLOCK)->SetWindowText(sdata);
@@ -748,6 +753,12 @@ void CModelInfo::Lf_saveModelData()
 	CString modelName, sdata;
 
 	GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(modelName);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Model Number
+	GetDlgItem(IDC_EDT_MI_SAVE_MODEL_NUM)->GetWindowText(sdata);
+	lpModelInfo->m_nModelNumber = _ttoi(sdata);
+	Write_ModelFile(modelName, _T("MODEL_INFO"), _T("MODEL_NUMBER"), lpModelInfo->m_nModelNumber);
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Timing Set

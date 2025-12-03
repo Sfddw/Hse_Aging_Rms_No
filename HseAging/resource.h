@@ -667,8 +667,10 @@
 #define IDC_CHK_MA_SELECT_RACK6         1477
 #define IDC_STT_MA_VCC_S2_CH28          1478
 #define IDC_EDT_MI_POWER_ON_DELAY10     1478
+#define IDC_STT_MI_MODEL_NUM            1478
 #define IDC_STT_MA_VCC_S2_CH29          1479
 #define IDC_CMB_MI_POWER_ON_SEQ11       1479
+#define IDC_EDT_MI_SAVE_MODEL_NUM       1479
 #define IDC_STT_MA_VCC_S2_CH30          1480
 #define IDC_EDT_MI_POWER_ON_DELAY11     1480
 #define IDC_STT_MA_TITLE_S2_VDD3        1481

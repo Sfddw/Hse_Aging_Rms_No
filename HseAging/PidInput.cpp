@@ -421,8 +421,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				CString chTag = m_nMainKeyInData.Mid(6, 2);       // "CH"
 				CString chId = m_nMainKeyInData.Right(2);         // "YY"
 
-				m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
-				m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);
+				/*m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
+				m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);*/
 
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
@@ -846,7 +846,7 @@ void CPidInput::OnTimer(UINT_PTR nIDEvent)
 			if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID)
 			{
 				pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-				CDialog::OnOK();
+				//CDialog::OnOK();
 			}
 		}
 	}
@@ -3129,7 +3129,7 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 			//AfxMessageBox(_T("PCHK OK, Cable Connect"));
 			pDlg->Lf_setAgingSTART_PID(rack, Chid);
 
-			SetTimer(5, 5000, NULL);
+			SetTimer(5, 500, NULL);
 		}
 	//if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_NG)
 	//{
