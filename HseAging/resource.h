@@ -1701,6 +1701,7 @@
 #define IDC_GRP_PI_PID_OPERATION        2158
 #define IDC_GRP_PI_MES_OPERATION        2159
 #define IDC_MBC_PI_SAVE_EXIT            2160
+#define IDC_GRP_PI_MES_OPERATION2       2160
 #define IDC_MBC_PI_CANCEL               2161
 #define IDC_MBC_PI_PID_CLEAR            2162
 #define IDC_LIST2                       2163
@@ -2074,6 +2075,9 @@
 #define IDC_STATIC_MONTH_NG_COUNT       2439
 #define IDC_STATIC_NG_COUNT2            2439
 #define IDC_STT_MA_MONTH_AGING_NG_COUNT 2440
+#define IDC_MBC_PI_LCM_ON               2440
+#define IDC_BUTTON4                     2441
+#define IDC_MBC_PI_LCM_OFF              2441
 
 // Next default values for new objects
 // 
@@ -2081,7 +2085,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        191
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2439
+#define _APS_NEXT_CONTROL_VALUE         2441
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

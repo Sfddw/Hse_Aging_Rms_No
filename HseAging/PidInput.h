@@ -79,6 +79,7 @@ protected:
 	void Lf_checkBcrRackChIDInput(CString RackID, CString ChID); // 바코드+채널 값 읽는 함수
 	void Lf_Send_checkBcrRackChIDInput(CString RackID, CString ChID); // 바코드+채널 값 읽는 함수
 	BOOL Pchk_TF = TRUE;
+	BOOL LCM_STATUS[MAX_RACK] = { FALSE,FALSE,FALSE,FALSE,FALSE,FALSE };
 	int Lf_PchkInfo(int ctrl_id);
 
 	void Lf_CableOpenCheck(int rack); // Cable Open
@@ -205,4 +206,6 @@ public:
 	CButton m_btnPiCancel;
 	afx_msg void OnBnClickedMbcPiChAllSelect();
 	afx_msg void OnBnClickedMbcPiChAllClear();
+	afx_msg void OnBnClickedMbcPiLcmOn();
+	afx_msg void OnBnClickedMbcPiLcmOff();
 };

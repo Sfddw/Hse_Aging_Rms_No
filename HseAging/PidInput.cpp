@@ -146,6 +146,8 @@ BEGIN_MESSAGE_MAP(CPidInput, CDialog)
 	ON_BN_CLICKED(IDC_BTN_PI_CANCEL, &CPidInput::OnBnClickedBtnPiCancel)
 	ON_BN_CLICKED(IDC_MBC_PI_CH_ALL_SELECT, &CPidInput::OnBnClickedMbcPiChAllSelect)
 	ON_BN_CLICKED(IDC_MBC_PI_CH_ALL_CLEAR, &CPidInput::OnBnClickedMbcPiChAllClear)
+	ON_BN_CLICKED(IDC_MBC_PI_LCM_ON, &CPidInput::OnBnClickedMbcPiLcmOn)
+	ON_BN_CLICKED(IDC_MBC_PI_LCM_OFF, &CPidInput::OnBnClickedMbcPiLcmOff)
 END_MESSAGE_MAP()
 
 
@@ -211,11 +213,25 @@ void CPidInput::OnDestroy()
 		m_Font[i].DeleteObject();
 	}
 
+	CString RackID;
+	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(RackID);
+	RackID = RackID.Right(1);
+	int rack = _ttoi(RackID);
+
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 	if (pDlg != nullptr && lpInspWorkInfo->m_PidFlag == true)
 	{
-		pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+		//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+		m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);
 		lpInspWorkInfo->m_PidFlag = false;
+	}
+
+	if (LCM_STATUS[rack-1] == TRUE)
+	{
+		m_pApp->pCommand->Gf_setAgingSTOP(rack-1);
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack-1, POWER_OFF);
+		LCM_STATUS[_ttoi(lpInspWorkInfo->m_StopRackID)] = FALSE;
 	}
 }
 
@@ -299,22 +315,22 @@ void CPidInput::OnDestroy()
 BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 {
 	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
-	if (pMsg->message == WM_SYSKEYDOWN && pMsg->wParam == VK_F4)
+	if (pMsg->message == WM_SYSKEYDOWN && pMsg->wParam == VK_F4) // ESC, ALT+F4 차단
 	{
 		if (::GetKeyState(VK_MENU) < 0)	return TRUE;
 	}
 
 	// 일반 Key 동작에 대한 Event
-	if (pMsg->message == WM_KEYDOWN)
+	if (pMsg->message == WM_KEYDOWN) // 키 입력
 	{
 		bool ScanIndex = false;
 		CString sdata;
 		
 		switch (pMsg->wParam)
 		{
-		case VK_ESCAPE:
+		case VK_ESCAPE: // Backspace
 			return 1;
-		case VK_RETURN:
+		case VK_RETURN: // Enter
 			
 			if (GetDlgItem(IDC_EDT_PI_RACK_ID) == GetFocus())
 			{
@@ -322,20 +338,23 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 			}
 			else if (m_nMainKeyInData.GetLength() == PID_LENGTH) // PID SCAN - 길이 14개
 			{
-				bool P_Chk = false;
+				bool P_Chk = false; // Pchk시 OK, NG 판단 플래그
+
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 
-				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID);
+				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID); // 이전 Rack 번호
 				int NowRackNum = (_ttoi(lpInspWorkInfo->m_RackID)) - 1;
 
 				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID && BeforeRackNum != NowRackNum)
 				{
-					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+					//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+					m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
+					m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);
 				}
 				if (m_pApp->m_bIsGmesConnect == FALSE)
 				{
 					Lf_addMessage(_T("MES not connected"));
-					m_nMainKeyInData.Empty();
+					m_nMainKeyInData.Empty(); 
 					return TRUE;
 				}
 				else
@@ -401,6 +420,9 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				CString rackId = m_nMainKeyInData.Left(6);       // "RACK01"
 				CString chTag = m_nMainKeyInData.Mid(6, 2);       // "CH"
 				CString chId = m_nMainKeyInData.Right(2);         // "YY"
+
+				m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
+				m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);
 
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
@@ -3120,4 +3142,33 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 	cable_dlg.DoModal();
 	pDlg->Lf_setAgingSTART_PID(rack, Chid);*/
 
+}
+
+
+void CPidInput::OnBnClickedMbcPiLcmOn()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	CString RackID;
+	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(RackID);
+	RackID = RackID.Right(1);
+	int rack = _ttoi(RackID);
+	
+	m_pApp->pCommand->Gf_setAgingSTART(rack-1);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack-1, POWER_ON);
+
+	LCM_STATUS[rack-1] = TRUE;
+}
+
+
+void CPidInput::OnBnClickedMbcPiLcmOff()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	CString RackID;
+	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(RackID);
+	RackID = RackID.Right(1);
+	int rack = _ttoi(RackID);
+
+	m_pApp->pCommand->Gf_setAgingSTOP(rack-1);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack-1, POWER_OFF);
+	LCM_STATUS[rack - 1] = FALSE;
 }
