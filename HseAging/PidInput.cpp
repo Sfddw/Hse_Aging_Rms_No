@@ -146,8 +146,6 @@ BEGIN_MESSAGE_MAP(CPidInput, CDialog)
 	ON_BN_CLICKED(IDC_BTN_PI_CANCEL, &CPidInput::OnBnClickedBtnPiCancel)
 	ON_BN_CLICKED(IDC_MBC_PI_CH_ALL_SELECT, &CPidInput::OnBnClickedMbcPiChAllSelect)
 	ON_BN_CLICKED(IDC_MBC_PI_CH_ALL_CLEAR, &CPidInput::OnBnClickedMbcPiChAllClear)
-	ON_BN_CLICKED(IDC_MBC_PI_LCM_ON, &CPidInput::OnBnClickedMbcPiLcmOn)
-	ON_BN_CLICKED(IDC_MBC_PI_LCM_OFF, &CPidInput::OnBnClickedMbcPiLcmOff)
 END_MESSAGE_MAP()
 
 
@@ -192,9 +190,9 @@ BOOL CPidInput::OnInitDialog()
 		EndDialog(IDOK);
 	}
 
-	
+
 	return TRUE;  // return TRUE unless you set the focus to a control
-				  // 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
+	// 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
 }
 
 
@@ -213,25 +211,11 @@ void CPidInput::OnDestroy()
 		m_Font[i].DeleteObject();
 	}
 
-	CString RackID;
-	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(RackID);
-	RackID = RackID.Right(1);
-	int rack = _ttoi(RackID);
-
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 	if (pDlg != nullptr && lpInspWorkInfo->m_PidFlag == true)
 	{
-		//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-		m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
-		m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);
+		pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 		lpInspWorkInfo->m_PidFlag = false;
-	}
-
-	if (LCM_STATUS[rack-1] == TRUE)
-	{
-		m_pApp->pCommand->Gf_setAgingSTOP(rack-1);
-		m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack-1, POWER_OFF);
-		LCM_STATUS[_ttoi(lpInspWorkInfo->m_StopRackID)] = FALSE;
 	}
 }
 
@@ -315,46 +299,43 @@ void CPidInput::OnDestroy()
 BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 {
 	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
-	if (pMsg->message == WM_SYSKEYDOWN && pMsg->wParam == VK_F4) // ESC, ALT+F4 차단
+	if (pMsg->message == WM_SYSKEYDOWN && pMsg->wParam == VK_F4)
 	{
 		if (::GetKeyState(VK_MENU) < 0)	return TRUE;
 	}
 
 	// 일반 Key 동작에 대한 Event
-	if (pMsg->message == WM_KEYDOWN) // 키 입력
+	if (pMsg->message == WM_KEYDOWN)
 	{
 		bool ScanIndex = false;
 		CString sdata;
-		
+
 		switch (pMsg->wParam)
 		{
-		case VK_ESCAPE: // Backspace
+		case VK_ESCAPE:
 			return 1;
-		case VK_RETURN: // Enter
-			
+		case VK_RETURN:
+
 			if (GetDlgItem(IDC_EDT_PI_RACK_ID) == GetFocus())
 			{
 				m_pedtPannelID[LAYER_1][CH_1]->SetFocus();
 			}
 			else if (m_nMainKeyInData.GetLength() == PID_LENGTH) // PID SCAN - 길이 14개
 			{
-				bool P_Chk = false; // Pchk시 OK, NG 판단 플래그
-
+				bool P_Chk = false;
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 
-				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID); // 이전 Rack 번호
+				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID);
 				int NowRackNum = (_ttoi(lpInspWorkInfo->m_RackID)) - 1;
 
 				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID && BeforeRackNum != NowRackNum)
 				{
-					//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-					m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
-					m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);
+					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 				}
 				if (m_pApp->m_bIsGmesConnect == FALSE)
 				{
 					Lf_addMessage(_T("MES not connected"));
-					m_nMainKeyInData.Empty(); 
+					m_nMainKeyInData.Empty();
 					return TRUE;
 				}
 				else
@@ -377,7 +358,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 						//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 						Lf_CableOpenCheck(RackID);
 						//pDlg->Lf_setAgingSTART_PID(RackID, ChID);
-						
+
 					}
 				}
 				else
@@ -421,9 +402,6 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				CString chTag = m_nMainKeyInData.Mid(6, 2);       // "CH"
 				CString chId = m_nMainKeyInData.Right(2);         // "YY"
 
-				/*m_pApp->pCommand->Gf_setAgingSTOP(_ttoi(lpInspWorkInfo->m_StopRackID));
-				m_pApp->pCommand->Gf_setPowerSequenceOnOff(_ttoi(lpInspWorkInfo->m_StopRackID), POWER_OFF);*/
-
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
 					Lf_checkBcrRackChIDInput(rackId, chId); // RACK 변경
@@ -439,7 +417,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				m_nMainKeyInData.Empty();
 				return 1;
 			}
-			
+
 			else
 			{
 				if (ScanIndex == true)
@@ -498,308 +476,308 @@ HBRUSH CPidInput::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	// TODO:  여기서 DC의 특성을 변경합니다.
 	switch (nCtlColor)
 	{
-		case CTLCOLOR_MSGBOX:
-			break;
-		case CTLCOLOR_EDIT:
-			if ((pWnd->GetDlgCtrlID() == IDC_EDT_PI_RACK_ID)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH16)
-				)
+	case CTLCOLOR_MSGBOX:
+		break;
+	case CTLCOLOR_EDIT:
+		if ((pWnd->GetDlgCtrlID() == IDC_EDT_PI_RACK_ID)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_EDT_PI_PID_LAYER5_CH16)
+			)
+		{
+			if (Lf_checkPIDMesInfo(pWnd->GetDlgCtrlID()) != 0)
 			{
-				if (Lf_checkPIDMesInfo(pWnd->GetDlgCtrlID()) != 0)
-				{
-					// MES 완료 색상
-					pDC->SetBkColor(COLOR_SKYBLUE);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_SKYBLUE];
-				}
-				if (Lf_checkPIDFocusInfo(pWnd->GetDlgCtrlID()) != 0)
-				{
-					// Focus 위치 색상
-					pDC->SetBkColor(COLOR_JADEBLUE);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_JADEBLUE];
-				}
-				if (Lf_checkPIDErrorInfo(pWnd->GetDlgCtrlID()) != 0)
-				{
-					// PID ERROR 색상
-					pDC->SetBkColor(COLOR_RED);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED];
-				}
-				if (Lf_checkPIDValidInfo(pWnd->GetDlgCtrlID()) != 0)
-				{
-					// PID 입력 완료 색상
-					pDC->SetBkColor(COLOR_LIGHT_GREEN);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_LIGHT_GREEN];
-				}
-
-				// PID 입력 대기 색상
-				pDC->SetBkColor(COLOR_WHITE);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_WHITE];
-			}
-
-			break;
-		case CTLCOLOR_LISTBOX:
-			if (pWnd->GetDlgCtrlID() == IDC_LST_PI_MES_MESSAGE)
-			{
-				pDC->SetBkColor(COLOR_WHITE);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_WHITE];
-			}
-			break;
-		case CTLCOLOR_SCROLLBAR:
-			break;
-		case CTLCOLOR_BTN:
-			break;
-		case CTLCOLOR_STATIC:		// Static, CheckBox control
-			if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_RIGHT_SIDE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_SIDE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER5)
-				)
-			{
+				// MES 완료 색상
 				pDC->SetBkColor(COLOR_SKYBLUE);
-				pDC->SetTextColor(COLOR_BLACK);
+				pDC->SetTextColor(COLOR_WHITE);
 				return m_Brush[COLOR_IDX_SKYBLUE];
 			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_PI_TITLE)
+			if (Lf_checkPIDFocusInfo(pWnd->GetDlgCtrlID()) != 0)
 			{
-				pDC->SetBkColor(COLOR_DARK_NAVY);
+				// Focus 위치 색상
+				pDC->SetBkColor(COLOR_JADEBLUE);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_JADEBLUE];
+			}
+			if (Lf_checkPIDErrorInfo(pWnd->GetDlgCtrlID()) != 0)
+			{
+				// PID ERROR 색상
+				pDC->SetBkColor(COLOR_RED);
 				pDC->SetTextColor(COLOR_WHITE);
-				return m_Brush[COLOR_IDX_DARK_NAVY];
+				return m_Brush[COLOR_IDX_RED];
 			}
-			if ((pWnd->GetDlgCtrlID() == IDC_GRP_PI_PID_OPERATION)
-				|| (pWnd->GetDlgCtrlID() == IDC_GRP_PI_MES_OPERATION)
-				)
+			if (Lf_checkPIDValidInfo(pWnd->GetDlgCtrlID()) != 0)
 			{
-				pDC->SetBkColor(COLOR_GRAY192);
+				// PID 입력 완료 색상
+				pDC->SetBkColor(COLOR_LIGHT_GREEN);
 				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_GRAY192];
+				return m_Brush[COLOR_IDX_LIGHT_GREEN];
 			}
-			if ((pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH16)
-				)
-			{
-				pDC->SetBkColor(COLOR_GRAY192);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_GRAY192];
-			}
-			if ((pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH16)
-				)
-			{
-				pDC->SetBkColor(COLOR_GRAY159);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_GRAY159];
 
-			}
-			break;
+			// PID 입력 대기 색상
+			pDC->SetBkColor(COLOR_WHITE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_WHITE];
+		}
+
+		break;
+	case CTLCOLOR_LISTBOX:
+		if (pWnd->GetDlgCtrlID() == IDC_LST_PI_MES_MESSAGE)
+		{
+			pDC->SetBkColor(COLOR_WHITE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_WHITE];
+		}
+		break;
+	case CTLCOLOR_SCROLLBAR:
+		break;
+	case CTLCOLOR_BTN:
+		break;
+	case CTLCOLOR_STATIC:		// Static, CheckBox control
+		if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_RIGHT_SIDE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_SIDE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LAYER5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_LEFT_LAYER5)
+			)
+		{
+			pDC->SetBkColor(COLOR_SKYBLUE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_SKYBLUE];
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_PI_TITLE)
+		{
+			pDC->SetBkColor(COLOR_DARK_NAVY);
+			pDC->SetTextColor(COLOR_WHITE);
+			return m_Brush[COLOR_IDX_DARK_NAVY];
+		}
+		if ((pWnd->GetDlgCtrlID() == IDC_GRP_PI_PID_OPERATION)
+			|| (pWnd->GetDlgCtrlID() == IDC_GRP_PI_MES_OPERATION)
+			)
+		{
+			pDC->SetBkColor(COLOR_GRAY192);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_GRAY192];
+		}
+		if ((pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH1) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH3) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH5) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH7) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH9) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH11) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH13) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH15) || (pWnd->GetDlgCtrlID() == IDC_CHK_PI_LAYER5_CH16)
+			)
+		{
+			pDC->SetBkColor(COLOR_GRAY192);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_GRAY192];
+		}
+		if ((pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_PI_MSG_LAYER5_CH16)
+			)
+		{
+			pDC->SetBkColor(COLOR_GRAY159);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_GRAY159];
+
+		}
+		break;
 	}
 	// TODO:  기본값이 적당하지 않으면 다른 브러시를 반환합니다.
 	return hbr;
@@ -809,8 +787,8 @@ HBRUSH CPidInput::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 void CPidInput::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: 여기에 메시지 처리기 코드를 추가합니다.
-					   // 그리기 메시지에 대해서는 CDialog::OnPaint()을(를) 호출하지 마십시오.
+	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+	// 그리기 메시지에 대해서는 CDialog::OnPaint()을(를) 호출하지 마십시오.
 	CRect rect, rectOri;
 	GetClientRect(&rect);
 	rectOri = rect;
@@ -846,7 +824,7 @@ void CPidInput::OnTimer(UINT_PTR nIDEvent)
 			if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID)
 			{
 				pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-				//CDialog::OnOK();
+				CDialog::OnOK();
 			}
 		}
 	}
@@ -1661,7 +1639,7 @@ void CPidInput::OnBnClickedMbcPiPidClear()
 		CString sSection, sKey, sValue;
 		sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
 
-		for(int layer=0; layer<MAX_LAYER; layer++)
+		for (int layer = 0; layer < MAX_LAYER; layer++)
 		{
 			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 			{
@@ -1815,7 +1793,7 @@ void CPidInput::OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid)
 	sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
 	Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
 
-	sKey.Format(_T("RACK%d_LAYER%d_CH%d"),m_nSelRack + 1, Pid_Layer, Pid_Ch);
+	sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, Pid_Layer, Pid_Ch);
 	m_pedtPannelID[Pid_Layer - 1][Pid_Ch - 1]->GetWindowText(sValue);
 	lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer - 1][Pid_Ch - 1] = sValue;
 	Write_MesPIDInfo(sSection, sKey, sValue);
@@ -2626,7 +2604,7 @@ int CPidInput::Lf_checkPIDMesInfo(int ctrl_id)
 
 int CPidInput::Lf_checkPIDErrorInfo(int ctrl_id)
 {
-	int isMatch=FALSE, match_layer, match_ch;
+	int isMatch = FALSE, match_layer, match_ch;
 	CString bcr_info;
 
 	GetDlgItem(ctrl_id)->GetWindowText(bcr_info);
@@ -2668,7 +2646,7 @@ int CPidInput::Lf_checkPIDErrorInfo(int ctrl_id)
 		{
 			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 			{
-				if ((layer==match_layer) && (ch == match_ch))	// 자신의 ID 위치는 Skip 한다.
+				if ((layer == match_layer) && (ch == match_ch))	// 자신의 ID 위치는 Skip 한다.
 					continue;
 
 				if (GetDlgItem(m_nedtDlgCtrlID[layer][ch])->IsWindowVisible() == TRUE)
@@ -2822,7 +2800,7 @@ BOOL CPidInput::Lf_setExecuteMesAGNIN() // AGN_IN
 
 			sdata.Format(_T("Rack%d-Layer%d-Ch%d  PID:%s"), m_nSelRack + 1, layer + 1, ch + 1, lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch]);
 			if (m_pApp->Gf_gmesSendHost(HOST_AGN_IN, m_nSelRack, layer, ch) == TRUE)
-			//if (m_pApp->Gf_gmesSendHost(HOST_PCHK, m_nSelRack, layer, ch) == TRUE)
+				//if (m_pApp->Gf_gmesSendHost(HOST_PCHK, m_nSelRack, layer, ch) == TRUE)
 			{
 
 				//m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
@@ -3121,16 +3099,16 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 
 	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 
-		if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer - 1][Pid_Ch - 1] == CABLE_CHECK_OK)
-		{
-			lpInspWorkInfo->m_CableRackId = rack;
-			lpInspWorkInfo->m_CableRackLayer = Pid_Layer - 1;
-			lpInspWorkInfo->m_CableRackCh = Pid_Ch - 1;
-			//AfxMessageBox(_T("PCHK OK, Cable Connect"));
-			pDlg->Lf_setAgingSTART_PID(rack, Chid);
+	if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer - 1][Pid_Ch - 1] == CABLE_CHECK_OK)
+	{
+		lpInspWorkInfo->m_CableRackId = rack;
+		lpInspWorkInfo->m_CableRackLayer = Pid_Layer - 1;
+		lpInspWorkInfo->m_CableRackCh = Pid_Ch - 1;
+		//AfxMessageBox(_T("PCHK OK, Cable Connect"));
+		pDlg->Lf_setAgingSTART_PID(rack, Chid);
 
-			SetTimer(5, 500, NULL);
-		}
+		SetTimer(5, 5000, NULL);
+	}
 	//if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][Pid_Layer-1][Pid_Ch-1] == CABLE_CHECK_NG)
 	//{
 	//	//AfxMessageBox(_T("PCHK OK, Cable DisConnect"));
@@ -3142,33 +3120,4 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 	cable_dlg.DoModal();
 	pDlg->Lf_setAgingSTART_PID(rack, Chid);*/
 
-}
-
-
-void CPidInput::OnBnClickedMbcPiLcmOn()
-{
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	CString RackID;
-	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(RackID);
-	RackID = RackID.Right(1);
-	int rack = _ttoi(RackID);
-	
-	m_pApp->pCommand->Gf_setAgingSTART(rack-1);
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack-1, POWER_ON);
-
-	LCM_STATUS[rack-1] = TRUE;
-}
-
-
-void CPidInput::OnBnClickedMbcPiLcmOff()
-{
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	CString RackID;
-	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(RackID);
-	RackID = RackID.Right(1);
-	int rack = _ttoi(RackID);
-
-	m_pApp->pCommand->Gf_setAgingSTOP(rack-1);
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack-1, POWER_OFF);
-	LCM_STATUS[rack - 1] = FALSE;
 }

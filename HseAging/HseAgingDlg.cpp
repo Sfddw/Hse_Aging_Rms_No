@@ -6065,6 +6065,7 @@ void CHseAgingDlg::Lf_checkDoorOpenClose()
 
 void CHseAgingDlg::Lf_checkBcrRackIDInput()
 {
+
 	int Value = 0;
 
 	// "RACK03CH02"에서 "3"을 추출하기 위해 필요한 인덱스를 계산
