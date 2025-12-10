@@ -2288,12 +2288,13 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_PCHK)
 	{
-		Gf_gmesSetValueAgcm(rack, layer, ch);
+		/*Gf_gmesSetValueAgcm(rack, layer, ch);
 		nRtnCD = pCimNet->PCHK();
 		if (nRtnCD == RTN_OK)
 		{
 			pCimNet->GetFieldData(&lpInspWorkInfo->m_sMesPchkRtnPID[rack][layer][ch], _T("RTN_PID"));
-		}
+		}*/
+		nRtnCD = pCimNet->PCHK_B(lpInspWorkInfo->m_nPid);
 	}
 	else if (hostCMD == HOST_FLDR)
 	{

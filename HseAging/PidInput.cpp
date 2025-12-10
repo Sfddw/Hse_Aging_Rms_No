@@ -146,6 +146,8 @@ BEGIN_MESSAGE_MAP(CPidInput, CDialog)
 	ON_BN_CLICKED(IDC_BTN_PI_CANCEL, &CPidInput::OnBnClickedBtnPiCancel)
 	ON_BN_CLICKED(IDC_MBC_PI_CH_ALL_SELECT, &CPidInput::OnBnClickedMbcPiChAllSelect)
 	ON_BN_CLICKED(IDC_MBC_PI_CH_ALL_CLEAR, &CPidInput::OnBnClickedMbcPiChAllClear)
+	ON_BN_CLICKED(IDC_MBC_PI_LCM_ON, &CPidInput::OnBnClickedMbcPiLcmOn)
+	ON_BN_CLICKED(IDC_MBC_PI_LCM_OFF, &CPidInput::OnBnClickedMbcPiLcmOff)
 END_MESSAGE_MAP()
 
 
@@ -178,7 +180,7 @@ BOOL CPidInput::OnInitDialog()
 		SetTimer(99, 1000, NULL);
 		Lf_setExecuteMesAGNIN();
 		lpInspWorkInfo->m_nAgnIn = FALSE;
-		EndDialog(IDOK);
+		//EndDialog(IDOK);
 	}
 
 	if (m_nMesAutoDMOU == MES_DMOU_MODE_AUTO || lpInspWorkInfo->m_nAgnRack != FALSE) // AGING온료시 AGN_OUT
@@ -187,7 +189,7 @@ BOOL CPidInput::OnInitDialog()
 		SetTimer(99, 1000, NULL);
 		lpInspWorkInfo->m_nAgnRack = FALSE;
 		Lf_setExecuteMesAGNOUT();
-		EndDialog(IDOK);
+		//EndDialog(IDOK);
 	}
 
 
@@ -274,7 +276,10 @@ void CPidInput::OnDestroy()
 //
 //                if (m_nMainKeyInData.Left(4).CompareNoCase(_T("RACK")) == 0)
 //                {
-//                    Lf_checkBcrRackChIDInput(rackID, channelID);
+//                    Lf_checkBcrRack
+// 
+// 
+// Input(rackID, channelID);
 //                }
 //            }
 //
@@ -325,14 +330,14 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				bool P_Chk = false;
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 
-				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID);
-				int NowRackNum = (_ttoi(lpInspWorkInfo->m_RackID)) - 1;
+				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID); // 이전 rack 번호
+				int NowRackNum = (_ttoi(lpInspWorkInfo->m_RackID)) - 1; // 현재 rack 번호
 
-				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID && BeforeRackNum != NowRackNum)
+				if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID && BeforeRackNum != NowRackNum) // 채널 변경 후 PID 스캔 시 이전 PID 점등 화면 정지
 				{
 					pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
 				}
-				if (m_pApp->m_bIsGmesConnect == FALSE)
+				if (m_pApp->m_bIsGmesConnect == FALSE) // MES 연결이 안되어 있을 때.
 				{
 					Lf_addMessage(_T("MES not connected"));
 					m_nMainKeyInData.Empty();
@@ -340,13 +345,15 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 				}
 				else
 				{
-					P_Chk = m_pApp->Gf_gmesSendHost_PCHK(HOST_PCHK, m_nMainKeyInData); // PCHK 값 전송
+					//P_Chk = m_pApp->Gf_gmesSendHost_PCHK(HOST_PCHK, m_nMainKeyInData); // PCHK 값 전송
+					lpInspWorkInfo->m_nPid = m_nMainKeyInData;
+					P_Chk = m_pApp->Gf_gmesSendHost(HOST_PCHK, _ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_LayerID), _ttoi(lpInspWorkInfo->m_Layer_ChID));
 				}
 
-				if (P_Chk == TRUE)
+				if (P_Chk == TRUE) // PCHK로 OK값 리턴 받았을 때
 				{
 					//OnBnClickedBtnPiSaveExit_B(); // 전체 저장
-					OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID));
+					OnBnClickedBtnPiSaveExitSelect(_ttoi(lpInspWorkInfo->m_RackID), _ttoi(lpInspWorkInfo->m_ChID)); // 한 개 저장
 					if (m_nMainKeyInData != "")
 					{
 						sdata.Format(_T("PCHK OK [%s]"), m_nMainKeyInData);
@@ -356,12 +363,12 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 						int ChID = _ttoi(lpInspWorkInfo->m_ChID);
 						RackID -= 1;
 						//pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
-						Lf_CableOpenCheck(RackID);
+						Lf_CableOpenCheck(RackID); // PID 스캔 시 CABLE OPEN CHECK
 						//pDlg->Lf_setAgingSTART_PID(RackID, ChID);
 
 					}
 				}
-				else
+				else // PCHK 후 NG값 리턴 받았을 때
 				{
 					if (m_nMainKeyInData != "")
 					{
@@ -404,9 +411,22 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 
 				if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 && chTag.CompareNoCase(_T("CH")) == 0)
 				{
+					int Pid_Layer, Pid_Ch;
+
+					// 1) Layer 계산 (Left+Right 동일 공식)
+					Pid_Layer = ((_ttoi(chId) - 1) % 40) / 8 + 1;
+					// 2) CH 번호 계산
+					Pid_Ch = ((_ttoi(chId) - 1) % 8) + 1;
+					if (_ttoi(chId) > 40)
+						Pid_Ch += 8;
+
 					Lf_checkBcrRackChIDInput(rackId, chId); // RACK 변경
 					lpInspWorkInfo->m_RackID = rackId.Right(2);
 					lpInspWorkInfo->m_ChID = chId.Right(2);
+					
+					lpInspWorkInfo->m_LayerID.Format(_T("%d"), Pid_Layer);
+					lpInspWorkInfo->m_Layer_ChID.Format(_T("%d"), Pid_Ch);
+					
 				}
 				else
 				{
@@ -2966,8 +2986,8 @@ void CPidInput::Lf_checkBcrRackChIDInput(CString RackID, CString ChID)
 		m_pedtPannelID[row][col]->SetFocus();
 	}
 	else
-	{
-		TRACE(_T("⚠️ 잘못된 포커싱: ChID=%s → chNumber=%d → row=%d, col=%d\n"), ChID, chNumber, row, col);
+	{ 
+		TRACE(_T("Focus Error: ChID=%s → chNumber=%d → row=%d, col=%d\n"), ChID, chNumber, row, col);
 	}
 }
 
@@ -2995,7 +3015,7 @@ void CPidInput::Lf_Send_checkBcrRackChIDInput(CString RackID, CString ChID)
 	}
 	else
 	{
-		TRACE(_T("⚠️ 잘못된 포커싱: ChID=%s → chNumber=%d → row=%d, col=%d\n"), ChID, chNumber, row, col);
+		TRACE(_T("Focus Error: ChID=%s → chNumber=%d → row=%d, col=%d\n"), ChID, chNumber, row, col);
 	}
 }
 
@@ -3120,4 +3140,40 @@ void CPidInput::Lf_CableOpenCheck(int rack)
 	cable_dlg.DoModal();
 	pDlg->Lf_setAgingSTART_PID(rack, Chid);*/
 
+}
+
+void CPidInput::OnBnClickedMbcPiLcmOn() // LCM 점등 ON 버튼
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+
+	CString RackId;
+	GetDlgItemText(IDC_EDT_PI_RACK_ID, RackId);
+	int RackNo = _ttoi(RackId.Right(1));
+
+	if (lpInspWorkInfo->m_RackID == "")
+	{
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(0, POWER_ON);
+	}
+	else
+	{
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(RackNo-1, POWER_ON);
+	}
+}
+
+void CPidInput::OnBnClickedMbcPiLcmOff() // LCM 점등 OFF 버튼
+{
+	CString RackId;
+	GetDlgItemText(IDC_EDT_PI_RACK_ID, RackId);
+	int RackNo = _ttoi(RackId.Right(1));
+
+	if (lpInspWorkInfo->m_RackID == "")
+	{
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(0, POWER_OFF);
+	}
+	else
+	{
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(RackNo-1, POWER_OFF);
+	}
+	
 }

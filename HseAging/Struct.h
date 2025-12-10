@@ -284,6 +284,10 @@ typedef struct _ST_INSPWORKINFO_
 
 	CString m_RackID;
 	CString m_ChID;
+	CString m_LayerID;
+	CString m_Layer_ChID;
+	CString m_nPid;
+
 	CString m_StopRackID = _T("13"); // pid 점등 초기값 설정
 
 	int m_CableRackId;
