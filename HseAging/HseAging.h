@@ -104,7 +104,7 @@ public:
 	BOOL	Gf_gmesInitServer(BOOL nServerType);
 	BOOL	Gf_gmesConnect(int nServerType);
 	void	Gf_gmesSetValueAgcm(int rack, int layer, int ch);
-	void	Gf_gmesShowLocalErrorMsg();
+	void	Gf_gmesShowLocalErrorMsg(int hostCMD);
 	CString Gf_gmesGetUserID();
 	CString Gf_gmesGetUserName();
 	CString Gf_gmesGetRTNCD();

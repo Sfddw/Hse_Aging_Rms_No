@@ -2080,6 +2080,7 @@
 #define IDC_MBC_PI_LCM_ON               2440
 #define IDC_BUTTON4                     2441
 #define IDC_MBC_PI_LCM_OFF              2441
+#define IDC_GRP_PI_LCM_TEST             2442
 
 // Next default values for new objects
 // 
@@ -2087,7 +2088,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        191
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2441
+#define _APS_NEXT_CONTROL_VALUE         2443
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

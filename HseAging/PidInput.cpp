@@ -180,16 +180,16 @@ BOOL CPidInput::OnInitDialog()
 		SetTimer(99, 1000, NULL);
 		Lf_setExecuteMesAGNIN();
 		lpInspWorkInfo->m_nAgnIn = FALSE;
-		//EndDialog(IDOK);
+		EndDialog(IDOK);
 	}
 
-	if (m_nMesAutoDMOU == MES_DMOU_MODE_AUTO || lpInspWorkInfo->m_nAgnRack != FALSE) // AGING온료시 AGN_OUT
+	if (m_nMesAutoDMOU == MES_DMOU_MODE_AUTO || lpInspWorkInfo->m_nAgnRack != FALSE) // AGING완료시 AGN_OUT
 	{
 		//lpInspWorkInfo->m_nAgnOutYn[lpInspWorkInfo->m_nAgnRack] = TRUE;
 		SetTimer(99, 1000, NULL);
 		lpInspWorkInfo->m_nAgnRack = FALSE;
 		Lf_setExecuteMesAGNOUT();
-		//EndDialog(IDOK);
+		EndDialog(IDOK);
 	}
 
 
@@ -327,7 +327,7 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 			}
 			else if (m_nMainKeyInData.GetLength() == PID_LENGTH) // PID SCAN - 길이 14개
 			{
-				bool P_Chk = false;
+				bool P_Chk = false; // PCHK 리턴 OK, NG 확인 플래그
 				CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 
 				int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID); // 이전 rack 번호
@@ -374,8 +374,8 @@ BOOL CPidInput::PreTranslateMessage(MSG* pMsg)
 					{
 						m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1); // 부져 on
 
-						sdata.Format(_T("PCHK ERROR [%s]"), m_nMainKeyInData);
-						m_pApp->Gf_ShowMessageBox(sdata);
+						//sdata.Format(_T("PCHK ERROR [%s]"), m_nMainKeyInData);
+						m_pApp->Gf_ShowMessageBox(lpInspWorkInfo->m_AgingErrorMsg);
 
 						lpInspWorkInfo->m_nDioOutputData = lpInspWorkInfo->m_nDioOutputData & ~DIO_OUT_BUZZER;
 
@@ -658,6 +658,7 @@ HBRUSH CPidInput::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		}
 		if ((pWnd->GetDlgCtrlID() == IDC_GRP_PI_PID_OPERATION)
 			|| (pWnd->GetDlgCtrlID() == IDC_GRP_PI_MES_OPERATION)
+			|| (pWnd->GetDlgCtrlID() == IDC_GRP_PI_LCM_TEST)
 			)
 		{
 			pDC->SetBkColor(COLOR_GRAY192);

@@ -2173,7 +2173,7 @@ CString CHseAgingApp::Gf_gmesGetPlanInfo()
 }
 
 
-void CHseAgingApp::Gf_gmesShowLocalErrorMsg()
+void CHseAgingApp::Gf_gmesShowLocalErrorMsg(int hostCMD)
 {
 
 	CString strMsg;
@@ -2182,7 +2182,18 @@ void CHseAgingApp::Gf_gmesShowLocalErrorMsg()
 	pCimNet->GetFieldData(&strMsg, _T("ERR_MSG_ENG"));	//ERR_MSG_ENG	ERR_MSG_LOC
 	errDlg.m_strEMessage.Format(_T("<MES> MES ERROR %s (RACK = [%d], LAYER = [%d], CH = [%d]"), strMsg, lpInspWorkInfo->m_AgnInStartRack+1, lpInspWorkInfo->m_AgnInStartLayer+1, lpInspWorkInfo->m_AgnInStartChannel+1);
 
-	errDlg.DoModal();
+	if (hostCMD == HOST_PCHK)
+	{
+		errDlg.m_strEMessage.Format(_T("<PCHK> PCHK ERROR %s"), strMsg);
+	}
+
+	if (hostCMD != HOST_PCHK)
+	{
+		errDlg.DoModal();
+	}
+
+	lpInspWorkInfo->m_AgingErrorMsg = strMsg; // MES ERROR MESSAGE 담기
+	/*errDlg.DoModal();*/
 }
 
 BOOL CHseAgingApp::Gf_gmesSendHost_PCHK(int hostCMD, CString PID)
@@ -2451,11 +2462,11 @@ Send_RETRY:
 	{
 		while (Gf_gmesGetRTNCD() == _T("2705"))
 		{
-			Gf_gmesShowLocalErrorMsg();
+			Gf_gmesShowLocalErrorMsg(hostCMD);
 
 			return FALSE;
 		}
-		Gf_gmesShowLocalErrorMsg();
+		Gf_gmesShowLocalErrorMsg(hostCMD);
 	}
 
 	return FALSE;

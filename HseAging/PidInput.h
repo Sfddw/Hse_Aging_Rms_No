@@ -49,6 +49,12 @@ protected:
 	int m_nSelLayer;
 	int m_nSelChannel;
 
+	BOOL HandleEnterKey();
+	BOOL HandlePIDScan();
+	BOOL HandleRackScan();
+	void ClearFocusEdit();
+	void AppendScannedKey(WPARAM vk);
+
 	void Lf_InitLocalValue();
 	void Lf_InitFontset();
 	void Lf_InitColorBrush();
