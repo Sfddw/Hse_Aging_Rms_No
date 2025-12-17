@@ -308,6 +308,7 @@ typedef struct _ST_INSPWORKINFO_
 
 	int m_AgingErrorRack;
 	CString m_AgingErrorMsg;
+	BOOL m_PidTestError[MAX_RACK] = { false, false, false, false, false, false };
 
 }INSPWORKINFO, * LPINSPWORKINFO;
 

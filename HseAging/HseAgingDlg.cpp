@@ -1558,29 +1558,29 @@ BOOL CHseAgingDlg::PreTranslateMessage(MSG* pMsg)
 		}
 		else if ((pMsg->wParam >= 33) && (pMsg->wParam <= 'z'))	// ! ~ z 까지의문자만 입력받음
 		{
-			//CString sdata;
-			//sdata.Format(_T("%c"), pMsg->wParam);
-			//m_nSendKeyInData.Append(sdata);
-			//CString rackID;
-			//CString channelID;
+			CString sdata;
+			sdata.Format(_T("%c"), pMsg->wParam);
+			m_nSendKeyInData.Append(sdata);
+			CString rackID;
+			CString channelID;
 
-			//if (m_nSendKeyInData.GetLength() >= 10) // 10개 입력 된 순간부터
-			//{
-			//	CString IndexStr = m_nSendKeyInData.Right(10);
-			//	CString LeftPart = IndexStr.Left(4);
-			//	CString RightPart = IndexStr.Right(4);
-			//	CString RightPart2 = RightPart.Left(2);
-			//	int rackLength = 6; // "RACK01"의 길이 (6자)
-			//	rackID = m_nSendKeyInData.Left(rackLength); // RACK 부분 저장
-			//	channelID = m_nSendKeyInData.Right(m_nSendKeyInData.GetLength() - rackLength); // CH 부분 저장
+			if (m_nSendKeyInData.GetLength() >= 10) // 10개 입력 된 순간부터
+			{
+				CString IndexStr = m_nSendKeyInData.Right(10);
+				CString LeftPart = IndexStr.Left(4);
+				CString RightPart = IndexStr.Right(4);
+				CString RightPart2 = RightPart.Left(2);
+				int rackLength = 6; // "RACK01"의 길이 (6자)
+				rackID = m_nSendKeyInData.Left(rackLength); // RACK 부분 저장
+				channelID = m_nSendKeyInData.Right(m_nSendKeyInData.GetLength() - rackLength); // CH 부분 저장
 
-			//	if (LeftPart.CompareNoCase(_T("RACK")) == 0 && RightPart2.CompareNoCase(_T("CH")) == 0)
-			//	{
-			//		Lf_checkBcrRackIDInput();
-			//		m_nSendKeyInData.Empty();
-			//		return 1;
-			//	}
-			//}
+				if (LeftPart.CompareNoCase(_T("RACK")) == 0 && RightPart2.CompareNoCase(_T("CH")) == 0)
+				{
+					Lf_checkBcrRackIDInput();
+					m_nSendKeyInData.Empty();
+					return 1;
+				}
+			}
 
 			return 1;
 		}
@@ -4260,6 +4260,8 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	bTempErrorOnce[rack] = FALSE;
 
+	lpInspWorkInfo->m_PidTestError[rack] = false; // PID, AGING START ERROR MESSAGE FLAG
+
 	// Button Disable
 	m_pBtnAgingStart[rack]->EnableWindow(FALSE);
 	m_pBtnAgingFusing[rack]->EnableWindow(FALSE);
@@ -4399,6 +4401,8 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 {
 	CString sLog;
 
+	lpInspWorkInfo->m_PidTestError[rack] = false; // PID, AGING START ERROR MESSAGE FLAG
+
 	// Thread Aging 시작 Flag Clear
 	m_nAgingStart[rack] = FALSE;
 
@@ -4459,6 +4463,8 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	CString sModelName, sdata;
 	int nValue;
+
+	lpInspWorkInfo->m_PidTestError[rack] = false; // PID, AGING START ERROR MESSAGE FLAG
 
 	// Button Disable
 	m_pBtnAgingStart[rack]->EnableWindow(FALSE);
@@ -5635,6 +5641,8 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 				if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_NONE)
 					continue;
 
+				if (lpInspWorkInfo->m_PidTestError[rack] == true)
+					continue;
 				
 				//////////////////////////////////////////////////////////////////////////////////////////////////
 				// Power Limit 정보를 생성한다.
