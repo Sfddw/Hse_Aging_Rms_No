@@ -180,6 +180,7 @@ typedef struct _ST_INSPWORKINFO_
 
 	CString m_sMainFWVersion[MAX_RACK][MAX_LAYER];
 	BOOL m_nFwVerifyResult[MAX_RACK];
+	BOOL m_nFwVerEmpyt[MAX_RACK];
 
 	ULONGLONG m_nAgingStartTick[MAX_RACK];
 

@@ -704,7 +704,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.4"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.5"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -4274,7 +4274,12 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	sTimeOut.Format(_T("LAST_TIMEOUT_RACK%d"), (rack + 1));
 	Read_SysIniFile(_T("SYSTEM"), sTimeOut, &lpSystemInfo->m_sLastTimeOut[rack]);
 
-	if (lpSystemInfo->m_sLastTimeOut[rack] != 0)
+	m_pCmbMaModel[rack]->GetWindowText(sModelName);
+	m_pApp->Gf_loadModelData(sModelName);
+	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &lpInspWorkInfo->m_nAgingSetTime[rack]);
+
+	/*if (lpSystemInfo->m_sLastTimeOut[rack] != 0 && lpSystemInfo->m_sLastTimeOut[rack] <= 240)*/
+	if (lpSystemInfo->m_sLastTimeOut[rack] != 0 && lpInspWorkInfo->m_nAgingSetTime[rack] >= lpSystemInfo->m_sLastTimeOut[rack])
 	{
 		msg_dlg.m_strQMessage.Format(_T("Aging Continue ? [%d]Minute"), lpSystemInfo->m_sLastTimeOut[rack]);
 		if (msg_dlg.DoModal() == IDOK)
@@ -4295,6 +4300,7 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	else
 	{
 		lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
+		lpSystemInfo->m_sLastTimeOut[rack] = 0;
 	}
 
 	// Cable Open Check 진행한다.
@@ -4313,9 +4319,9 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_ON);
 
 	// 모델명에서 Aging Set Time 정보를 Read 한다.
-	m_pCmbMaModel[rack]->GetWindowText(sModelName);
+	/*m_pCmbMaModel[rack]->GetWindowText(sModelName);
 	m_pApp->Gf_loadModelData(sModelName);
-	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &lpInspWorkInfo->m_nAgingSetTime[rack]);
+	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &lpInspWorkInfo->m_nAgingSetTime[rack]);*/
 
 	// 모델에 설정된 AGING 시간 정보를 UI에 표시한다.
 	sdata.Format(_T("%02d:%02d"), (lpInspWorkInfo->m_nAgingSetTime[rack] / 60), (lpInspWorkInfo->m_nAgingSetTime[rack] % 60));
