@@ -1477,48 +1477,123 @@ void CPidInput::OnBnClickedMbcPiChAllClear()
 	Lf_AllChannelSelect(FALSE);
 }
 
+//void CPidInput::OnBnClickedBtnPiSaveExit()
+//{
+//	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+//	CMessageQuestion msg_dlg;
+//	msg_dlg.m_strQMessage = _T("Do you want save ?");
+//	msg_dlg.m_strLButton = _T("YES");
+//	msg_dlg.m_strRButton = _T("NO");
+//
+//	if (msg_dlg.DoModal() == IDOK)
+//	{
+//		CString sSection, sKey, sValue;
+//
+//		sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
+//
+//		// RACK ID 저장
+//		GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
+//
+//		lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
+//		sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
+//		Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
+//
+//		// CHANNEL PID 저장
+//		for (int layer = 0; layer < MAX_LAYER; layer++)
+//		{
+//			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+//			{
+//				// Channel Use Save
+//				sKey.Format(_T("RACK%d_LAYER%d_CH%d_USE"), m_nSelRack + 1, layer + 1, ch + 1);
+//				lpInspWorkInfo->m_bMesChannelUse[m_nSelRack][layer][ch] = m_pChkChannelUse[layer][ch]->GetCheck();
+//				sValue.Format(_T("%d"), m_pChkChannelUse[layer][ch]->GetCheck());
+//				Write_MesPIDInfo(sSection, sKey, sValue);
+//
+//				// Channel PID Save
+//				sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
+//				m_pedtPannelID[layer][ch]->GetWindowText(sValue);
+//				lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch] = sValue;
+//				Write_MesPIDInfo(sSection, sKey, sValue);
+//			}
+//		}
+//
+//		//CDialog::OnOK();
+//	}
+//}
 void CPidInput::OnBnClickedBtnPiSaveExit()
 {
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	CMessageQuestion msg_dlg;
 	msg_dlg.m_strQMessage = _T("Do you want save ?");
 	msg_dlg.m_strLButton = _T("YES");
 	msg_dlg.m_strRButton = _T("NO");
 
-	if (msg_dlg.DoModal() == IDOK)
-	{
-		CString sSection, sKey, sValue;
+	if (msg_dlg.DoModal() != IDOK)
+		return;
 
+	// ===========================
+	// 1) 저장 전 유효성 검사
+	// ===========================
+		// ===========================
+		// ✅ 저장 전 검증 (체크된 것만, 비어있으면 OK, 값 있으면 14만)
+		// ===========================
+		for (int layer = 0; layer < MAX_LAYER; layer++)
+		{
+			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+			{
+				// 체크된 채널만 검사
+				if (m_pChkChannelUse[layer][ch]->GetCheck() == BST_CHECKED)
+				{
+					CString pid;
+					m_pedtPannelID[layer][ch]->GetWindowText(pid);
+					pid.Trim(); // 앞뒤 공백 제거
+
+					// 비어있으면 OK, 값이 있으면 길이 14만 허용
+					if (!pid.IsEmpty() && pid.GetLength() != 14)
+					{
+						CString msg;
+						msg.Format(_T("PID length must be 14.\r\n(LAYER %d, CH %d)\r\nCurrent: [%s]"),
+							layer + 1, ch + 1, pid);
+
+						AfxMessageBox(msg, MB_ICONWARNING);
+
+						// 문제난 Edit로 이동 + 전체 선택
+						m_pedtPannelID[layer][ch]->SetFocus();
+						m_pedtPannelID[layer][ch]->SetSel(0, -1);
+
+						return; // ✅ 저장 중단
+					}
+				}
+			}
+		}
+
+		// ===========================
+		// ✅ 여기부터 기존 저장 로직 그대로
+		// ===========================
+		CString sSection, sKey, sValue;
 		sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
 
-		// RACK ID 저장
 		GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
 
 		lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
 		sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
 		Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
 
-		// CHANNEL PID 저장
 		for (int layer = 0; layer < MAX_LAYER; layer++)
 		{
 			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 			{
-				// Channel Use Save
 				sKey.Format(_T("RACK%d_LAYER%d_CH%d_USE"), m_nSelRack + 1, layer + 1, ch + 1);
 				lpInspWorkInfo->m_bMesChannelUse[m_nSelRack][layer][ch] = m_pChkChannelUse[layer][ch]->GetCheck();
 				sValue.Format(_T("%d"), m_pChkChannelUse[layer][ch]->GetCheck());
 				Write_MesPIDInfo(sSection, sKey, sValue);
 
-				// Channel PID Save
 				sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
 				m_pedtPannelID[layer][ch]->GetWindowText(sValue);
 				lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch] = sValue;
 				Write_MesPIDInfo(sSection, sKey, sValue);
 			}
 		}
-
-		//CDialog::OnOK();
-	}
+	
 }
 
 void CPidInput::OnBnClickedBtnPiSaveExit_B()
@@ -2980,6 +3055,13 @@ BOOL CPidInput::HandlePIDScan()
 	}
 	else if (m_nMainKeyInData.GetLength() == PID_LENGTH) // PID SCAN - 길이 14개
 	{
+		CWnd* pFocusedWnd = GetFocus();
+		if (pFocusedWnd && pFocusedWnd->GetDlgCtrlID() == IDC_DUMMY_FOCUS)
+		{
+			return 1;
+		}
+		
+
 		bool P_Chk = false; // PCHK 리턴 OK, NG 확인 플래그
 		CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
 
@@ -3051,6 +3133,10 @@ BOOL CPidInput::HandlePIDScan()
 			}
 		}
 		m_nMainKeyInData.Empty(); // 입력값 초기화
+		if (CWnd* pDummy = GetDlgItem(IDC_DUMMY_FOCUS))
+			pDummy->SetFocus();
+		else
+			this->SetFocus();
 		return 1;
 	}
 	else if (m_nMainKeyInData.GetLength() == 10) // RACK ID SCAN
@@ -3121,17 +3207,24 @@ void CPidInput::AppendScannedKey(MSG *pMsg)
 	CString sdata;
 	sdata.Format(_T("%c"), pMsg->wParam);
 	m_nMainKeyInData.Append(sdata); // 바코드 스캔값 저장
-	if (m_nMainKeyInData.GetLength() >= 14)
+	CWnd* pFocusedWnd = GetFocus();
+	CEdit* pEditControl = reinterpret_cast<CEdit*>(pFocusedWnd);
+	if (m_nMainKeyInData.GetLength() == 14)
 	{
-		CWnd* pFocusedWnd = GetFocus();
+		
 		if (pFocusedWnd != nullptr)
 		{
 			// Edit Control의 포인터로 캐스팅
-			CEdit* pEditControl = reinterpret_cast<CEdit*>(pFocusedWnd);
+			
 			if (pEditControl != nullptr)
 			{
 				pEditControl->SetWindowText(m_nMainKeyInData);
 			}
 		}
+	}
+	if (m_nMainKeyInData.GetLength() > 14)
+	{
+		m_nMainKeyInData.Empty();
+		pEditControl->SetWindowText(m_nMainKeyInData);
 	}
 }

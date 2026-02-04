@@ -225,6 +225,8 @@ public:
 	CString m_strLocalSubjectEasF;
 	CString m_strLocalSubjectRmsF;
 
+	CString r_strmodelName;
+
 protected:
 	BOOL	m_bIsGmesLocalTestMode;
 	BOOL	m_bIsEasLocalTestMode;
