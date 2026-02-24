@@ -334,6 +334,42 @@ void CHseAgingApp::Gf_writeMLog(CString sLogData)
 	}
 }
 
+void CHseAgingApp::Gf_writeRMSLog(CString sLogData)
+{
+	CFile cfp;
+	USHORT nShort = 0xfeff;
+	CString strLog, fileName, filePath, strDate;
+
+	// 엔터 Key 값이 있으면 문자를 변경 시키낟.
+	sLogData.Replace(_T("\r\n"), _T(" | "));
+
+	SYSTEMTIME sysTime;
+	::GetSystemTime(&sysTime);
+	CTime time = CTime::GetCurrentTime();
+	strLog.Format(_T("[%02d:%02d:%02d %03d] %06d%03d\t: %s\r\n"), time.GetHour(), time.GetMinute(), time.GetSecond(), sysTime.wMilliseconds, (time.GetHour() * 3600) + (time.GetMinute() * 60) + time.GetSecond(), sysTime.wMilliseconds, sLogData);
+
+	strDate.Format(_T("%04d%02d%02d"), time.GetYear(), time.GetMonth(), time.GetDay());
+	filePath.Format(_T("./Logs/RMSLog/%s_%s.txt"), lpSystemInfo->m_sEqpName, strDate);
+
+	if (GetFileAttributes(_T("./Logs/")) == -1)
+		CreateDirectory(_T("./Logs/"), NULL);
+
+	if (GetFileAttributes(_T("./Logs/RMSLog")) == -1)
+		CreateDirectory(_T("./Logs/RMSLog"), NULL);
+
+
+	if (cfp.Open(filePath, CFile::modeCreate | CFile::modeNoTruncate | CFile::modeWrite | CFile::typeBinary))
+	{
+		if (cfp.GetLength() == 0)
+		{
+			cfp.Write(&nShort, 2);
+		}
+		cfp.SeekToEnd();
+		cfp.Write(strLog, (strLog.GetLength() * 2));
+		cfp.Close();
+	}
+}
+
 void CHseAgingApp::Gf_writeMLog_Rack(CString sLogData, int RackNum)
 {
 	if (RackNum < 1 || RackNum > 6)

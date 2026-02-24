@@ -51,6 +51,7 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 			m_pApp->Gf_writeMLog(_T("<MES> MES Server Connection Succeeded"));
 
 			m_pApp->m_bIsGmesConnect = TRUE;
+
 			return TRUE;
 		}
 		else
@@ -86,6 +87,9 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 		{
 			m_pApp->Gf_writeMLog(_T("<RMS> RMS Server Connection Succeeded"));
 			m_pApp->m_blsRmsConnect = TRUE;
+
+			StartRmsRecvThread();
+
 			return TRUE;
 		}
 		else
@@ -499,11 +503,15 @@ BOOL CCimNetCommApi::MessageSend (int nMode)	// Event
 		if (m_pApp->m_blsRmsConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
 
+		StopRmsRecvThread();
+
 		VARIANT_BOOL bRetCode = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
+
 
 		do {
 			if (rms->GetreceivedDataFlag() == VARIANT_TRUE) {
 				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+				StartRmsRecvThread();
 				break;
 			}
 			if (bRetCode == VARIANT_FALSE)
@@ -2516,4 +2524,229 @@ BOOL CCimNetCommApi::RMSO()
 	}
 
 	return RTN_OK;	// normal
+}
+
+struct RMS_RECV_THREAD_PARAM
+{
+	CCimNetCommApi* pThis;
+	IStream* pStream;   // COM marshaled interface stream
+};
+
+BOOL CCimNetCommApi::StartRmsRecvThread()
+{
+	// 이미 돌고 있으면 OK
+	if (m_pRmsRecvThread != nullptr)
+		return TRUE;
+
+	// Stop Event 생성
+	if (m_hRmsStopEvent == nullptr)
+	{
+		m_hRmsStopEvent = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
+		if (m_hRmsStopEvent == nullptr)
+			return FALSE;
+	}
+	::ResetEvent(m_hRmsStopEvent);
+
+	// gmes 유효성 체크
+	if (rms == nullptr)
+		return FALSE;
+
+	// ✅ 스레드에 COM 인터페이스를 안전하게 넘기기 위해 Marshal
+	IStream* pStream = nullptr;
+	HRESULT hr = CoMarshalInterThreadInterfaceInStream(IID_ICallRMSClass, rms, &pStream);
+	if (FAILED(hr) || pStream == nullptr)
+		return FALSE;
+
+	auto* pParam = new RMS_RECV_THREAD_PARAM;
+	pParam->pThis = this;
+	pParam->pStream = pStream;
+
+	m_pRmsRecvThread = AfxBeginThread(RmsRecvThreadProc, pParam);
+	if (!m_pRmsRecvThread)
+	{
+		pStream->Release();
+		delete pParam;
+		return FALSE;
+	}
+
+	m_pRmsRecvThread->m_bAutoDelete = TRUE;
+	return TRUE;
+}
+
+void CCimNetCommApi::StopRmsRecvThread()
+{
+	if (m_hRmsStopEvent)
+		::SetEvent(m_hRmsStopEvent);
+
+	// 스레드가 CWinThread라 Join 개념이 약해서, 약간 대기만
+	if (m_pRmsRecvThread)
+	{
+		// 최대 1초 정도 기다렸다가 정리
+		for (int i = 0; i < 100; i++)
+		{
+			::Sleep(10);
+			// 강제 종료는 비추. stop event로 정상 종료 유도
+		}
+		m_pRmsRecvThread = nullptr;
+	}
+
+	if (m_hRmsStopEvent)
+	{
+		::CloseHandle(m_hRmsStopEvent);
+		m_hRmsStopEvent = nullptr;
+	}
+
+	// 큐/마지막 메시지 정리(선택)
+	{
+		CSingleLock lock(&m_csRmsRecv, TRUE);
+		m_lastRmsRecv.Empty();
+		m_rmsRecvQueue.clear();
+	}
+}
+
+UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
+{
+	auto* param = reinterpret_cast<RMS_RECV_THREAD_PARAM*>(pParam);
+	CCimNetCommApi* pThis = param->pThis;
+	IStream* pStream = param->pStream;
+	delete param; // ✅ param 해제 (pStream은 아래에서 ReleaseStream으로 처리)
+
+	// ✅ 스레드에서 COM 초기화
+	HRESULT hrCo = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
+	// Marshal 해제하면서 인터페이스 복구
+	ICallRMSClass* pRmsThread = nullptr;
+	HRESULT hr = CoGetInterfaceAndReleaseStream(pStream, IID_ICallRMSClass, (void**)&pRmsThread);
+	if (FAILED(hr) || pRmsThread == nullptr)
+	{
+		if (SUCCEEDED(hrCo)) CoUninitialize();
+		return 0;
+	}
+
+	while (true)
+	{
+		// Stop 체크
+		if (pThis->m_hRmsStopEvent &&
+			::WaitForSingleObject(pThis->m_hRmsStopEvent, 0) == WAIT_OBJECT_0)
+		{
+			break;
+		}
+
+		// ✅ “항상 수신 대기”는 여기서 폴링/플래그 방식으로 구현
+		// DLL 내부에서 DispatchThread가 _queue.Dispatch()로 이벤트를 올려서
+		// _receivedFlag 세팅한다고 했으니, 여기서는 Flag만 감시하면 됨.
+		if (pRmsThread->GetreceivedDataFlag() == VARIANT_TRUE)
+		{
+			_bstr_t b = pRmsThread->GetReceiveData(); // 이 호출이 flag를 false로 만든다는 구현이었음
+			CString msg = (LPCTSTR)b;
+			m_pApp->Gf_writeRMSLog(msg);
+
+			CString cmd = msg.Left(4);
+			if (cmd == _T("EPLR")) // EPLR 메시지
+			{
+				// 1) EAYT_R 메시지 구성 (예시는 형식만)
+				CString reply;
+				reply.Format(_T("EPLR_R ADDR= EQP= RECIPEINFO=[::[]] ESD= SEQ_NO= MMC_TXN_ID="));
+				CString m_str = pThis->m_strRemoteSubjectRMS;
+				m_pApp->Gf_writeRMSLog(reply);
+				// TODO: 실제 RMS 프로토콜에 맞게 필드 채우기
+
+				// 2) 딱 1번 전송 (대기 없음)
+				//if (m_pApp->m_blsRmsConnect == FALSE)
+				//	return; // 또는 처리
+
+				VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+				
+				if (ok == VARIANT_FALSE)
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send failed"));
+				else
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send ok"));
+
+				// ✅ 여기서 끝. 수신대기 루프 절대 없음.
+			}
+			else if (cmd == _T("EPPR"))
+			{
+				CString reply;
+				reply.Format(_T("EPPR_R ADDR= EQP= RECIPEINFO=[::[]] ESD= SEQ_NO= MMC_TXN_ID"));
+
+				m_pApp->Gf_writeRMSLog(reply);
+
+				VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+				if (ok == VARIANT_FALSE)
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send failed"));
+				else
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send ok"));
+			}
+			/*else if (cmd == _T("ERCP"))
+			{
+				CString reply;
+				reply.Format(_T("ERCP_R ADDR= RTN_CD=0"));
+
+				m_pApp->Gf_writeRMSLog(reply);
+
+				VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+				if (ok == VARIANT_FALSE)
+					m_pApp->Gf_writeRMSLog(_T("[RMS] ERCP_R send failed"));
+				else
+					m_pApp->Gf_writeRMSLog(_T("[RMS] ERCP_R send ok"));
+			}*/
+			else if (cmd == _T("EPSC"))
+			{
+				CString reply;
+				reply.Format(_T("EPSC_R EQP= MACHINE= UNIT= SYSTEM= UNIT_TYPE= OPERATION_TYPE= COMMAND_CODE= PARACOUNT= SETTING_INFO= ACK= ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO= MMC_TXN_ID= USER_ID="));
+
+				m_pApp->Gf_writeRMSLog(reply);
+
+				VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+				if (ok == VARIANT_FALSE)
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
+				else
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
+			}
+			else if (cmd == _T("EPDC"))
+			{
+
+			}
+
+			// 저장 (최신 + 큐)
+			{
+				CSingleLock lock(&pThis->m_csRmsRecv, TRUE);
+				pThis->m_lastRmsRecv = msg;
+				pThis->m_rmsRecvQueue.push_back(msg);
+
+				// 큐 메모리 제한 (원하는 만큼 조절)
+				if (pThis->m_rmsRecvQueue.size() > 500)
+					pThis->m_rmsRecvQueue.pop_front();
+			}
+
+			// 필요하면 여기서 UI 통지(PostMessage) 같은 걸 할 수도 있음.
+		}
+
+		::Sleep(5); // CPU 점유 줄이기
+	}
+
+	pRmsThread->Release();
+	if (SUCCEEDED(hrCo)) CoUninitialize();
+	return 0;
+}
+
+// ============================================================================
+// Accessors
+// ============================================================================
+
+BOOL CCimNetCommApi::TryPopRmsMessage(CString& outMsg)
+{
+	CSingleLock lock(&m_csRmsRecv, TRUE);
+	if (m_rmsRecvQueue.empty())
+		return FALSE;
+
+	outMsg = m_rmsRecvQueue.front();
+	m_rmsRecvQueue.pop_front();
+	return TRUE;
+}
+
+CString CCimNetCommApi::GetLastRmsMessage()
+{
+	CSingleLock lock(&m_csRmsRecv, TRUE);
+	return m_lastRmsRecv;
 }

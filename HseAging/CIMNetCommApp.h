@@ -55,11 +55,33 @@
 #define UTC_ZONE_CHINA				0x01
 #define UTC_ZONE_KOREA				0x02
 
+#include <deque>
+#include <atlbase.h>   // CComPtr
+#include <mutex>
+
 class CCimNetCommApi
 {
 public:
 	CCimNetCommApi(void);
 	~CCimNetCommApi(void);
+
+	BOOL StartRmsRecvThread();
+	void StopRmsRecvThread();
+
+	BOOL TryPopRmsMessage(CString& outMsg);
+	CString GetLastRmsMessage();
+
+	static UINT __cdecl RmsRecvThreadProc(LPVOID pParam);
+
+	// ===== MES 수신 스레드 관련 =====
+	CWinThread* m_pRmsRecvThread = nullptr;
+	HANDLE      m_hRmsStopEvent = nullptr;
+
+	// 수신 데이터 저장
+	CCriticalSection m_csRmsRecv;
+	CString          m_lastRmsRecv;
+	std::deque<CString> m_rmsRecvQueue;
+
 
 	ICallGmesClass *gmes;
 	ICallEASClass *eas;

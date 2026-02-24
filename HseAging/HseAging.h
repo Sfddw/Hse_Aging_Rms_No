@@ -47,6 +47,8 @@ public:
 	void Gf_writeMLog(CString sLogData);
 	void Gf_writeMLog_Rack(CString sLogData, int RackNum);
 
+	void Gf_writeRMSLog(CString sLogData);
+
 	void Gf_writeAlarmLog(int rack, int layer, int ch, CString strError);
 	void Gf_writeAlarmLog_RackOnly(int rack, int layer, int ch, CString strError);
 
