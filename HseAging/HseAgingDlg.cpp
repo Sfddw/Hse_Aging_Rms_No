@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.8"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.8B"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -750,6 +750,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(2, 1000, NULL);
 	SetTimer(3, 3000, NULL);
 	SetTimer(8, 1000, NULL);
+
+	InitRecipeFolderAndFiles(TRUE, TRUE); // Recipe 폴더 생성
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -4270,6 +4272,10 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	// RACK 선택된 모델명을 가져온다
 	m_pCmbMaModel[rack]->GetWindowText(sModelName);
+
+	// CurModel.ini에 기록
+	SaveCurModelIni_FromModelText(sModelName);
+
 	m_pApp->Gf_loadModelData(sModelName);
 
 	sTimeOut.Format(_T("LAST_TIMEOUT_RACK%d"), (rack + 1));
@@ -4433,6 +4439,13 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 	sLog.Format(_T("<MESSAGE> AGING STOP CLICK [RACK %d]"),rack+1);
 
 	m_pApp->Gf_writeMLog(sLog);
+
+	// ✅ STOP 시 CurModel.ini에서 해당 모델 삭제
+	{
+		CString sModelName;
+		m_pCmbMaModel[rack]->GetWindowText(sModelName);   // 예: "01_LP110WU3"
+		RemoveCurModelIni_ByModelText(sModelName);
+	}
 
 	// Button Enable
 	m_pBtnAgingStart[rack]->EnableWindow(TRUE);
