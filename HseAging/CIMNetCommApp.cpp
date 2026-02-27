@@ -103,6 +103,34 @@ static CString BuildRecipeMsgSetFromModelList(
 
 	return recipeMsgSet;
 }
+
+//////////////////
+// 레시피 번호와 모델번호 매칭 시킨 후 찾기
+static BOOL FindModelNameByRecipeNo(const CString& modelDir, int recipeNo, CString& outModelName)
+{
+	outModelName.Empty();
+
+	// 예: ".\\Model\\1_*.ini"
+	CString pattern;
+	pattern.Format(_T("%s\\%d_*.ini"), modelDir.GetString(), recipeNo);
+
+	WIN32_FIND_DATA fd = { 0 };
+	HANDLE h = FindFirstFile(pattern, &fd);
+	if (h == INVALID_HANDLE_VALUE)
+		return FALSE;
+
+	// 첫 번째 매칭 파일명 사용
+	CString file = fd.cFileName; // 예: "1_LP140WU3.ini"
+	FindClose(h);
+
+	// 확장자 제거
+	int dot = file.ReverseFind(_T('.'));
+	if (dot > 0)
+		file = file.Left(dot);   // 예: "1_LP140WU3"
+
+	outModelName = file;
+	return TRUE;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1422,13 +1450,6 @@ BOOL CCimNetCommApi::EAYT ()
 
 
 	//m_strEAYT.Format(_T("ERCP ADDR=W4.G1.E3.RMS,W4.G3.W4AMAL01MH.UPLOADER EQP=W4ASY1010 MACHINE=W4AMAL01MH UNIT=W4AMAL01MH01 RCS=H MODE_CODE=N MODEL=LP160WU3-SPB2-KH1-B BASEMODEL= WODR=25BLM001N-FA07 CATEGORY=PROD RECIPE= RECIPEVER= OPER= NW_CD= NW_DESCRIPTION=[] CHANGE_TYPE=B VALIDATIONINFO=[]"),
-
-
-	//m_strEAYT.Format(_T("EAYT ADDR=M2.G3.EQP.MOD.172_23_23_23,M2.G3.EQP.MOD.172_23_23_23 EQP=4TPOL110 NET_IP=172.19.141.123 NET_PORT=9000 MODE=AUTO CLIENT_DATE = 20070910010101 "),
-	//m_strEAYT.Format(_T("EAYT ADDR=M2.G1.EIFsvr.M2T,M2.G1.EES.M2EQP0102.MES EQP=M2TCVD07 NAME=M2.G1.EES.M2EQP0102.MES REPLY_REQ=Y TO_EQP= MMC_TXN_ID=03312895#0001"),
-
-	//m_strEAYT.Format(_T("ERCP ADDR=W4.G1.E3.RMS,W4.G3.W4BMTL0170.UPLOADER EQP=W4TAB1010 MACHINE=W4BMTL0170 UNIT=W4BMTL018001 RCS=H MODE_CODE=N MODEL=6060L-7949B BASEMODEL=LP160WU3-SPB2-KH1 WODR= CATEGORY=EC RECIPE= RECIPEVER= OPER= NW_CD= NW_DESCRIPTION=[] CHANGE_TYPE=B VALIDATIONINFO=[20250324:PROD:3,20250324:SVC:4,20250325:SVC:10,20250326:SVC:12,20250327:SVC:6,20250328:SVC:14,20250328:EC:18,20250329:EC:111,20250330:EC:43,20250331:EC:41,20250401:EC:61,20250401:PROD:49,20250402:EC:93,20250403:EC:23,20250404:EC:26,20250405:EC:72,20250406:EC:15,20250407:EC:34,20250408:EC:11] UNIT_INFO=[W4BMTL0170:[1]:U::3:W4BMTL018001:0:[MODEL_NB#1^018001_ZR8002#808.7364^018001_ZR8004#61.7332^018001_ZR8006#500.0000^018001_ZR29002#1199.2101^018001_ZR29004#2499.6154^018001_ZR29006#432.4710^018001_ZR8020#174.0000^018001_ZR8022#177.5253^018001_ZR8024#310.0000^018001_ZR8026#-4.0269^018001_ZR8028#0^018001_ZR8030#0^018001_ZR8032#150.0000^018001_ZR8034#176.1288^018001_ZR8040#807.0000^018001_ZR8042#0^018001_ZR8044#-5.0100^018001_ZR8046#1439.0000^018001_ZR8048#165.0000^018001_ZR8050#-4.9500^018001_ZR8052#745.2232^018001_ZR8054#336.1449^018001_ZR8056#-5.0200^018001_ZR8060#755.0000^018001_ZR8062#343.3000^018001_ZR8064#-4.9000^018001_ZR8066#28.5000^018001_ZR8068#224.5000^018001_ZR8070#-4.9300^018001_ZR8072#650.0000^018001_ZR8074#224.2044^018001_ZR8076#-4.8600^018001_ZR8078#220.0000^018001_ZR8080#595.0000^018001_ZR8082#0.1000^018001_ZR8084#50.0000^018001_ZR8086#5.0000^018001_ZR8088#560.0000^018001_ZR8092#8.0000^018001_ZR8094#0^018001_ZR8096#44.1874^018001_ZR8098#44.1874^018001_ZR8100#170.0000^018001_ZR8102#-1.7554^018001_ZR8104#172.0000^018001_ZR8106#-3.2600^018001_ZR8108#0^018001_ZR8110#0^018001_ZR8112#305.2000^018001_ZR8114#176.7261^018001_ZR8120#300.0000^018001_ZR8122#1022.0000^018001_ZR8124#-25.0000^018001_ZR8140#1100.0000^018001_ZR8142#100.0000^018001_ZR8144#-5.5000^018001_ZR8146#1478.0000^018001_ZR8148#223.0000^018001_ZR8150#-6.0000^018001_ZR8152#1035.5377^018001_ZR8154#368.0912^018001_ZR8156#-5.4600^018001_ZR8160#1034.9394^018001_ZR8162#369.7500^018001_ZR8164#-5.6500^018001_ZR8166#61.9048^018001_ZR8168#263.2032^018001_ZR8170#174.5200^018001_ZR8178#100.0000^018001_ZR8180#802.0000^018001_ZR8182#-4.1000^018001_ZR8184#167.0000^018001_ZR8186#-3.5000^018001_ZR8188#770.0000^018001_ZR8196#45.9165^018001_ZR8198#45.9165^018001_ZR8300#0^018001_ZR8302#0^018001_ZR8304#0^018001_ZR8320#0^018001_ZR8322#0^018001_ZR8324#0^018001_ZR8326#0^018001_ZR8328#0^018001_ZR8330#0^018001_ZR8332#0^018001_ZR8334#0^018001_ZR8340#0^018001_ZR8342#0^018001_ZR8344#0^018001_ZR8346#0^018001_ZR8348#0^018001_ZR8350#0^018001_ZR8352#0^018001_ZR8354#0^018001_ZR8356#0^018001_ZR8360#0^018001_ZR8362#0^018001_ZR8364#0^018001_ZR8366#0^018001_ZR8368#0^018001_ZR8370#0^018001_ZR8380#0^018001_ZR8382#0^018001_ZR8384#0^018001_ZR8386#0^018001_ZR8388#0^018001_ZR8396#0^018001_ZR8398#0^018001_ZR8400#0^018001_ZR8402#0^018001_ZR8404#0^018001_ZR8406#0^018001_ZR8408#0^018001_ZR8410#0^018001_ZR8412#0^018001_ZR8414#0^018001_ZR8420#0^018001_ZR8422#0^018001_ZR8424#0^018001_ZR8440#0^018001_ZR8442#0^018001_ZR8444#0^018001_ZR8446#0^018001_ZR8448#0^018001_ZR8450#0^018001_ZR8452#0^018001_ZR8454#0^018001_ZR8456#0^018001_ZR8460#0^018001_ZR8462#0^018001_ZR8464#0^018001_ZR8466#0^018001_ZR8468#0^018001_ZR8470#0^018001_ZR8478#0^018001_ZR8480#0^018001_ZR8482#0^018001_ZR8484#0^018001_ZR8486#0^018001_ZR8488#0^018001_ZR8496#0^018001_ZR8498#0^018001_ZR8544#3^018001_ZR8552#0^018001_ZR8554#0^018001_ZR8556#0^018001_ZR8558#0^018001_ZR8566#3^018001_ZR8572#0^018001_ZR8574#0^018001_ZR8576#0^018001_ZR8578#0^018001_ZR8580#1^018001_ZR8582#1^018001_ZR8584#1^018001_ZR8586#1^018001_ZR8590#0^018001_ZR8599#0^018001_ZR8599_1#0^018001_ZR8599_2#0^018001_ZR8599_3#0^018001_ZR8599_4#1^018001_ZR8599_5#0^018001_ZR8600#16 INCH^018001_ZR8700#0.5^018001_ZR8701#0.1^018001_ZR8702#0.3^018001_ZR8703#40^018001_ZR8704#0^018001_ZR8705#0.1^018001_ZR8710#0.5^018001_ZR8711#0.2^018001_ZR8712#0.3^018001_ZR8713#45^018001_ZR8714#0^018001_ZR8715#0.3^018001_ZR8800#250.0000^018001_ZR8802#450.0000^018001_ZR8804#0^018001_ZR8806#0^018001_ZR8808#0^018001_ZR8810#0^018001_ZR8812#0^018001_ZR8814#0^018001_ZR8816#0^018001_ZR8818#0^018001_ZR8820#0^018001_ZR8822#0^018001_ZR8824#0^018001_ZR8826#0^018001_ZR8828#0^018001_ZR8830#0^018001_ZR8832#0^018001_ZR8834#0^018001_ZR8836#0^018001_ZR8838#0^018001_ZR8840#0^018001_ZR8842#0^018001_ZR8844#0^018001_ZR8846#0^018001_ZR8900#116.0000^018001_ZR8902#153.5000^018001_ZR8904#296.0000^018001_ZR8906#331.0000^018001_ZR8908#0^018001_ZR8910#0^018001_ZR8912#0^018001_ZR8914#0^018001_ZR8916#0^018001_ZR8918#0^018001_ZR8920#0^018001_ZR8922#0^018001_ZR8924#0^018001_ZR8926#0^018001_ZR8928#0^018001_ZR8930#0^018001_ZR8932#0^018001_ZR8934#0^018001_ZR8936#0^018001_ZR8938#0^018001_ZR8940#0^018001_ZR8942#0^018001_ZR8944#0^018001_ZR8946#0^018001_ZR29008#100.0000^018001_ZR29010#253.8120^018001_ZR29012#269.2657^018001_ZR29014#270.1898^018001_ZR29016#-11.6995^018001_ZR29018#13.0666^018001_ZR29020#2856.3785^018001_ZR29022#1556.0000^018001_ZR29024#154.0524^018001_ZR29026#782.2222^018001_ZR29030#269.7909^018001_ZR29032#270.5223^018001_ZR29034#58.1715^018001_ZR29036#1.8000^018001_ZR29040#-0.8727^018001_ZR29042#381.0000^018001_ZR29044#680.2026^018001_ZR29048#-2.5901^018001_ZR29050#-4.7586^018001_ZR29052#399.5985^018001_ZR29056#0^018001_ZR29058#0^018001_ZR29064#31.2226^018001_ZR29066#31.2226^018001_ZR29068#41.9265^018001_ZR29070#41.9265^018001_ZR29072#19.5029^018001_ZR29074#18.5750^018001_ZR29076#19.7327^018001_ZR29078#19.4518^018001_ZR29080#1.7277^018001_ZR29082#376.0000^018001_ZR29084#680.5404^018001_ZR29086#-0.7133^018001_ZR29090#-6.4355^018001_ZR29092#400.0000^018001_ZR29096#0^018001_ZR29098#0^018001_ZR29104#34.5866^018001_ZR29106#34^018001_ZR29596_11#0^018001_ZR29596_12#0^018001_ZR29596_13#1^018001_ZR29596_14#0^018001_ZR29120#370.0000^018001_ZR29122#320.0000^018001_ZR29124#290.0000^018001_ZR29130#370.0000^018001_ZR29132#320.0000^018001_ZR29134#290.0000]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID=20250408111744"),
-
 	//m_strEAYT.Format(_T("EAYT ADDR=W4.G1.E3.RMS,W4.G3.W4BMTL0170.UPLOADER EQP=W4TAB1010 NET_IP=239.28.8.54 NET_PORT=28854 MODE=AUTO CLIENT_DATE=20250316095556"),
 	//m_strEAYT.Format(_T("EAYT ADDR=W4.G1.E3.RMS,W4.G3.W4BMTL0170.UPLOADER EQP=M2TCVD07 NAME=M2.G1.EES.M2EQP0102.MES REPLY_REQ=Y TO_EQP= MMC_TXN_ID=03312895#0001"),
 		m_strLocalSubjectMesF,
@@ -2862,7 +2883,8 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			}
 			else if (cmd == _T("EPPR"))
 			{
-				CString reply;
+				pThis->HandleRmsMsg_EPPR(msg, pRmsThread);
+				/*CString reply;
 				reply.Format(_T("EPPR_R ADDR= EQP= RECIPEINFO=[::[]] ESD= SEQ_NO= MMC_TXN_ID"));
 
 				m_pApp->Gf_writeRMSLog(reply);
@@ -2871,7 +2893,7 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 				if (ok == VARIANT_FALSE)
 					m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send failed"));
 				else
-					m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send ok"));
+					m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send ok"));*/
 			}
 			/*else if (cmd == _T("ERCP"))
 			{
@@ -3028,4 +3050,220 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send failed"));
 	else
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send ok"));
+}
+
+void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread)
+{
+	// 0) 안전 체크
+	if (pRmsThread == nullptr)
+		return;
+
+	// 1) MACHINE / UNIT 추출
+	CString machine, unit, recipe_no, recipe_type, recipe_yn, model_name, eqp_name;
+	int cur_yn;
+
+	int posMachine = msg.Find(_T("MACHINE="));
+	if (posMachine >= 0)
+	{
+		int start = posMachine + (int)_tcslen(_T("MACHINE="));
+		machine = msg.Mid(start, 10); // MACHINE 10글자 고정
+	}
+
+	int posUnit = msg.Find(_T("UNIT="));
+	if (posUnit >= 0)
+	{
+		int start = posUnit + (int)_tcslen(_T("UNIT="));
+		unit = msg.Mid(start, 12); // UNIT 12글자 고정
+	}
+
+	//int posNo = msg.Find(_T("RECIPE="));
+	//if (posNo >= 0)
+	//{
+	//	int start = posNo + (int)_tcslen(_T("RECIPE="));
+	//	recipe_no = msg.Mid(start, 3); //  RECIPE 3글자 고정
+	//}
+	int pos = msg.Find(_T("RECIPE="));
+	if (pos >= 0)
+	{
+		int start = pos + (int)_tcslen(_T("RECIPE="));
+
+		// 1) 공백 전까지 자르기
+		int end = msg.Find(_T(' '), start);
+		if (end < 0) end = msg.GetLength();   // 혹시 공백이 없으면 끝까지
+
+		CString token = msg.Mid(start, end - start);
+		token.Trim(); // 혹시 모를 공백 제거
+
+		// 2) "001" -> 1 로 변환 후 다시 문자열로
+		int n = _ttoi(token);                 // 앞의 0 자동 제거됨
+		recipe_no.Format(_T("%d"), n);        // "1", "16", "33"
+	}
+
+	int posType = msg.Find(_T("RECIPETYPE="));
+	if (posType >= 0)
+	{
+		int start = posType + (int)_tcslen(_T("RECIPETYPE="));
+		recipe_type = msg.Mid(start, 1); // UNIT 1글자 고정
+	}
+
+	int posYn = msg.Find(_T("CURRENT_RECIPE_YN="));
+	if (posYn >= 0)
+	{
+		int start = posYn + (int)_tcslen(_T("CURRENT_RECIPE_YN="));
+		recipe_yn = msg.Mid(start, 1); // UNIT 1글자 고정
+	}
+
+	if (recipe_yn == "Y")
+	{
+		cur_yn = 6;
+	}
+	if (recipe_yn == "N")
+	{
+		cur_yn = 4;
+	}
+	
+
+	int recipeNoInt = _ttoi(recipe_no);
+
+	CString modelDir = _T(".\\Model");
+	if (!FindModelNameByRecipeNo(modelDir, recipeNoInt, model_name))
+	{
+		CString msgErr;
+		msgErr.Format(_T("Model file not found for RECIPE=%d\r\nSearch: %s\\%d_*.ini"),
+			recipeNoInt, modelDir.GetString(), recipeNoInt);
+		m_pApp->Gf_writeRMSLog(msgErr);
+		return; // 또는 기본 모델 처리
+	}
+
+	// 값이 없으면 그냥 종료(로그는 선택)
+	if (machine.GetLength() != 10 || unit.GetLength() != 12)
+	{
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR parse fail (MACHINE/UNIT)"));
+		return;
+	}
+
+	// 2) SEQ_NO 추출
+	auto ExtractTokenValue = [&](LPCTSTR key) -> CString
+		{
+			CString k(key);
+			int pos = msg.Find(k);
+			if (pos < 0) return _T("");
+
+			int start = pos + k.GetLength();
+			int end = msg.Find(_T(" "), start);
+			if (end < 0) end = msg.GetLength();
+
+			return msg.Mid(start, end - start);
+		};
+
+	CString seqNo = ExtractTokenValue(_T("SEQ_NO="));
+
+	
+	lpModelInfo = m_pApp->GetModelInfo();
+	lpSystemInfo = m_pApp->GetSystemInfo();
+
+	// ✅ 찾은 모델 로딩
+	m_pApp->Gf_loadModelData(model_name);
+
+	CString recipeMsgSet;
+
+	eqp_name = lpSystemInfo->m_sEqpName;
+
+	model_name.Format(_T("MODEL_NB$%d;"), cur_yn);														recipeMsgSet += model_name; // MODEL_NUMBER
+	model_name.Format(_T("DIMMING_SEL_MODEL_INFO$%d;"), lpModelInfo->m_nDimmingSel);					recipeMsgSet += model_name; // DIMMING SEL
+	model_name.Format(_T("PWM_FREQ_MODEL_INFO$%d;"),  lpModelInfo->m_nPwmFreq);							recipeMsgSet += model_name; // PWM_FREQ
+	model_name.Format(_T("PWM_DUTY_MODEL_INFO$%d;"), lpModelInfo->m_nPwmDuty);							recipeMsgSet += model_name; // PWM_DUTY
+	model_name.Format(_T("VBR_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVbrVolt);							recipeMsgSet += model_name; // VBR_VOLT
+	model_name.Format(_T("CABLE_OPEN_MODEL_INFO$%d;"), lpModelInfo->m_nFuncCableOpen);					recipeMsgSet += model_name; // CABLE_OPEN
+	model_name.Format(_T("POWER_ON_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq1);					recipeMsgSet += model_name; // POWER_ON_SEQ1
+	model_name.Format(_T("POWER_ON_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq2);					recipeMsgSet += model_name; // POWER_ON_SEQ2
+	model_name.Format(_T("POWER_ON_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq3);					recipeMsgSet += model_name; // POWER_ON_SEQ3
+	model_name.Format(_T("POWER_ON_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq4);					recipeMsgSet += model_name; // POWER_ON_SEQ4
+	model_name.Format(_T("POWER_ON_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq5);					recipeMsgSet += model_name; // POWER_ON_SEQ5
+	model_name.Format(_T("POWER_ON_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq6);					recipeMsgSet += model_name; // POWER_ON_SEQ6
+	model_name.Format(_T("POWER_ON_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq7);					recipeMsgSet += model_name; // POWER_ON_SEQ7
+	model_name.Format(_T("POWER_ON_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq8);					recipeMsgSet += model_name; // POWER_ON_SEQ8
+	model_name.Format(_T("POWER_ON_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq9);					recipeMsgSet += model_name; // POWER_ON_SEQ9
+	model_name.Format(_T("POWER_ON_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq10);				recipeMsgSet += model_name; // POWER_ON_SEQ10
+	model_name.Format(_T("POWER_ON_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay1);				recipeMsgSet += model_name; // POWER_ON_DELAY1
+	model_name.Format(_T("POWER_ON_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay2);				recipeMsgSet += model_name; // POWER_ON_DELAY2
+	model_name.Format(_T("POWER_ON_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay3);				recipeMsgSet += model_name; // POWER_ON_DELAY3
+	model_name.Format(_T("POWER_ON_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay4);				recipeMsgSet += model_name; // POWER_ON_DELAY4
+	model_name.Format(_T("POWER_ON_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay5);				recipeMsgSet += model_name; // POWER_ON_DELAY5
+	model_name.Format(_T("POWER_ON_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay6);				recipeMsgSet += model_name; // POWER_ON_DELAY6
+	model_name.Format(_T("POWER_ON_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay7);				recipeMsgSet += model_name; // POWER_ON_DELAY7
+	model_name.Format(_T("POWER_ON_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay8);				recipeMsgSet += model_name; // POWER_ON_DELAY8
+	model_name.Format(_T("POWER_ON_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay9);				recipeMsgSet += model_name; // POWER_ON_DELAY9
+
+
+	model_name.Format(_T("POWER_OFF_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq1);				recipeMsgSet += model_name; // POWER_OFF_SEQ1
+	model_name.Format(_T("POWER_OFF_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq2);				recipeMsgSet += model_name; // POWER_OFF_SEQ2
+	model_name.Format(_T("POWER_OFF_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq3);				recipeMsgSet += model_name; // POWER_OFF_SEQ3
+	model_name.Format(_T("POWER_OFF_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq4);				recipeMsgSet += model_name; // POWER_OFF_SEQ4
+	model_name.Format(_T("POWER_OFF_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq5);				recipeMsgSet += model_name; // POWER_OFF_SEQ5
+	model_name.Format(_T("POWER_OFF_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq6);				recipeMsgSet += model_name; // POWER_OFF_SEQ6
+	model_name.Format(_T("POWER_OFF_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq7);				recipeMsgSet += model_name; // POWER_OFF_SEQ7
+	model_name.Format(_T("POWER_OFF_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq8);				recipeMsgSet += model_name; // POWER_OFF_SEQ8
+	model_name.Format(_T("POWER_OFF_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq9);				recipeMsgSet += model_name; // POWER_OFF_SEQ9
+	model_name.Format(_T("POWER_OFF_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq10);				recipeMsgSet += model_name; // POWER_OFF_SEQ10
+	model_name.Format(_T("POWER_OFF_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay1);			recipeMsgSet += model_name; // POWER_OFF_DELAY1
+	model_name.Format(_T("POWER_OFF_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay2);			recipeMsgSet += model_name; // POWER_OFF_DELAY2
+	model_name.Format(_T("POWER_OFF_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay3);			recipeMsgSet += model_name; // POWER_OFF_DELAY3
+	model_name.Format(_T("POWER_OFF_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay4);			recipeMsgSet += model_name; // POWER_OFF_DELAY4
+	model_name.Format(_T("POWER_OFF_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay5);			recipeMsgSet += model_name; // POWER_OFF_DELAY5
+	model_name.Format(_T("POWER_OFF_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay6);			recipeMsgSet += model_name; // POWER_OFF_DELAY6
+	model_name.Format(_T("POWER_OFF_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay7);			recipeMsgSet += model_name; // POWER_OFF_DELAY7
+	model_name.Format(_T("POWER_OFF_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay8);			recipeMsgSet += model_name; // POWER_OFF_DELAY8
+	model_name.Format(_T("POWER_OFF_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay9);			recipeMsgSet += model_name; // POWER_OFF_DELAY9
+	model_name.Format(_T("VCC_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVccVolt);							recipeMsgSet += model_name; // VCC_VOLT
+	model_name.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVccVoltOffset);				recipeMsgSet += model_name; // VCC_VOLT_OFFSET
+	model_name.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltLow);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_LOW
+	model_name.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltHigh);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_HIGH
+	model_name.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrLow);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_LOW
+	model_name.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrHigh);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_HIGH
+	model_name.Format(_T("VBL_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVblVolt);							recipeMsgSet += model_name; // VBL_VOLT
+	model_name.Format(_T("VBL_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVblVoltOffset);					recipeMsgSet += model_name; // VBL_VOLT_OFFSET
+	model_name.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltLow);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_LOW
+	model_name.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltHigh);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_HIGH
+	model_name.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrLow);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_LOW
+	model_name.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrHigh);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_HIGH
+	model_name.Format(_T("AGING_TIME_HH_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeHH);					recipeMsgSet += model_name; // AGING_TIME_HH
+	model_name.Format(_T("AGING_TIME_MM_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMM);					recipeMsgSet += model_name; // AGING_TIME_MM
+	model_name.Format(_T("AGING_TIME_MINUTE_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMinute);			recipeMsgSet += model_name; // AGING_TIME_MINUTE
+	model_name.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO$%d;"), lpModelInfo->m_nAgingEndWaitTime);		recipeMsgSet += model_name; // AGING_END_WAIT_TIM
+	model_name.Format(_T("TEMPERATURE_USE_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureUse);			recipeMsgSet += model_name; // TEMPERATURE_USE
+	model_name.Format(_T("TEMPERATURE_MIN_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMin);			recipeMsgSet += model_name; // TEMPERATURE_MIN
+	model_name.Format(_T("TEMPERATURE_MAX_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMax);			recipeMsgSet += model_name; // TEMPERATURE_MAX
+	model_name.Format(_T("DOOR_USE_MODEL_INFO$%d"), lpModelInfo->m_nOpeDoorUse);						recipeMsgSet += model_name; // DOOR_USE
+	//model_name.Format(_T("TEMP_ZONE_S1$%f;"), lpInspWorkInfo->m_fTempReadVal[0]);						recipeMsgSet += model_name; // 1ZONE 온도 (S1)
+	//model_name.Format(_T("TEMP_ZONE_S2$%f;"), lpInspWorkInfo->m_fTempReadVal[1]);						recipeMsgSet += model_name; // 1ZONE 온도 (S2)
+	//model_name.Format(_T("TEMP_ZONE_S3$%f;"), lpInspWorkInfo->m_fTempReadVal[2]);						recipeMsgSet += model_name; // 2ZONE 온도 (S3)
+	//model_name.Format(_T("TEMP_ZONE_S4$%f;"), lpInspWorkInfo->m_fTempReadVal[3]);						recipeMsgSet += model_name; // 2ZONE 온도 (S4)
+	//model_name.Format(_T("TEMP_ZONE_S5$%f;"), lpInspWorkInfo->m_fTempReadVal[4]);						recipeMsgSet += model_name; // 3ZONE 온도 (S5)
+	//model_name.Format(_T("TEMP_ZONE_S6$%f;"), lpInspWorkInfo->m_fTempReadVal[5]);						recipeMsgSet += model_name; // 3ZONE 온도 (S6)
+	//model_name.Format(_T("TEMP_ZONE_SET1$%f;"), lpInspWorkInfo->m_fTempReadValST590_2[0]);				recipeMsgSet += model_name; // 1ZONE 메인 컨트롤러 세팅값
+	//model_name.Format(_T("TEMP_ZONE_SET2$%f;"), lpInspWorkInfo->m_fTempReadValST590_2[1]);				recipeMsgSet += model_name; // 2ZONE 메인 컨트롤러 세팅값
+	//model_name.Format(_T("TEMP_ZONE_SET3$%f;"), lpInspWorkInfo->m_fTempReadValST590_2[2]);				recipeMsgSet += model_name; // 3ZONE 메인 컨트롤러 세팅값
+
+	CString reply;
+	reply.Format(
+		_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[%s:%s:[%d]:3:U:%s::[0#[%s]]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID="),
+		m_strRemoteSubjectRMS,
+		m_strLocalSubjectRMS,
+		m_strEqpRMS,
+		eqp_name.Left(eqp_name.GetLength() - 2),
+		m_strEqpRMS,
+		cur_yn,
+		recipe_yn,
+		recipeMsgSet,
+		seqNo
+	);
+
+	m_pApp->Gf_writeRMSLog(reply);
+
+	VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+	if (ok == VARIANT_FALSE)
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send failed"));
+	else
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send ok"));
 }

@@ -234,6 +234,10 @@ public:
 	void SetSlotNo(CString strBuff);
 
 	void HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread);
+
+	LPMODELINFO			lpModelInfo;
+	LPSYSTEMINFO		lpSystemInfo;
 
 	// ---------------------------------------
 	CString GetRwkCode();

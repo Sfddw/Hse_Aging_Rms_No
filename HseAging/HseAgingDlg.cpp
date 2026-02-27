@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.8D"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.8E"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -4477,11 +4477,11 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 			break;
 		}
 	}
-	if (bFusing == FALSE)
+	/*if (bFusing == FALSE)
 	{
 		Lf_writeRackMLog(rack, _T("Fusing : N/C"));
 		return;
-	}
+	}*/
 	////////////////////////////////////////////////////////////////////////////////////
 
 
