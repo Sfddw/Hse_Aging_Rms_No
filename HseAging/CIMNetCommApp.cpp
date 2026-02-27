@@ -7,6 +7,9 @@
 
 #include "CIMNetCommApp.h"
 
+#include <vector>
+#include <algorithm>
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Message Receive Class
@@ -21,6 +24,85 @@ static _ATL_FUNC_INFO HandleTibRvMsgEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR
 static _ATL_FUNC_INFO HandleTibRvStateEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR} };
 
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ModelList.ini에서 키(001,002...) 목록 읽기 함수3
+static std::vector<CString> ReadModelListKeys(const CString& modelListIniPath)
+{
+	std::vector<CString> keys;
+
+	// GetPrivateProfileSection은 "key=value\0key=value\0\0" 형태로 돌려줌
+	// 넉넉히 버퍼 확보 (모델 많으면 키워야 함)
+	const DWORD BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> buf(BUF_SIZE, 0);
+
+	DWORD n = ::GetPrivateProfileSection(_T("ModelList"), buf.data(), (DWORD)buf.size(), modelListIniPath);
+	if (n == 0)
+		return keys; // 섹션 없거나 비어있음
+
+	// buf를 순회하며 한 줄씩 파싱
+	const TCHAR* p = buf.data();
+	while (*p)
+	{
+		CString line = p;        // "001=LP140WU3"
+		int eq = line.Find(_T('='));
+		if (eq > 0)
+		{
+			CString key = line.Left(eq);
+			key.Trim();
+			if (!key.IsEmpty())
+				keys.push_back(key);
+		}
+
+		// 다음 문자열로 이동
+		p += _tcslen(p) + 1;
+	}
+
+	// 숫자 key 기준 오름차순 정렬 (문자열 "010" "002" 이런거 안전)
+	std::sort(keys.begin(), keys.end(),
+		[](const CString& a, const CString& b)
+		{
+			int ia = _ttoi(a);
+			int ib = _ttoi(b);
+			return ia < ib;
+		});
+
+	// 중복 제거(혹시 같은 key가 여러번 들어가면)
+	keys.erase(std::unique(keys.begin(), keys.end(),
+		[](const CString& a, const CString& b)
+		{
+			return a.CompareNoCase(b) == 0;
+		}), keys.end());
+
+	return keys;
+}
+
+static CString BuildRecipeMsgSetFromModelList(
+	const CString& machine,
+	const CString& unit,
+	const CString& modelListIniPath)
+{
+	CString recipeMsgSet;
+	CString one;
+
+	auto keys = ReadModelListKeys(modelListIniPath);
+	if (keys.empty())
+		return recipeMsgSet; // 비어있으면 빈 문자열 반환(원하면 기본값 처리 가능)
+
+	for (size_t i = 0; i < keys.size(); ++i)
+	{
+		const CString& key = keys[i]; // "001", "002", ...
+
+		if (i == keys.size() - 1)
+			one.Format(_T("%s:%s:[%s]:3:U:"), machine, unit, key);
+		else
+			one.Format(_T("%s:%s:[%s]:3:U:,"), machine, unit, key);
+
+		recipeMsgSet += one;
+	}
+
+	return recipeMsgSet;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2644,137 +2726,139 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			CString cmd = msg.Left(4);
 			if (cmd == _T("EPLR")) // EPLR 메시지
 			{
-				CString machine, unit, Eplr_Recipe_Info, Eplr_Recipe_MsgSet;
-				int posMachine = msg.Find(_T("MACHINE="));
-				if (posMachine >= 0)
-				{
-					int start = posMachine + (int)_tcslen(_T("MACHINE="));
-					machine = msg.Mid(start, 10);   // MACHINE 값 10글자
-				}
 
-				int posUnit = msg.Find(_T("UNIT="));
-				if (posUnit >= 0)
-				{
-					int start = posUnit + (int)_tcslen(_T("UNIT="));
-					unit = msg.Mid(start, 12);      // UNIT 값 12글자
-				}
+				pThis->HandleRmsMsg_EPLR(msg, pRmsThread);
+				//CString machine, unit, Eplr_Recipe_Info, Eplr_Recipe_MsgSet;
+				//int posMachine = msg.Find(_T("MACHINE="));
+				//if (posMachine >= 0)
+				//{
+				//	int start = posMachine + (int)_tcslen(_T("MACHINE="));
+				//	machine = msg.Mid(start, 10);   // MACHINE 값 10글자
+				//}
 
-				auto ExtractTokenValue = [&](LPCTSTR key) -> CString
-					{
-						CString k(key);
-						int pos = msg.Find(k);
-						if (pos < 0) return _T("");
+				//int posUnit = msg.Find(_T("UNIT="));
+				//if (posUnit >= 0)
+				//{
+				//	int start = posUnit + (int)_tcslen(_T("UNIT="));
+				//	unit = msg.Mid(start, 12);      // UNIT 값 12글자
+				//}
 
-						int start = pos + k.GetLength();
-						int end = msg.Find(_T(" "), start);
-						if (end < 0) end = msg.GetLength();
+				//auto ExtractTokenValue = [&](LPCTSTR key) -> CString
+				//	{
+				//		CString k(key);
+				//		int pos = msg.Find(k);
+				//		if (pos < 0) return _T("");
 
-						return msg.Mid(start, end - start);
-					};
-				CString SEQ_No = ExtractTokenValue(_T("SEQ_NO="));
+				//		int start = pos + k.GetLength();
+				//		int end = msg.Find(_T(" "), start);
+				//		if (end < 0) end = msg.GetLength();
 
-				Eplr_Recipe_Info.Format(_T("%s:%s:[000]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[001]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[002]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[003]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[004]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[005]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[006]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[007]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[008]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[009]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[010]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[011]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[012]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[013]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[014]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[015]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[016]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[017]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[018]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[019]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[020]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[021]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[022]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[023]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[024]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[025]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[026]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[027]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[028]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[029]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[030]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[031]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[032]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[033]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[034]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[034]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[035]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[036]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[037]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[038]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[039]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[040]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[041]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[042]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[043]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[044]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[045]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[046]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[047]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[048]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[049]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[050]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[051]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[052]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[053]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[054]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[055]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[056]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[057]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[058]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[059]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[060]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[061]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[062]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[063]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[064]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[065]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[066]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[067]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[068]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[069]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[070]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[071]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[072]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
-				Eplr_Recipe_Info.Format(_T("%s:%s:[073]:3:U:"), machine, unit);						Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//		return msg.Mid(start, end - start);
+				//	};
+				//CString SEQ_No = ExtractTokenValue(_T("SEQ_NO="));
+
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[000]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[001]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[002]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[003]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[004]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[005]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[006]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[007]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[008]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[009]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[010]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[011]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[012]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[013]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[014]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[015]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[016]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[017]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[018]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[019]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[020]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[021]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[022]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[023]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[024]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[025]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[026]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[027]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[028]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[029]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[030]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[031]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[032]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[033]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[034]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[034]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[035]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[036]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[037]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[038]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[039]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[040]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[041]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[042]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[043]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[044]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[045]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[046]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[047]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[048]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[049]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[050]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[051]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[052]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[053]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[054]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[055]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[056]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[057]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[058]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[059]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[060]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[061]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[062]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[063]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[064]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[065]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[066]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[067]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[068]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[069]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[070]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[071]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[072]:3:U:,"), machine, unit);					Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
+				//Eplr_Recipe_Info.Format(_T("%s:%s:[073]:3:U:"), machine, unit);						Eplr_Recipe_MsgSet += Eplr_Recipe_Info;
 
 
 
-				// 1) EPLR_R 메시지 구성 (예시는 형식만)
-				CString reply;
-				reply.Format(_T("EPLR_R ADDR=%s,%s EQP=%s RECIPEINFO=[%s] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID="),
-					pThis->m_strRemoteSubjectRMS,
-					pThis->m_strLocalSubjectRMS,
-					pThis->m_strEqpRMS,
-					Eplr_Recipe_MsgSet,
-					SEQ_No 
-				);
-				m_pApp->Gf_writeRMSLog(reply);
-				// TODO: 실제 RMS 프로토콜에 맞게 필드 채우기
+				//// 1) EPLR_R 메시지 구성 (예시는 형식만)
+				//CString reply;
+				//reply.Format(_T("EPLR_R ADDR=%s,%s EQP=%s RECIPEINFO=[%s] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID="),
+				//	pThis->m_strRemoteSubjectRMS,
+				//	pThis->m_strLocalSubjectRMS,
+				//	pThis->m_strEqpRMS,
+				//	Eplr_Recipe_MsgSet,
+				//	SEQ_No 
+				//);
+				//m_pApp->Gf_writeRMSLog(reply);
+				//// TODO: 실제 RMS 프로토콜에 맞게 필드 채우기
 
-				// 2) 딱 1번 전송 (대기 없음)
-				//if (m_pApp->m_blsRmsConnect == FALSE)
-				//	return; // 또는 처리
+				//// 2) 딱 1번 전송 (대기 없음)
+				////if (m_pApp->m_blsRmsConnect == FALSE)
+				////	return; // 또는 처리
 
-				VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
-				
-				if (ok == VARIANT_FALSE)
-					m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send failed"));
-				else
-					m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send ok"));
+				//VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+				//
+				//if (ok == VARIANT_FALSE)
+				//	m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send failed"));
+				//else
+				//	m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send ok"));
 
-				// ✅ 여기서 끝. 수신대기 루프 절대 없음.
+				//// ✅ 여기서 끝. 수신대기 루프 절대 없음.
 			}
 			else if (cmd == _T("EPPR"))
 			{
@@ -2861,4 +2945,87 @@ CString CCimNetCommApi::GetLastRmsMessage()
 {
 	CSingleLock lock(&m_csRmsRecv, TRUE);
 	return m_lastRmsRecv;
+}
+
+void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsThread)
+{
+	// 0) 안전 체크
+	if (pRmsThread == nullptr)
+		return;
+
+	// 1) MACHINE / UNIT 추출
+	CString machine, unit;
+
+	int posMachine = msg.Find(_T("MACHINE="));
+	if (posMachine >= 0)
+	{
+		int start = posMachine + (int)_tcslen(_T("MACHINE="));
+		machine = msg.Mid(start, 10); // MACHINE 10글자 고정
+	}
+
+	int posUnit = msg.Find(_T("UNIT="));
+	if (posUnit >= 0)
+	{
+		int start = posUnit + (int)_tcslen(_T("UNIT="));
+		unit = msg.Mid(start, 12); // UNIT 12글자 고정
+	}
+
+	// 값이 없으면 그냥 종료(로그는 선택)
+	if (machine.GetLength() != 10 || unit.GetLength() != 12)
+	{
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR parse fail (MACHINE/UNIT)"));
+		return;
+	}
+
+	// 2) SEQ_NO 추출
+	auto ExtractTokenValue = [&](LPCTSTR key) -> CString
+		{
+			CString k(key);
+			int pos = msg.Find(k);
+			if (pos < 0) return _T("");
+
+			int start = pos + k.GetLength();
+			int end = msg.Find(_T(" "), start);
+			if (end < 0) end = msg.GetLength();
+
+			return msg.Mid(start, end - start);
+		};
+
+	CString seqNo = ExtractTokenValue(_T("SEQ_NO="));
+
+	// 3) RECIPEINFO 문자열 생성 (루프로 짧게!)
+	//CString recipeMsgSet, one;
+	//for (int i = 0; i <= 73; ++i)
+	//{
+	//	// 마지막 항목만 ',' 없이 끝내려면
+	//	if (i == 73)
+	//		one.Format(_T("%s:%s:[%03d]:3:U:"), machine, unit, i);
+	//	else
+	//		one.Format(_T("%s:%s:[%03d]:3:U:,"), machine, unit, i);
+
+	//	recipeMsgSet += one;
+	//}
+	CString modelListPath = _T(".\\Recipe\\ModelList.ini");
+	CString recipeMsgSet = BuildRecipeMsgSetFromModelList(machine, unit, modelListPath);
+
+	// 4) EPLR_R 구성
+	CString reply;
+	reply.Format(
+		_T("EPLR_R ADDR=%s,%s EQP=%s RECIPEINFO=[%s] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID="),
+		m_strRemoteSubjectRMS,
+		m_strLocalSubjectRMS,
+		m_strEqpRMS,
+		recipeMsgSet,
+		seqNo
+	);
+
+	m_pApp->Gf_writeRMSLog(reply);
+
+	// 5) 딱 1번 전송(대기 없음)
+	VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+
+	if (ok == VARIANT_FALSE)
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send failed"));
+	else
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send ok"));
 }

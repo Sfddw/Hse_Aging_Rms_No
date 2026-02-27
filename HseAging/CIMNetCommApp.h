@@ -233,6 +233,8 @@ public:
 	void SetDurableID(CString strBuff);
 	void SetSlotNo(CString strBuff);
 
+	void HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsThread);
+
 	// ---------------------------------------
 	CString GetRwkCode();
 	CString GetPF();

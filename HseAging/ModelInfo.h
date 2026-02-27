@@ -51,6 +51,9 @@ protected:
 
 	BOOL Lf_checkAgingTempInfoChange();
 
+	/*static CString ExtractPureModelName(const CString& modelName);
+	static CString MakeModelNameByNumber(int modelNumber, const CString& pureModelName);*/
+
 private:
 	CFont m_Font[FONT_IDX_MAX];
 	CBrush m_Brush[COLOR_IDX_MAX];

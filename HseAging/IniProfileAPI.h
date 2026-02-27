@@ -389,6 +389,52 @@ static BOOL EnsureTextFileExists(LPCTSTR filePath, LPCTSTR defaultContent = _T("
 	return TRUE;
 }
 
+// recipe ini 정리(sync delete)
+static void DeleteRecipeIniNotInModel(const CString& modelDir, const CString& recipeDir)
+{
+	// 1) Model 폴더에 있는 ini 이름들을 set로 수집
+	CMapStringToPtr modelSet;
+	WIN32_FIND_DATA wfd;
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+
+	CString pattern;
+	pattern.Format(_T("%s\\*.ini"), modelDir.GetString());
+	hFind = FindFirstFile(pattern, &wfd);
+	if (hFind != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if (!(wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				// 파일명만 (예: 001_LP110WU3.ini)
+				modelSet.SetAt(wfd.cFileName, (void*)1);
+			}
+		} while (FindNextFile(hFind, &wfd));
+		FindClose(hFind);
+	}
+
+	// 2) Recipe 폴더 ini들을 순회하며, Model에 없으면 삭제
+	pattern.Format(_T("%s\\*.ini"), recipeDir.GetString());
+	hFind = FindFirstFile(pattern, &wfd);
+	if (hFind != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if (!(wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				void* dummy = nullptr;
+				if (!modelSet.Lookup(wfd.cFileName, dummy))
+				{
+					CString delPath;
+					delPath.Format(_T("%s\\%s"), recipeDir.GetString(), wfd.cFileName);
+					DeleteFile(delPath);
+				}
+			}
+		} while (FindNextFile(hFind, &wfd));
+		FindClose(hFind);
+	}
+}
+
 // Model 폴더의 ini 목록을 Recipe\ModelList.txt에 기록 (원하면 사용)
 static BOOL BuildModelListIni(LPCTSTR modelDir, LPCTSTR outTxtPath)
 {
@@ -410,7 +456,6 @@ static BOOL BuildModelListIni(LPCTSTR modelDir, LPCTSTR outTxtPath)
 
 	if (h == INVALID_HANDLE_VALUE)
 	{
-		// ini가 없어도 섹션만 만들어두고 종료
 		f.Close();
 		return TRUE;
 	}
@@ -420,41 +465,50 @@ static BOOL BuildModelListIni(LPCTSTR modelDir, LPCTSTR outTxtPath)
 		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			continue;
 
-		CString file = fd.cFileName;          // 예: "01_LP110WU3.ini" or "04.TEST.ini"
+		CString file = fd.cFileName;   // 예: "001_LP110WU3.ini" / "07.LP140_TEST.ini"
 		CString base = file;
 
-		// 확장자 .ini 제거
+		// 확장자(.ini) 제거: 마지막 '.' 기준
 		int dotExt = base.ReverseFind(_T('.'));
 		if (dotExt > 0)
-			base = base.Left(dotExt);         // 예: "01_LP110WU3" or "04.TEST"
+			base = base.Left(dotExt);  // 예: "001_LP110WU3" / "07.LP140_TEST"
 
-		// 앞 번호(2자리) 추출
+		// 1) 앞쪽 숫자(prefix) 전체 추출 (연속된 digit)
+		int i = 0;
+		while (i < base.GetLength() && _istdigit(base[i])) i++;
+
+		if (i <= 0)
+			continue; // 숫자 prefix 없으면 skip
+
+		CString numStr = base.Left(i);        // 예: "001" / "07"
+		int num = _ttoi(numStr);              // 1 / 7
+
+		// 2) key는 항상 3자리로 저장
 		CString key;
-		if (base.GetLength() >= 2)
-			key = base.Left(2);               // "01", "04"...
+		//key.Format(_T("%03d"), num);          // "001" / "007"
+		key.Format(_T("%d"), num);          // "001" / "007"
 
-		// 구분자 찾기: '_' 우선, 없으면 '.'
-		int sep = base.Find(_T('_'));
+		// 3) 값(모델명) 추출: '_' 또는 '.' 다음 부분
+		int sep = base.Find(_T('_'), i);
 		if (sep < 0)
-			sep = base.Find(_T('.'));
+			sep = base.Find(_T('.'), i);
 
-		// 값(모델명) 추출
 		CString value;
 		if (sep >= 0 && sep + 1 < base.GetLength())
 		{
-			value = base.Mid(sep + 1);        // "LP110WU3", "TEST", "LP140_TEST"...
+			value = base.Mid(sep + 1);        // "LP110WU3", "LP140_TEST", "TEST" ...
 		}
 		else
 		{
-			// 구분자가 없으면, 앞 2자리 이후 전체를 값으로(예: "01LP110WU3" 같은 케이스 대비)
-			value = (base.GetLength() > 2) ? base.Mid(2) : _T("");
+			// 구분자가 없으면 숫자 prefix 이후 전체를 값으로
+			value = base.Mid(i);
+			value.TrimLeft(_T("_."));         // 혹시 바로 "_", "."가 붙어있는 경우 제거
 		}
 
-		key.Trim(); value.Trim();
+		key.Trim();
+		value.Trim();
 
-		// key가 숫자가 아닐 수도 있으니 간단 검증(원하면 더 강하게)
-		// key가 비면 skip
-		if (key.IsEmpty() || value.IsEmpty())
+		if (value.IsEmpty())
 			continue;
 
 		CString line;
@@ -512,6 +566,8 @@ static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = TRUE, BOOL bBuildM
 
 	if (!EnsureDirectoryExists(recipeDir))
 		return FALSE;
+
+	DeleteRecipeIniNotInModel(modelDir, recipeDir);
 
 	// ini 복사
 	if (!CopyModelIniToRecipe(modelDir, recipeDir, bCopyIniOverwrite))
@@ -614,3 +670,4 @@ static void RemoveCurModelIni_ByModelText(const CString& sModelName)
 	// [CurModel]에서 key 삭제
 	::WritePrivateProfileString(_T("CurModel"), key, nullptr, _T(".\\Recipe\\CurModel.ini"));
 }
+

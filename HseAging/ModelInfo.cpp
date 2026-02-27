@@ -27,6 +27,31 @@ CModelInfo::~CModelInfo()
 	}
 }
 
+//////////////////////////
+//////////////////////////
+// 새모델 추가 헬퍼 함수
+static BOOL HasNumericPrefix(const CString& name)
+{
+	CString s = name;
+	s.Trim();
+	if (s.IsEmpty()) return FALSE;
+
+	int i = 0;
+	while (i < s.GetLength() && _istdigit(s[i])) i++;
+
+	// 숫자 + ('_' or '.') 형태면 prefix 있다고 판단
+	return (i > 0 && i < s.GetLength() && (s[i] == _T('_') || s[i] == _T('.')));
+}
+
+// 파일이 없으면 빈 ini라도 만들어두기(WritePrivateProfileString이 파일 생성)
+static void EnsureIniFileExists(const CString& path)
+{
+	::WritePrivateProfileString(_T("DUMMY"), _T("DUMMY"), _T("0"), path);
+}
+
+//////////////////////////
+//////////////////////////
+
 void CModelInfo::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
@@ -91,6 +116,9 @@ END_MESSAGE_MAP()
 
 
 // CModelInfo 메시지 처리기
+
+static CString ExtractPureModelName(const CString& modelName);
+static CString MakeModelNameByNumber(int modelNumber, const CString& pureModelName);
 
 
 BOOL CModelInfo::OnInitDialog()
@@ -752,12 +780,97 @@ void CModelInfo::Lf_saveModelData()
 {
 	CString modelName, sdata;
 
-	GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(modelName);
-
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// Model Number
+	// 현재 저장 대상(화면에 보이는 파일명, 확장자 없는 상태)
+	GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(modelName);
+	modelName.Trim();
+	modelName.MakeUpper();
+
+	// 1) 모델번호
 	GetDlgItem(IDC_EDT_MI_SAVE_MODEL_NUM)->GetWindowText(sdata);
-	lpModelInfo->m_nModelNumber = _ttoi(sdata);
+	int newModelNumber = _ttoi(sdata);
+
+	// 2) 순수 모델명
+	CString pureName = ExtractPureModelName(modelName);
+	pureName.Trim();
+	pureName.MakeUpper();
+
+	// 3) 새 파일명: "31_LP110WU3" 처럼 (원하면 31. / 31_ 규칙도 여기서)
+	CString newModelName = MakeModelNameByNumber(newModelNumber, pureName);
+	newModelName.MakeUpper();
+
+	// 경로
+	CString srcPath, dstPath;
+	srcPath.Format(_T(".\\Model\\%s.ini"), curLoadingModel.GetString());   // ✅ 실제 존재하는 "로드된 파일"이 기준
+	dstPath.Format(_T(".\\Model\\%s.ini"), newModelName.GetString());
+
+	// 타겟 중복 방지
+	if (_taccess(dstPath, 0) == 0)
+	{
+		CString msg;
+		msg.Format(_T("Target model file already exists:\r\n%s\r\n\r\nPlease change model number or delete existing file."),
+			dstPath.GetString());
+		m_pApp->Gf_ShowMessageBox(msg);
+		return;
+	}
+
+	// ✅ 핵심: SAVE MODEL에 번호가 없으면 "새 모델 추가"로 처리
+	BOOL bSaveAsNew = !HasNumericPrefix(modelName);
+
+	// (선택) 사용자가 SAVE MODEL을 로드된 모델명과 다르게 써도 "새로 저장"으로 처리하고 싶으면:
+	if (modelName.CompareNoCase(curLoadingModel) != 0)
+		bSaveAsNew = TRUE;
+
+	if (bSaveAsNew)
+	{
+		// 새 모델 파일 생성: 현재 로드된 모델 파일을 복사해서 베이스로 사용
+		if (_taccess(srcPath, 0) != 0)
+		{
+			// 로드된 파일이 없다면(이론상 거의 없음) 빈 ini라도 생성
+			EnsureIniFileExists(dstPath);
+		}
+		else
+		{
+			if (!::CopyFile(srcPath, dstPath, TRUE)) // TRUE: 이미 있으면 실패
+			{
+				DWORD err = GetLastError();
+				CString msg;
+				msg.Format(_T("Create new model failed.\r\n%s -> %s\r\nError=%lu"),
+					srcPath.GetString(), dstPath.GetString(), err);
+				m_pApp->Gf_ShowMessageBox(msg);
+				return;
+			}
+		}
+
+		// 새 모델로 UI/상태 전환
+		modelName = newModelName;
+		GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->SetWindowText(modelName);
+		curLoadingModel = modelName;  // 이제부터 저장은 새 파일로 들어감
+	}
+	else
+	{
+		// 번호가 있는 경우는 "파일명 변경(rename)"로 처리
+		CString oldPath;
+		oldPath.Format(_T(".\\Model\\%s.ini"), curLoadingModel.GetString()); // ✅ SAVE MODEL 문자열 말고 "실제 로드 파일"로 rename
+
+		if (!::MoveFile(oldPath, dstPath))
+		{
+			DWORD err = GetLastError();
+			CString msg;
+			msg.Format(_T("Rename failed.\r\n%s -> %s\r\nError=%lu"),
+				oldPath.GetString(), dstPath.GetString(), err);
+			m_pApp->Gf_ShowMessageBox(msg);
+			return;
+		}
+
+		modelName = newModelName;
+		GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->SetWindowText(modelName);
+		curLoadingModel = modelName;
+	}
+
+	// ✅ 이제부터는 modelName(=정규화된 새 이름)으로 저장
+	lpModelInfo->m_nModelNumber = newModelNumber;
 	Write_ModelFile(modelName, _T("MODEL_INFO"), _T("MODEL_NUMBER"), lpModelInfo->m_nModelNumber);
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1242,3 +1355,32 @@ BOOL CModelInfo::Lf_checkAgingTempInfoChange()
 }
 
 
+// "03_LP140WU3" / "03.LP140WU3" / "LP140WU3" -> "LP140WU3" 로 만들어줌
+static CString ExtractPureModelName(const CString& modelName)
+{
+	CString name = modelName;
+	name.Trim();
+
+	// 앞에 숫자들로 시작하고, 그 뒤에 '_' 또는 '.' 이 있으면 prefix 제거
+	int i = 0;
+	while (i < name.GetLength() && _istdigit(name[i])) i++;
+
+	if (i > 0 && i < name.GetLength())
+	{
+		if (name[i] == _T('_') || name[i] == _T('.'))
+		{
+			return name.Mid(i + 1);
+		}
+	}
+
+	return name;
+}
+
+// modelNumber=5, pure="LP140WU3" -> "005_LP140WU3"
+static CString MakeModelNameByNumber(int modelNumber, const CString& pureModelName)
+{
+	CString newName;
+	/*newName.Format(_T("%03d_%s"), modelNumber, pureModelName);*/
+	newName.Format(_T("%d_%s"), modelNumber, pureModelName);
+	return newName;
+}
