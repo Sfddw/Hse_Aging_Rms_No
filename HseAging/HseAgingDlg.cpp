@@ -4477,11 +4477,11 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 			break;
 		}
 	}
-	/*if (bFusing == FALSE)
+	if (bFusing == FALSE)
 	{
 		Lf_writeRackMLog(rack, _T("Fusing : N/C"));
 		return;
-	}*/
+	}
 	////////////////////////////////////////////////////////////////////////////////////
 
 

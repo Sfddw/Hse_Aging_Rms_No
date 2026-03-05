@@ -806,14 +806,14 @@ void CModelInfo::Lf_saveModelData()
 	dstPath.Format(_T(".\\Model\\%s.ini"), newModelName.GetString());
 
 	// 타겟 중복 방지
-	if (_taccess(dstPath, 0) == 0)
+	/*if (_taccess(dstPath, 0) == 0)
 	{
 		CString msg;
 		msg.Format(_T("Target model file already exists:\r\n%s\r\n\r\nPlease change model number or delete existing file."),
 			dstPath.GetString());
 		m_pApp->Gf_ShowMessageBox(msg);
 		return;
-	}
+	}*/
 
 	// ✅ 핵심: SAVE MODEL에 번호가 없으면 "새 모델 추가"로 처리
 	BOOL bSaveAsNew = !HasNumericPrefix(modelName);

@@ -235,6 +235,9 @@ public:
 
 	void HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsThread);
+
+	CString ExtractFieldValue(const CString& msg, LPCTSTR keyWithEq);
 
 	LPMODELINFO			lpModelInfo;
 	LPSYSTEMINFO		lpSystemInfo;
