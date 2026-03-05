@@ -389,6 +389,81 @@ static BOOL EnsureTextFileExists(LPCTSTR filePath, LPCTSTR defaultContent = _T("
 	return TRUE;
 }
 
+// 파일명에서 앞 숫자만 추출
+static BOOL ExtractLeadingNumberFromFileName(const CString& fileName, int& outNo)
+{
+	// fileName 예: "2_model-spb2.ini", "013_LP190.ini", "04.TEST.ini"
+	outNo = 0;
+
+	CString base = fileName;
+	base.Trim();
+
+	// 확장자 제거(.ini)
+	int dot = base.ReverseFind(_T('.'));
+	if (dot > 0)
+		base = base.Left(dot);
+
+	// 맨 앞 연속 숫자 추출
+	int i = 0;
+	while (i < base.GetLength() && _istdigit(base[i])) i++;
+
+	if (i == 0)
+		return FALSE; // 앞에 숫자가 없으면 실패
+
+	outNo = _ttoi(base.Left(i));
+	return (outNo > 0);
+}
+
+// Model -> Recipe 복사할 때 "번호.ini"로 저장
+static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CString& recipeDir, BOOL bOverwrite = TRUE)
+{
+	WIN32_FIND_DATA wfd = { 0 };
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+
+	CString pattern;
+	pattern.Format(_T("%s\\*.ini"), modelDir.GetString());
+
+	hFind = FindFirstFile(pattern, &wfd);
+	if (hFind == INVALID_HANDLE_VALUE)
+		return TRUE; // ini가 없어도 성공 처리
+
+	do
+	{
+		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			continue;
+
+		CString srcName = wfd.cFileName; // "2_model-spb2.ini"
+		int no = 0;
+		if (!ExtractLeadingNumberFromFileName(srcName, no))
+			continue; // 앞 숫자 없는 파일은 스킵(원하면 로그)
+
+		CString srcPath, dstPath;
+		srcPath.Format(_T("%s\\%s"), modelDir.GetString(), srcName);
+		dstPath.Format(_T("%s\\%d.ini"), recipeDir.GetString(), no); // ✅ "2.ini" 로 저장
+
+		// CopyFile의 bFailIfExists: TRUE면 덮어쓰기 금지
+		BOOL bFailIfExists = (bOverwrite ? FALSE : TRUE);
+
+		// 같은 번호가 여러 모델에 존재하면 마지막이 덮어쓰게 됨(정책 필요)
+		if (!::CopyFile(srcPath, dstPath, bFailIfExists))
+		{
+			// 덮어쓰기 false인데 이미 있으면 OK 처리할지/실패할지 정책 선택
+			if (!bOverwrite && GetLastError() == ERROR_FILE_EXISTS)
+				continue;
+
+			// 여기서 실패 처리
+			FindClose(hFind);
+			return FALSE;
+		}
+
+	} while (FindNextFile(hFind, &wfd));
+
+	FindClose(hFind);
+	return TRUE;
+}
+
+
+
 // recipe ini 정리(sync delete)
 static void DeleteRecipeIniNotInModel(const CString& modelDir, const CString& recipeDir)
 {
@@ -570,7 +645,9 @@ static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = TRUE, BOOL bBuildM
 	DeleteRecipeIniNotInModel(modelDir, recipeDir);
 
 	// ini 복사
-	if (!CopyModelIniToRecipe(modelDir, recipeDir, bCopyIniOverwrite))
+	/*if (!CopyModelIniToRecipe(modelDir, recipeDir, bCopyIniOverwrite))
+		return FALSE;*/
+	if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
 		return FALSE;
 
 	// txt 생성
@@ -669,5 +746,35 @@ static void RemoveCurModelIni_ByModelText(const CString& sModelName)
 
 	// [CurModel]에서 key 삭제
 	::WritePrivateProfileString(_T("CurModel"), key, nullptr, _T(".\\Recipe\\CurModel.ini"));
+}
+
+static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR lpKey, CString* szRetString)
+{
+	TCHAR wszData[400] = { 0, };
+	CString path;
+	path.Format(_T(".\\Recipe\\%s.ini"), recipeKey.GetString());
+
+	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
+	szRetString->Format(_T("%s"), wszData);
+}
+
+static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR lpKey, int* pRetValue)
+{
+	TCHAR wszData[400] = { 0, };
+	CString path;
+	path.Format(_T(".\\Recipe\\%s.ini"), recipeKey.GetString());
+
+	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
+	*pRetValue = _ttoi(wszData);
+}
+
+static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR lpKey, float* pRetValue)
+{
+	TCHAR wszData[400] = { 0, };
+	CString path;
+	path.Format(_T(".\\Recipe\\%s.ini"), recipeKey.GetString());
+
+	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
+	*pRetValue = (float)_tstof(wszData);
 }
 

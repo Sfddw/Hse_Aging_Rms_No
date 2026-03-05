@@ -236,6 +236,13 @@ public:
 	void HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EPCC(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EMCR(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EPIQ(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EWCH(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EWOQ(const CString& msg, ICallRMSClass* pRmsThread);
 
 	CString ExtractFieldValue(const CString& msg, LPCTSTR keyWithEq);
 

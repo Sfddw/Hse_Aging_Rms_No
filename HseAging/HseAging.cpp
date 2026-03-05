@@ -1629,6 +1629,125 @@ void CHseAgingApp::Gf_loadModelData(CString modelName)
 	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("DOOR_USE"), &lpModelInfo->m_nOpeDoorUse);
 }
 
+void CHseAgingApp::Gf_loadRecipeData(const CString& modelName)
+{
+	CString sdata;
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Model Num
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("MODEl_NUMBER"), &lpModelInfo->m_nModelNumber);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Timing Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_MAIN_CLOCK"), &lpModelInfo->m_fTimingMainClock);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_TOTAL"), &lpModelInfo->m_nTimingHorTotal);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_ACTIVE"), &lpModelInfo->m_nTimingHorActive);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_WIDTH"), &lpModelInfo->m_nTimingHorWidth);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_BACKPORCH"), &lpModelInfo->m_nTimingHorBP);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_FRONTPORCH"), &lpModelInfo->m_nTimingHorFP);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_TOTAL"), &lpModelInfo->m_nTimingVerTotal);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_ACTIVE"), &lpModelInfo->m_nTimingVerActive);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_WIDTH"), &lpModelInfo->m_nTimingVerWidth);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_BACKPORCH"), &lpModelInfo->m_nTimingVerBP);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_FRONTPORCH"), &lpModelInfo->m_nTimingVerFP);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// LCM Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("LCM_SIGNAL_TYPE"), &lpModelInfo->m_nLcmSignalType);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("LCM_PIXEL_TYPE"), &lpModelInfo->m_nLcmPixelType);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("LCM_ODD_EVEN"), &lpModelInfo->m_nLcmOddEven);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("LCM_SIGNAL_BIT"), &lpModelInfo->m_nLcmSignalBit);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("LCM_BIT_SWAP"), &lpModelInfo->m_nLcmBitSwap);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("LCM_LVDS_RS_SEL"), &lpModelInfo->m_nLcmLvdsRsSel);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Inverter & PWM Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("DIMMING_SEL"), &lpModelInfo->m_nDimmingSel);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("PWM_FREQ"), &lpModelInfo->m_nPwmFreq);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("PWM_DUTY"), &lpModelInfo->m_nPwmDuty);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBR_VOLT"), &lpModelInfo->m_fVbrVolt);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Function Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("CABLE_OPEN"), &lpModelInfo->m_nFuncCableOpen);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Power Sequence Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ1"), &lpModelInfo->m_nPowerOnSeq1);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ2"), &lpModelInfo->m_nPowerOnSeq2);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ3"), &lpModelInfo->m_nPowerOnSeq3);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ4"), &lpModelInfo->m_nPowerOnSeq4);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ5"), &lpModelInfo->m_nPowerOnSeq5);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ6"), &lpModelInfo->m_nPowerOnSeq6);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ7"), &lpModelInfo->m_nPowerOnSeq7);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ8"), &lpModelInfo->m_nPowerOnSeq8);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ9"), &lpModelInfo->m_nPowerOnSeq9);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ10"), &lpModelInfo->m_nPowerOnSeq10);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ11"), &lpModelInfo->m_nPowerOnSeq11);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY1"), &lpModelInfo->m_nPowerOnDelay1);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY2"), &lpModelInfo->m_nPowerOnDelay2);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY3"), &lpModelInfo->m_nPowerOnDelay3);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY4"), &lpModelInfo->m_nPowerOnDelay4);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY5"), &lpModelInfo->m_nPowerOnDelay5);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY6"), &lpModelInfo->m_nPowerOnDelay6);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY7"), &lpModelInfo->m_nPowerOnDelay7);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY8"), &lpModelInfo->m_nPowerOnDelay8);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY9"), &lpModelInfo->m_nPowerOnDelay9);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY10"), &lpModelInfo->m_nPowerOnDelay10);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ1"), &lpModelInfo->m_nPowerOffSeq1);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ2"), &lpModelInfo->m_nPowerOffSeq2);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ3"), &lpModelInfo->m_nPowerOffSeq3);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ4"), &lpModelInfo->m_nPowerOffSeq4);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ5"), &lpModelInfo->m_nPowerOffSeq5);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ6"), &lpModelInfo->m_nPowerOffSeq6);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ7"), &lpModelInfo->m_nPowerOffSeq7);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ8"), &lpModelInfo->m_nPowerOffSeq8);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ9"), &lpModelInfo->m_nPowerOffSeq9);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ10"), &lpModelInfo->m_nPowerOffSeq10);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ11"), &lpModelInfo->m_nPowerOffSeq11);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY1"), &lpModelInfo->m_nPowerOffDelay1);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY2"), &lpModelInfo->m_nPowerOffDelay2);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY3"), &lpModelInfo->m_nPowerOffDelay3);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY4"), &lpModelInfo->m_nPowerOffDelay4);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY5"), &lpModelInfo->m_nPowerOffDelay5);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY6"), &lpModelInfo->m_nPowerOffDelay6);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY7"), &lpModelInfo->m_nPowerOffDelay7);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY8"), &lpModelInfo->m_nPowerOffDelay8);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY9"), &lpModelInfo->m_nPowerOffDelay9);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY10"), &lpModelInfo->m_nPowerOffDelay10);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY"), &lpModelInfo->m_nPowerOffDelay);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Power Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VCC_VOLT"), &lpModelInfo->m_fVccVolt);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VCC_VOLT_OFFSET"), &lpModelInfo->m_fVccVoltOffset);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_VOLT_LOW"), &lpModelInfo->m_fVccLimitVoltLow);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_VOLT_HIGH"), &lpModelInfo->m_fVccLimitVoltHigh);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_CURR_LOW"), &lpModelInfo->m_fVccLimitCurrLow);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_CURR_HIGH"), &lpModelInfo->m_fVccLimitCurrHigh);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBL_VOLT"), &lpModelInfo->m_fVblVolt);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBL_VOLT_OFFSET"), &lpModelInfo->m_fVblVoltOffset);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_VOLT_LOW"), &lpModelInfo->m_fVblLimitVoltLow);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_VOLT_HIGH"), &lpModelInfo->m_fVblLimitVoltHigh);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_LOW"), &lpModelInfo->m_fVblLimitCurrLow);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_HIGH"), &lpModelInfo->m_fVblLimitCurrHigh);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Aging Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("AGING_TIME_HH"), &lpModelInfo->m_nAgingTimeHH);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("AGING_TIME_MM"), &lpModelInfo->m_nAgingTimeMM);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &lpModelInfo->m_nAgingTimeMinute);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("AGING_END_WAIT_TIME"), &sdata);
+	if (sdata.GetLength() == 0)		lpModelInfo->m_nAgingEndWaitTime = 5;
+	else							lpModelInfo->m_nAgingEndWaitTime = _ttoi(sdata);
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Operation Set
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TEMPERATURE_USE"), &lpModelInfo->m_nOpeTemperatureUse);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TEMPERATURE_MIN"), &lpModelInfo->m_nOpeTemperatureMin);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("TEMPERATURE_MAX"), &lpModelInfo->m_nOpeTemperatureMax);
+	Read_RecipeFile(modelName, _T("MODEL_INFO"), _T("DOOR_USE"), &lpModelInfo->m_nOpeDoorUse);
+}
+
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////

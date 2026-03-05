@@ -113,6 +113,7 @@ static BOOL FindModelNameByRecipeNo(const CString& modelDir, int recipeNo, CStri
 	// 예: ".\\Model\\1_*.ini"
 	CString pattern;
 	pattern.Format(_T("%s\\%d_*.ini"), modelDir.GetString(), recipeNo);
+	//pattern.Format(_T("%d.ini"), recipeNo);
 
 	WIN32_FIND_DATA fd = { 0 };
 	HANDLE h = FindFirstFile(pattern, &fd);
@@ -129,6 +130,27 @@ static BOOL FindModelNameByRecipeNo(const CString& modelDir, int recipeNo, CStri
 		file = file.Left(dot);   // 예: "1_LP140WU3"
 
 	outModelName = file;
+	return TRUE;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Recipe 폴더에서 번호 ini가 존재하는지 찾는 함수
+static BOOL FindRecipeIniByNo(const CString& recipeDir, int recipeNo, CString& outKey)
+{
+	outKey.Empty();
+
+	// 예: ".\\Recipe\\1.ini"
+	CString fullPath;
+	fullPath.Format(_T("%s\\%d.ini"), recipeDir.GetString(), recipeNo);
+
+	WIN32_FIND_DATA fd = { 0 };
+	HANDLE h = FindFirstFile(fullPath, &fd);
+	if (h == INVALID_HANDLE_VALUE)
+		return FALSE;
+	FindClose(h);
+
+	// Gf_loadRecipeData() 에 넘길 key는 "1" 같은 형태로
+	outKey.Format(_T("%d"), recipeNo);
 	return TRUE;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2768,20 +2790,31 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			{
 				pThis->HandleRmsMsg_ERCP(msg, pRmsThread);
 			}
-			else if (cmd == _T("EPSC"))
+			else if (cmd == _T("EPSC")) // 수정 중
 			{
-				CString reply;
-				reply.Format(_T("EPSC_R EQP= MACHINE= UNIT= SYSTEM= UNIT_TYPE= OPERATION_TYPE= COMMAND_CODE= PARACOUNT= SETTING_INFO= ACK= ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO= MMC_TXN_ID= USER_ID="));
-
-				m_pApp->Gf_writeRMSLog(reply);
-
-				VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
-				if (ok == VARIANT_FALSE)
-					m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
-				else
-					m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
+				pThis->HandleRmsMsg_EPSC(msg, pRmsThread);
 			}
-			else if (cmd == _T("EPDC"))
+			else if (cmd == _T("EPDC")) // 수정 중
+			{
+
+			}
+			else if (cmd == _T("EPCC")) // 수정 중
+			{
+
+			}
+			else if (cmd == _T("EMCR")) // 수정 중
+			{
+
+			}
+			else if (cmd == _T("EPIQ")) // 수정 중
+			{
+
+			}
+			else if (cmd == _T("EWCH")) // 수정 중
+			{
+
+			}
+			else if (cmd == _T("EWOQ")) // 수정 중
 			{
 
 			}
@@ -2948,15 +2981,27 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 
 	int recipeNoInt = _ttoi(recipe);
 
-	CString modelDir = _T(".\\Model");
-	if (!FindModelNameByRecipeNo(modelDir, recipeNoInt, model_name))
+	CString recipeDir = _T(".\\Recipe");
+	CString recipeKey;
+
+	if (!FindRecipeIniByNo(recipeDir, recipeNoInt, recipeKey))
 	{
 		CString msgErr;
-		msgErr.Format(_T("Model file not found for RECIPE=%d\r\nSearch: %s\\%d_*.ini"),
-			recipeNoInt, modelDir.GetString(), recipeNoInt);
+		msgErr.Format(_T("Recipe ini not found: %s\\%d.ini"), recipeDir.GetString(), recipeNoInt);
 		m_pApp->Gf_writeRMSLog(msgErr);
-		return; // 또는 기본 모델 처리
+		return;
 	}
+
+	//CString modelDir = _T(".\\Model");
+	////CString modelDir = _T(".\\Recipe");
+	//if (!FindModelNameByRecipeNo(modelDir, recipeNoInt, model_name))
+	//{
+	//	CString msgErr;
+	//	msgErr.Format(_T("Model file not found for RECIPE=%d\r\nSearch: %s\\%d_*.ini"),
+	//		recipeNoInt, modelDir.GetString(), recipeNoInt);
+	//	m_pApp->Gf_writeRMSLog(msgErr);
+	//	return; // 또는 기본 모델 처리
+	//}
 
 	// 값이 없으면 그냥 종료(로그는 선택)
 	if (machine.GetLength() != 10 || unit.GetLength() != 12)
@@ -2986,7 +3031,8 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	lpSystemInfo = m_pApp->GetSystemInfo();
 
 	// ✅ 찾은 모델 로딩
-	m_pApp->Gf_loadModelData(model_name);
+	//m_pApp->Gf_loadModelData(model_name);
+	m_pApp->Gf_loadRecipeData(recipeKey);
 
 	CString recipeMsgSet;
 
@@ -3130,7 +3176,7 @@ void CCimNetCommApi::HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsTh
 
 	CString reply;
 	reply.Format(
-		_T("ERCP_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=%s MODE_CODE=%s MODEL=%s BASEMODEL=%s WODR=%s CATEGORY=%s RECIPE=%s RECIPEVER=%s OPER=%s NW_CD=%s NW_DESCRIPTION=%s CHANGE_TYPE=%s VALIDATIONINFO=%s UNIT_INFO=%s REPLY_REQ=%s TO_EQP=%s RTN_CD=0 ERR_CD=0 ERR_MSG_ENG= ERR_MSG_LOC= MMC_TXN_ID=%s",
+		_T("ERCP_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=%s MODE_CODE=%s MODEL=%s BASEMODEL=%s WODR=%s CATEGORY=%s RECIPE=%s RECIPEVER=%s OPER=%s NW_CD=%s NW_DESCRIPTION=%s CHANGE_TYPE=%s VALIDATIONINFO=%s UNIT_INFO=%s REPLY_REQ=%s TO_EQP=%s RTN_CD=0 ERR_CD=0 ERR_MSG_ENG= ERR_MSG_LOC= MMC_TXN_ID=%s"),
 			m_strRemoteSubjectRMS,
 			m_strLocalSubjectRMS,
 			m_strEqpRMS,
@@ -3140,7 +3186,7 @@ void CCimNetCommApi::HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsTh
 			mode_code,
 			model,
 			basemodel,
-			word,
+			wodr,
 			category,
 			recipe,
 			recipever,
@@ -3153,7 +3199,6 @@ void CCimNetCommApi::HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsTh
 			reply_req,
 			to_eqp,
 			mmc_txn_id
-			)
 	);
 
 	m_pApp->Gf_writeRMSLog(reply);
@@ -3164,6 +3209,58 @@ void CCimNetCommApi::HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsTh
 	else
 		m_pApp->Gf_writeRMSLog(_T("[RMS] ERCP_R send ok"));
 }
+
+void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsThread)
+{
+	if (pRmsThread == nullptr)
+		return;
+
+	CString machine, unit, system, unit_type, operation_type, command_code, setting_info, seq_no, mmc_txn_id;
+
+	machine					= ExtractFieldValue(msg, _T("MACHINE="));
+	unit					= ExtractFieldValue(msg, _T("UNIT="));
+	system					= ExtractFieldValue(msg, _T("SYSTEM="));
+	unit_type				= ExtractFieldValue(msg, _T("UNIT_TYPE="));
+	operation_type			= ExtractFieldValue(msg, _T("OPERATION_TYPE="));
+	command_code			= ExtractFieldValue(msg, _T("COMMAND_CODE="));
+	setting_info			= ExtractFieldValue(msg, _T("SETTING_INFO="));
+	seq_no					= ExtractFieldValue(msg, _T("SEQ_NO="));
+	mmc_txn_id				= ExtractFieldValue(msg, _T("MMC_TXN_ID="));
+	
+	CString reply;
+	reply.Format(
+		_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s COMMAND_CODE=%s PARACOUNT= SETTING_INFO= ACK= ERR_MSG_LOC= SEQ_NO= MMC_TXN_ID="),
+		m_strRemoteSubjectRMS,
+		m_strLocalSubjectRMS,
+		m_strEqpRMS,
+		machine,
+		unit,
+		system,
+		unit_type,
+		operation_type,
+		command_code
+		);
+
+	m_pApp->Gf_writeRMSLog(reply);
+
+	VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+	if (ok == VARIANT_FALSE)
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
+	else
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
+
+
+}
+
+void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsThread)
+{
+
+}
+void CCimNetCommApi::HandleRmsMsg_EPCC(const CString& msg, ICallRMSClass* pRmsThread)
+{
+
+}
+
 
 
 CString CCimNetCommApi::ExtractFieldValue(const CString& msg, LPCTSTR keyWithEq)
