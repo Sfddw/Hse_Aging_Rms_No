@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.8F"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.8H"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -6492,7 +6492,8 @@ void CHseAgingDlg::OnBnClickedButtonDoor4()
 void CHseAgingDlg::OnBnClickedButtonDoor5()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	Lf_setDoorOnOff(RACK_5);
+	//Lf_setDoorOnOff(RACK_5);
+	Lf_setRecipeMake(1);
 }
 
 
@@ -6552,117 +6553,6 @@ void CHseAgingDlg::Lf_rmsErcpSet()
 	_T("RACK6_BCR_ID")
 	};
 
-	//ErcpDataSet.Format(_T("MODEL_NB#1^"));																				ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10001#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sEqpName);					ErcpMessageSet += ErcpDataSet; // EQP
-	//ErcpDataSet.Format(_T("%s_D10002#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sLastModelName[0]);		ErcpMessageSet += ErcpDataSet;	// LastModelName[1]
-	//ErcpDataSet.Format(_T("%s_D10003#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sLastModelName[1]);		ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10004#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sLastModelName[2]);		ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10005#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sLastModelName[3]);		ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10006#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sLastModelName[4]);		ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10007#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sLastModelName[5]);		ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10008#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_nTempRecorderPort);		ErcpMessageSet += ErcpDataSet; // TEMPRECORDERPORT
-	//Read_SysIniFile(_T("SYSTEM"), _T("PASSWORD"), &setPW);																ErcpMessageSet += ErcpDataSet;
-	//ErcpDataSet.Format(_T("%s_D10009#%s^"), lpSystemInfo->m_sEqpName.Right(6), setPW);									ErcpMessageSet += ErcpDataSet; // PASSWORD
-	//ErcpDataSet.Format(_T("%s_D10010#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sChamberNo);				ErcpMessageSet += ErcpDataSet; // CHAMBER NUMBER
-	//for (int i = 0; i < 6; ++i)
-	//{
-	//	CString rackVal;
-	//	// INI 파일에서 각 RACK 값을 읽음
-	//	Read_SysIniFile(_T("SYSTEM"), rackKeys[i], &rackVal);
-
-	//	// 기존 문자열에 누적 추가 (Format 대신 Append)
-	//	CString temp;
-	//	temp.Format(_T(" %s=%s"), rackKeys[i], rackVal); // RACK1_BCR_ID
-	//	//ErcpDataSet += temp;
-	//	ErcpMessageSet += temp;
-	//}
-
-	//ErcpDataSet.Format(_T("%s_D10011#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_fRefreshAgingStatusTime);		ErcpMessageSet += ErcpDataSet; // REFRESH_AGING_STATUS_TIME
-	//ErcpDataSet.Format(_T("%s_D10012#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_fRefreshPowerMeasureTime);		ErcpMessageSet += ErcpDataSet; // REFRESH_POWER_MEASURE_TIME
-	//ErcpDataSet.Format(_T("%s_D10013#%i^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_nTempLogInterval);				ErcpMessageSet += ErcpDataSet; // TEMP_LOG_INTERVAL
-	//ErcpDataSet.Format(_T("%s_D10014#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sMesServicePort);				ErcpMessageSet += ErcpDataSet; // MES_SERVICE_PORT
-	//ErcpDataSet.Format(_T("%s_D10015#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sMesNetWork);					ErcpMessageSet += ErcpDataSet; // MES_NETWORK
-	//ErcpDataSet.Format(_T("%s_D10016#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sMesDaemonPort);					ErcpMessageSet += ErcpDataSet; // MES_DAEMON_PORT
-	//ErcpDataSet.Format(_T("%s_D10017#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sMesLocalSubject);				ErcpMessageSet += ErcpDataSet; // MES_LOCAL_SUBJECT
-	//ErcpDataSet.Format(_T("%s_D10018#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sMesRemoteSubject);				ErcpMessageSet += ErcpDataSet; // MES_REMOTE_SUBJECT
-	//ErcpDataSet.Format(_T("%s_D10019#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sEasServicePort);				ErcpMessageSet += ErcpDataSet; // EAS_SERVICE_PORT
-	//ErcpDataSet.Format(_T("%s_D10020#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sEasNetWork);					ErcpMessageSet += ErcpDataSet; // EAS_NETWORK
-	//ErcpDataSet.Format(_T("%s_D10021#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sEasDaemonPort);					ErcpMessageSet += ErcpDataSet; // EAS_DAEMON_PORT
-	//ErcpDataSet.Format(_T("%s_D10022#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sEasLocalSubject);				ErcpMessageSet += ErcpDataSet; // EAS_LOCAL_SUBJECT
-	//ErcpDataSet.Format(_T("%s_D10023#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sEasRemoteSubject);				ErcpMessageSet += ErcpDataSet; // EAS_REMOTE_SUBJECT
-	//ErcpDataSet.Format(_T("%s_D10024#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sRmsServicePort);				ErcpMessageSet += ErcpDataSet; // RMS_SERVICE_PORT
-	//ErcpDataSet.Format(_T("%s_D10025#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sRmsNetWork);					ErcpMessageSet += ErcpDataSet; // RMS_NETWORK
-	//ErcpDataSet.Format(_T("%s_D10026#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sRmsDaemonPort);					ErcpMessageSet += ErcpDataSet; // RMS_DAEMON_PORT
-	//ErcpDataSet.Format(_T("%s_D10027#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sRmsLocalSubject);				ErcpMessageSet += ErcpDataSet; // RMS_LOCAL_SUBJECT
-	//ErcpDataSet.Format(_T("%s_D10028#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sRmsRemoteSubject);				ErcpMessageSet += ErcpDataSet; // RMS_REMOTE_SUBJECT
-	//ErcpDataSet.Format(_T("%s_D10029#%s^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_sRmsEqp);						ErcpMessageSet += ErcpDataSet; // RMS_EQP
-	//ErcpDataSet.Format(_T("%s_D10030#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_Aging_Count);					ErcpMessageSet += ErcpDataSet; // AGING_COUNT
-	//ErcpDataSet.Format(_T("%s_D10031#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpSystemInfo->m_Aging_Ng_Count);					ErcpMessageSet += ErcpDataSet; // AGING_NG_COUNT
-
-	//ErcpDataSet.Format(_T("%s_D10032#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nDimmingSel);						ErcpMessageSet += ErcpDataSet; // DIMMING_SEL
-	//ErcpDataSet.Format(_T("%s_D10033#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPwmFreq);						ErcpMessageSet += ErcpDataSet; // PWM_FREQ
-	//ErcpDataSet.Format(_T("%s_D10034#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPwmDuty);						ErcpMessageSet += ErcpDataSet; // PWM_DUTY
-	//ErcpDataSet.Format(_T("%s_D10035#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVbrVolt);						ErcpMessageSet += ErcpDataSet; // VBR_VOLT
-	//ErcpDataSet.Format(_T("%s_D10036#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nFuncCableOpen);					ErcpMessageSet += ErcpDataSet; // CABLE_OPEN
-	//ErcpDataSet.Format(_T("%s_D10037#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq1);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ1
-	//ErcpDataSet.Format(_T("%s_D10038#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq2);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ2
-	//ErcpDataSet.Format(_T("%s_D10039#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq3);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ3
-	//ErcpDataSet.Format(_T("%s_D10040#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq4);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ4
-	//ErcpDataSet.Format(_T("%s_D10041#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq5);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ5
-	//ErcpDataSet.Format(_T("%s_D10042#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq6);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ6
-	//ErcpDataSet.Format(_T("%s_D10043#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq7);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ7
-	//ErcpDataSet.Format(_T("%s_D10044#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq8);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ8
-	//ErcpDataSet.Format(_T("%s_D10045#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq9);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ9
-	//ErcpDataSet.Format(_T("%s_D10046#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq10);					ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ10
-	//ErcpDataSet.Format(_T("%s_D10047#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay1);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY1
-	//ErcpDataSet.Format(_T("%s_D10048#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay2);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY2
-	//ErcpDataSet.Format(_T("%s_D10049#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay3);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY3
-	//ErcpDataSet.Format(_T("%s_D10050#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay4);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY4
-	//ErcpDataSet.Format(_T("%s_D10051#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay5);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY5
-	//ErcpDataSet.Format(_T("%s_D10052#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay6);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY6
-	//ErcpDataSet.Format(_T("%s_D10053#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay7);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY7
-	//ErcpDataSet.Format(_T("%s_D10054#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay8);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY8
-	//ErcpDataSet.Format(_T("%s_D10055#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay9);					ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY9
-	//ErcpDataSet.Format(_T("%s_D10056#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq1);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ1
-	//ErcpDataSet.Format(_T("%s_D10057#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq2);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ2
-	//ErcpDataSet.Format(_T("%s_D10058#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq3);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ3
-	//ErcpDataSet.Format(_T("%s_D10059#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq4);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ4
-	//ErcpDataSet.Format(_T("%s_D10060#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq5);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ5
-	//ErcpDataSet.Format(_T("%s_D10061#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq6);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ6
-	//ErcpDataSet.Format(_T("%s_D10062#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq7);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ7
-	//ErcpDataSet.Format(_T("%s_D10063#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq8);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ8
-	//ErcpDataSet.Format(_T("%s_D10064#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq9);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ9
-	//ErcpDataSet.Format(_T("%s_D10065#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq10);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ10
-	//ErcpDataSet.Format(_T("%s_D10066#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay1);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY1
-	//ErcpDataSet.Format(_T("%s_D10067#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay2);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY2
-	//ErcpDataSet.Format(_T("%s_D10068#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay3);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY3
-	//ErcpDataSet.Format(_T("%s_D10069#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay4);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY4
-	//ErcpDataSet.Format(_T("%s_D10070#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay5);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY5
-	//ErcpDataSet.Format(_T("%s_D10071#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay6);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY6
-	//ErcpDataSet.Format(_T("%s_D10072#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay7);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY7
-	//ErcpDataSet.Format(_T("%s_D10073#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay8);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY8
-	//ErcpDataSet.Format(_T("%s_D10074#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay9);					ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY9
-
-	//ErcpDataSet.Format(_T("%s_D10075#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccVolt);						ErcpMessageSet += ErcpDataSet; // VCC_VOLT
-	//ErcpDataSet.Format(_T("%s_D10076#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccVoltOffset);					ErcpMessageSet += ErcpDataSet; // VCC_VOLT_OFFSET
-	//ErcpDataSet.Format(_T("%s_D10077#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitVoltLow);				ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_VOLT_LOW
-	//ErcpDataSet.Format(_T("%s_D10078#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitVoltHigh);				ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_VOLT_HIGH
-	//ErcpDataSet.Format(_T("%s_D10079#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitCurrLow);				ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_CURR_LOW
-	//ErcpDataSet.Format(_T("%s_D10080#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitCurrHigh);				ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_CURR_HIGH
-	//ErcpDataSet.Format(_T("%s_D10081#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblVolt);						ErcpMessageSet += ErcpDataSet; // VBL_VOLT
-	//ErcpDataSet.Format(_T("%s_D10082#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblVoltOffset); 					ErcpMessageSet += ErcpDataSet;  // VBL_VOLT_OFFSET
-	//ErcpDataSet.Format(_T("%s_D10083#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitVoltLow);				ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_VOLT_LOW
-	//ErcpDataSet.Format(_T("%s_D10084#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitVoltHigh);				ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_VOLT_HIGH
-	//ErcpDataSet.Format(_T("%s_D10085#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitCurrLow);				ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_CURR_LOW
-	//ErcpDataSet.Format(_T("%s_D10086#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitCurrHigh);				ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_CURR_HIGH
-	//ErcpDataSet.Format(_T("%s_D10087#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingTimeHH);					ErcpMessageSet += ErcpDataSet; // AGING_TIME_HH
-	//ErcpDataSet.Format(_T("%s_D10088#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingTimeMM);					ErcpMessageSet += ErcpDataSet; // AGING_TIME_MM
-	//ErcpDataSet.Format(_T("%s_D10089#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingTimeMinute);				ErcpMessageSet += ErcpDataSet; // AGING_TIME_MINUTE
-	//ErcpDataSet.Format(_T("%s_D10090#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingEndWaitTime);				ErcpMessageSet += ErcpDataSet; // AGING_END_WAIT_TIME
-	//ErcpDataSet.Format(_T("%s_D10091#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureUse);				ErcpMessageSet += ErcpDataSet; // TEMPERATURE_USE
-	//ErcpDataSet.Format(_T("%s_D10092#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureMin);				ErcpMessageSet += ErcpDataSet; // TEMPERATURE_MIN
-	//ErcpDataSet.Format(_T("%s_D10093#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureMax);				ErcpMessageSet += ErcpDataSet; // TEMPERATURE_MAX
-	//ErcpDataSet.Format(_T("%s_D10094#%d"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeDoorUse);						ErcpMessageSet += ErcpDataSet; // DOOR_USE
 
 	try {
 		ErcpDataSet.Format(_T("MODEL_NB#1^"));																									ErcpMessageSet += ErcpDataSet; // MODEL_NUMBER
@@ -6756,4 +6646,178 @@ void CHseAgingDlg::Lf_rmsErcpSet()
 void CHseAgingDlg::OnBnClickedPause1()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+}
+
+//void CHseAgingDlg::Lf_setRecipeMake(int rack)
+//{
+//	CString sModelName;
+//	for (int i = 0; i < 6; i++)
+//	{
+//		m_pCmbMaModel[i]->GetWindowText(sModelName);
+//		m_pApp->Gf_loadRecipeIniData(sModelName, i);
+//	}
+//}
+
+
+
+/// <summary>
+/// 레시피파일 만들기
+/// </summary>
+/// <param name="rack"></param>
+void CHseAgingDlg::Lf_setRecipeMake(int rack)
+{
+	CString sModelName;
+
+	for (int i = 0; i < 6; i++) // rack1 ~ rack6까지의 데이터 저장
+	{
+		m_pCmbMaModel[i]->GetWindowText(sModelName);
+		sModelName.Trim();
+
+		if (sModelName.IsEmpty() || sModelName == _T("- MODEL LIST -"))
+		{
+			Gf_clearRecipeIniData(i);
+			continue;
+		}
+
+		m_pApp->Gf_loadRecipeIniData(sModelName, i);
+	}
+
+	// 다음 사용 가능한 번호 찾기
+	int nextRecipeNo = GetNextRecipeFileNumber();
+
+	CString recipeFileName;
+	recipeFileName.Format(_T("%d"), nextRecipeNo);
+
+	// 최종적으로 Recipe\{번호}.ini 생성
+	m_pApp->Gf_WriteRecipeIniFile(recipeFileName);
+
+	CString msg;
+	msg.Format(_T("Recipe file [%s.ini] created successfully."), recipeFileName.GetString());
+	m_pApp->Gf_ShowMessageBox(msg);
+}
+
+/// <summary>
+/// 레시피파일 번호 넘기기 (1 -> 2 -> 3 -> 4)
+/// </summary>
+/// <returns></returns>
+int CHseAgingDlg::GetNextRecipeFileNumber()
+{
+	int nextNo = 1;
+
+	while (true)
+	{
+		CString path;
+		path.Format(_T(".\\Recipe\\%d.ini"), nextNo);
+
+		// 파일이 없으면 이 번호 사용
+		if (_taccess(path, 0) != 0)
+			return nextNo;
+
+		nextNo++;
+	}
+}
+
+void CHseAgingDlg::Gf_clearRecipeIniData(int rack)
+{
+	if (rack < 0 || rack >= 6)
+		return;
+
+	lpModelInfo->r_nModelNumber[rack] = 0;
+
+	lpModelInfo->r_fTimingMainClock[rack] = 0.0f;
+	lpModelInfo->r_nTimingHorTotal[rack] = 0;
+	lpModelInfo->r_nTimingHorActive[rack] = 0;
+	lpModelInfo->r_nTimingHorWidth[rack] = 0;
+	lpModelInfo->r_nTimingHorBP[rack] = 0;
+	lpModelInfo->r_nTimingHorFP[rack] = 0;
+	lpModelInfo->r_nTimingVerTotal[rack] = 0;
+	lpModelInfo->r_nTimingVerActive[rack] = 0;
+	lpModelInfo->r_nTimingVerWidth[rack] = 0;
+	lpModelInfo->r_nTimingVerBP[rack] = 0;
+	lpModelInfo->r_nTimingVerFP[rack] = 0;
+
+	lpModelInfo->r_nLcmSignalType[rack] = 0;
+	lpModelInfo->r_nLcmPixelType[rack] = 0;
+	lpModelInfo->r_nLcmOddEven[rack] = 0;
+	lpModelInfo->r_nLcmSignalBit[rack] = 0;
+	lpModelInfo->r_nLcmBitSwap[rack] = 0;
+	lpModelInfo->r_nLcmLvdsRsSel[rack] = 0;
+
+	lpModelInfo->r_nDimmingSel[rack] = 0;
+	lpModelInfo->r_nPwmFreq[rack] = 0;
+	lpModelInfo->r_nPwmDuty[rack] = 0;
+	lpModelInfo->r_fVbrVolt[rack] = 0.0f;
+
+	lpModelInfo->r_nFuncCableOpen[rack] = 0;
+
+	lpModelInfo->r_nPowerOnSeq1[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq2[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq3[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq4[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq5[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq6[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq7[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq8[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq9[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq10[rack] = 0;
+	lpModelInfo->r_nPowerOnSeq11[rack] = 0;
+
+	lpModelInfo->r_nPowerOnDelay1[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay2[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay3[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay4[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay5[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay6[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay7[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay8[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay9[rack] = 0;
+	lpModelInfo->r_nPowerOnDelay10[rack] = 0;
+
+	lpModelInfo->r_nPowerOffSeq1[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq2[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq3[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq4[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq5[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq6[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq7[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq8[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq9[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq10[rack] = 0;
+	lpModelInfo->r_nPowerOffSeq11[rack] = 0;
+
+	lpModelInfo->r_nPowerOffDelay1[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay2[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay3[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay4[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay5[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay6[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay7[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay8[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay9[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay10[rack] = 0;
+	lpModelInfo->r_nPowerOffDelay[rack] = 0;
+
+	lpModelInfo->r_fVccVolt[rack] = 0.0f;
+	lpModelInfo->r_fVccVoltOffset[rack] = 0.0f;
+	lpModelInfo->r_fVccLimitVoltLow[rack] = 0.0f;
+	lpModelInfo->r_fVccLimitVoltHigh[rack] = 0.0f;
+	lpModelInfo->r_fVccLimitCurrLow[rack] = 0.0f;
+	lpModelInfo->r_fVccLimitCurrHigh[rack] = 0.0f;
+
+	lpModelInfo->r_fVblVolt[rack] = 0.0f;
+	lpModelInfo->r_fVblVoltOffset[rack] = 0.0f;
+	lpModelInfo->r_fVblLimitVoltLow[rack] = 0.0f;
+	lpModelInfo->r_fVblLimitVoltHigh[rack] = 0.0f;
+	lpModelInfo->r_fVblLimitCurrLow[rack] = 0.0f;
+	lpModelInfo->r_fVblLimitCurrHigh[rack] = 0.0f;
+
+	lpModelInfo->r_nAgingTimeHH[rack] = 0;
+	lpModelInfo->r_nAgingTimeMM[rack] = 0;
+	lpModelInfo->r_nAgingTimeMinute[rack] = 0;
+	lpModelInfo->r_nAgingEndWaitTime[rack] = 0;
+
+	lpModelInfo->r_nOpeTemperatureUse[rack] = 0;
+	lpModelInfo->r_nOpeTemperatureMin[rack] = 0;
+	lpModelInfo->r_nOpeTemperatureMax[rack] = 0;
+	lpModelInfo->r_nOpeDoorUse[rack] = 0;
 }

@@ -65,6 +65,9 @@ protected:
 	void Lf_setAgingSTOP(int rack);
 	void Lf_setAgingFUSING(int rack);
 	void Lf_setDoorOnOff(int rack);
+	void Lf_setRecipeMake(int rack);
+	int	 GetNextRecipeFileNumber(); // recipe 파일 번호 넘기기
+	void Gf_clearRecipeIniData(int rack);
 
 	void Lf_updateSystemInfo();
 	int  Lf_getChannelInfo(int ctrlID);

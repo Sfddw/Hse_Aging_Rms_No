@@ -535,62 +535,62 @@ static BOOL BuildModelListIni(LPCTSTR modelDir, LPCTSTR outTxtPath)
 		return TRUE;
 	}
 
-	do
-	{
-		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-			continue;
+	//do
+	//{
+	//	if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+	//		continue;
 
-		CString file = fd.cFileName;   // 예: "001_LP110WU3.ini" / "07.LP140_TEST.ini"
-		CString base = file;
+	//	CString file = fd.cFileName;   // 예: "001_LP110WU3.ini" / "07.LP140_TEST.ini"
+	//	CString base = file;
 
-		// 확장자(.ini) 제거: 마지막 '.' 기준
-		int dotExt = base.ReverseFind(_T('.'));
-		if (dotExt > 0)
-			base = base.Left(dotExt);  // 예: "001_LP110WU3" / "07.LP140_TEST"
+	//	// 확장자(.ini) 제거: 마지막 '.' 기준
+	//	int dotExt = base.ReverseFind(_T('.'));
+	//	if (dotExt > 0)
+	//		base = base.Left(dotExt);  // 예: "001_LP110WU3" / "07.LP140_TEST"
 
-		// 1) 앞쪽 숫자(prefix) 전체 추출 (연속된 digit)
-		int i = 0;
-		while (i < base.GetLength() && _istdigit(base[i])) i++;
+	//	// 1) 앞쪽 숫자(prefix) 전체 추출 (연속된 digit)
+	//	int i = 0;
+	//	while (i < base.GetLength() && _istdigit(base[i])) i++;
 
-		if (i <= 0)
-			continue; // 숫자 prefix 없으면 skip
+	//	if (i <= 0)
+	//		continue; // 숫자 prefix 없으면 skip
 
-		CString numStr = base.Left(i);        // 예: "001" / "07"
-		int num = _ttoi(numStr);              // 1 / 7
+	//	CString numStr = base.Left(i);        // 예: "001" / "07"
+	//	int num = _ttoi(numStr);              // 1 / 7
 
-		// 2) key는 항상 3자리로 저장
-		CString key;
-		//key.Format(_T("%03d"), num);          // "001" / "007"
-		key.Format(_T("%d"), num);          // "001" / "007"
+	//	// 2) key는 항상 3자리로 저장
+	//	CString key;
+	//	//key.Format(_T("%03d"), num);          // "001" / "007"
+	//	key.Format(_T("%d"), num);          // "001" / "007"
 
-		// 3) 값(모델명) 추출: '_' 또는 '.' 다음 부분
-		int sep = base.Find(_T('_'), i);
-		if (sep < 0)
-			sep = base.Find(_T('.'), i);
+	//	// 3) 값(모델명) 추출: '_' 또는 '.' 다음 부분
+	//	int sep = base.Find(_T('_'), i);
+	//	if (sep < 0)
+	//		sep = base.Find(_T('.'), i);
 
-		CString value;
-		if (sep >= 0 && sep + 1 < base.GetLength())
-		{
-			value = base.Mid(sep + 1);        // "LP110WU3", "LP140_TEST", "TEST" ...
-		}
-		else
-		{
-			// 구분자가 없으면 숫자 prefix 이후 전체를 값으로
-			value = base.Mid(i);
-			value.TrimLeft(_T("_."));         // 혹시 바로 "_", "."가 붙어있는 경우 제거
-		}
+	//	CString value;
+	//	if (sep >= 0 && sep + 1 < base.GetLength())
+	//	{
+	//		value = base.Mid(sep + 1);        // "LP110WU3", "LP140_TEST", "TEST" ...
+	//	}
+	//	else
+	//	{
+	//		// 구분자가 없으면 숫자 prefix 이후 전체를 값으로
+	//		value = base.Mid(i);
+	//		value.TrimLeft(_T("_."));         // 혹시 바로 "_", "."가 붙어있는 경우 제거
+	//	}
 
-		key.Trim();
-		value.Trim();
+	//	key.Trim();
+	//	value.Trim();
 
-		if (value.IsEmpty())
-			continue;
+	//	if (value.IsEmpty())
+	//		continue;
 
-		CString line;
-		line.Format(_T("%s=%s\n"), key, value);
-		f.WriteString(line);
+	//	CString line;
+	//	line.Format(_T("%s=%s\n"), key, value);
+	//	f.WriteString(line);
 
-	} while (FindNextFile(h, &fd));
+	//} while (FindNextFile(h, &fd));
 
 	FindClose(h);
 	f.Close();
@@ -642,13 +642,10 @@ static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = TRUE, BOOL bBuildM
 	if (!EnsureDirectoryExists(recipeDir))
 		return FALSE;
 
-	DeleteRecipeIniNotInModel(modelDir, recipeDir);
+	//DeleteRecipeIniNotInModel(modelDir, recipeDir);
 
-	// ini 복사
-	/*if (!CopyModelIniToRecipe(modelDir, recipeDir, bCopyIniOverwrite))
+	/*if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
 		return FALSE;*/
-	if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
-		return FALSE;
 
 	// txt 생성
 	CString curModelIni = _T(".\\Recipe\\CurModel.ini");
@@ -776,5 +773,32 @@ static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR
 
 	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
 	*pRetValue = (float)_tstof(wszData);
+}
+
+static void Write_RecipeFile(LPCWSTR lpRecipeFileName, LPCWSTR lpSection, LPCWSTR lpKey, LPCWSTR lpValue)
+{
+	CString szRecipePath;
+	szRecipePath.Format(_T(".\\Recipe\\%s.ini"), lpRecipeFileName);
+	::WritePrivateProfileString(lpSection, lpKey, lpValue, szRecipePath);
+}
+
+static void Write_RecipeFile(LPCWSTR lpRecipeFileName, LPCWSTR lpSection, LPCWSTR lpKey, int nData)
+{
+	CString szData;
+	CString szRecipePath;
+
+	szData.Format(_T("%d"), nData);
+	szRecipePath.Format(_T(".\\Recipe\\%s.ini"), lpRecipeFileName);
+	::WritePrivateProfileString(lpSection, lpKey, szData, szRecipePath);
+}
+
+static void Write_RecipeFile(LPCWSTR lpRecipeFileName, LPCWSTR lpSection, LPCWSTR lpKey, float fData)
+{
+	CString szData;
+	CString szRecipePath;
+
+	szData.Format(_T("%.3f"), fData);
+	szRecipePath.Format(_T(".\\Recipe\\%s.ini"), lpRecipeFileName);
+	::WritePrivateProfileString(lpSection, lpKey, szData, szRecipePath);
 }
 

@@ -89,7 +89,11 @@ public:
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	void Gf_LoadSystemData();
 	void Gf_loadModelData(CString modelName);
+	void Gf_loadRecipeIniData(CString modelName, int Rack);
 	void Gf_loadRecipeData(const CString& recipeKey);
+
+	void Gf_WriteRecipeIniFile(CString recipeFileName);
+	void Gf_ReadRecipeIniFile(CString recipeFileName);
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	void Gf_sumWriteSummaryLog(int rack, int layer, int channel);
