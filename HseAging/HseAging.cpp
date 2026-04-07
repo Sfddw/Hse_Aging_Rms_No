@@ -1970,272 +1970,126 @@ void CHseAgingApp::Gf_WriteRecipeIniFile(CString recipeFileName)
 	}
 }
 
-/// <summary>
-/// 레시피파일(1.ini) 안의 값 읽어들이기
-/// </summary>
-/// <param name="recipeFileName"></param>
-void CHseAgingApp::Gf_ReadRecipeIniFile(CString recipeFileName)
+BOOL CHseAgingApp::Gf_ReadModelInfoIniByPath(const CString& iniPath)
 {
-	CString section;
-	CString key;
-
-	for (int rack = 0; rack < 6; rack++)
-	{
-		section.Format(_T("RACK%02d"), rack + 1);
-
-		// Model / Inverter / Function
-		key.Format(_T("RACK%02d_MODEL_NB_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nModelNumber[rack]);
-
-		key.Format(_T("RACK%02d_DIMMING_SEL_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nDimmingSel[rack]);
-
-		key.Format(_T("RACK%02d_PWM_FREQ_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPwmFreq[rack]);
-
-		key.Format(_T("RACK%02d_PWM_DUTY_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPwmDuty[rack]);
-
-		key.Format(_T("RACK%02d_VBR_VOLT_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVbrVolt[rack]);
-
-		key.Format(_T("RACK%02d_CABLE_OPEN_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nFuncCableOpen[rack]);
-
-		// Timing
-		key.Format(_T("RACK%02d_TIMING_MAIN_CLOCK_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fTimingMainClock[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_HOR_TOTAL_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingHorTotal[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_HOR_ACTIVE_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingHorActive[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_HOR_WIDTH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingHorWidth[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_HOR_BACKPORCH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingHorBP[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_HOR_FRONTPORCH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingHorFP[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_VER_TOTAL_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingVerTotal[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_VER_ACTIVE_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingVerActive[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_VER_WIDTH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingVerWidth[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_VER_BACKPORCH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingVerBP[rack]);
-
-		key.Format(_T("RACK%02d_TIMING_VER_FRONTPORCH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nTimingVerFP[rack]);
-
-		// LCM
-		key.Format(_T("RACK%02d_LCM_SIGNAL_TYPE_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nLcmSignalType[rack]);
-
-		key.Format(_T("RACK%02d_LCM_PIXEL_TYPE_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nLcmPixelType[rack]);
-
-		key.Format(_T("RACK%02d_LCM_ODD_EVEN_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nLcmOddEven[rack]);
-
-		key.Format(_T("RACK%02d_LCM_SIGNAL_BIT_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nLcmSignalBit[rack]);
-
-		key.Format(_T("RACK%02d_LCM_BIT_SWAP_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nLcmBitSwap[rack]);
-
-		key.Format(_T("RACK%02d_LCM_LVDS_RS_SEL_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nLcmLvdsRsSel[rack]);
-
-		// Power ON Sequence
-		key.Format(_T("RACK%02d_POWER_ON_SEQ1_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq1[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ2_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq2[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ3_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq3[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ4_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq4[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ5_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq5[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ6_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq6[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ7_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq7[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ8_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq8[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ9_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq9[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_SEQ10_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnSeq10[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY1_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay1[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY2_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay2[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY3_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay3[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY4_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay4[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY5_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay5[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY6_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay6[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY7_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay7[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY8_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay8[rack]);
-
-		key.Format(_T("RACK%02d_POWER_ON_DELAY9_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOnDelay9[rack]);
-
-		// Power OFF Sequence
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ1_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq1[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ2_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq2[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ3_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq3[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ4_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq4[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ5_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq5[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ6_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq6[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ7_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq7[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ8_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq8[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ9_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq9[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_SEQ10_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffSeq10[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY1_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay1[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY2_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay2[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY3_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay3[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY4_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay4[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY5_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay5[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY6_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay6[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY7_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay7[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY8_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay8[rack]);
-
-		key.Format(_T("RACK%02d_POWER_OFF_DELAY9_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nPowerOffDelay9[rack]);
-
-		// Voltage / Current
-		key.Format(_T("RACK%02d_VCC_VOLT_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVccVolt[rack]);
-
-		key.Format(_T("RACK%02d_VCC_VOLT_OFFSET_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVccVoltOffset[rack]);
-
-		key.Format(_T("RACK%02d_VCC_LIMIT_VOLT_LOW_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVccLimitVoltLow[rack]);
-
-		key.Format(_T("RACK%02d_VCC_LIMIT_VOLT_HIGH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVccLimitVoltHigh[rack]);
-
-		key.Format(_T("RACK%02d_VCC_LIMIT_CURR_LOW_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVccLimitCurrLow[rack]);
-
-		key.Format(_T("RACK%02d_VCC_LIMIT_CURR_HIGH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVccLimitCurrHigh[rack]);
-
-		key.Format(_T("RACK%02d_VBL_VOLT_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVblVolt[rack]);
-
-		key.Format(_T("RACK%02d_VBL_VOLT_OFFSET_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVblVoltOffset[rack]);
-
-		key.Format(_T("RACK%02d_VBL_LIMIT_VOLT_LOW_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVblLimitVoltLow[rack]);
-
-		key.Format(_T("RACK%02d_VBL_LIMIT_VOLT_HIGH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVblLimitVoltHigh[rack]);
-
-		key.Format(_T("RACK%02d_VBL_LIMIT_CURR_LOW_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVblLimitCurrLow[rack]);
-
-		key.Format(_T("RACK%02d_VBL_LIMIT_CURR_HIGH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_fVblLimitCurrHigh[rack]);
-
-		// Aging / Operation
-		key.Format(_T("RACK%02d_AGING_TIME_HH_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nAgingTimeHH[rack]);
-
-		key.Format(_T("RACK%02d_AGING_TIME_MM_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nAgingTimeMM[rack]);
-
-		key.Format(_T("RACK%02dAGING_TIME_MINUTE_MODel_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nAgingTimeMinute[rack]);
-
-		key.Format(_T("RACK%02d_AGING_END_WAIT_TIME_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nAgingEndWaitTime[rack]);
-
-		key.Format(_T("RACK%02d_TEMPERATURE_USE_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nOpeTemperatureUse[rack]);
-
-		key.Format(_T("RACK%02d_TEMPERATURE_MIN_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nOpeTemperatureMin[rack]);
-
-		key.Format(_T("RACK%02d_TEMPERATURE_MAX_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nOpeTemperatureMax[rack]);
-
-		key.Format(_T("RACK%02d_DOOR_USE_MODEL_INFO"), rack + 1);
-		Read_RecipeFile(recipeFileName, section, key, &lpModelInfo->r_nOpeDoorUse[rack]);
-	}
+	if (_waccess(iniPath, 0) != 0)
+		return FALSE;
+
+	CString section = _T("MODEL_INFO");
+
+	Read_IniFileByPath(iniPath, section, _T("MODEL_NUMBER"), &lpModelInfo->m_nModelNumber);
+
+	Read_IniFileByPath(iniPath, section, _T("DIMMING_SEL"), &lpModelInfo->m_nDimmingSel);
+	Read_IniFileByPath(iniPath, section, _T("PWM_FREQ"), &lpModelInfo->m_nPwmFreq);
+	Read_IniFileByPath(iniPath, section, _T("PWM_DUTY"), &lpModelInfo->m_nPwmDuty);
+	Read_IniFileByPath(iniPath, section, _T("VBR_VOLT"), &lpModelInfo->m_fVbrVolt);
+	Read_IniFileByPath(iniPath, section, _T("CABLE_OPEN"), &lpModelInfo->m_nFuncCableOpen);
+
+	Read_IniFileByPath(iniPath, section, _T("TIMING_MAIN_CLOCK"), &lpModelInfo->m_fTimingMainClock);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_HOR_TOTAL"), &lpModelInfo->m_nTimingHorTotal);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_HOR_ACTIVE"), &lpModelInfo->m_nTimingHorActive);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_HOR_WIDTH"), &lpModelInfo->m_nTimingHorWidth);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_HOR_BACKPORCH"), &lpModelInfo->m_nTimingHorBP);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_HOR_FRONTPORCH"), &lpModelInfo->m_nTimingHorFP);
+
+	Read_IniFileByPath(iniPath, section, _T("TIMING_VER_TOTAL"), &lpModelInfo->m_nTimingVerTotal);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_VER_ACTIVE"), &lpModelInfo->m_nTimingVerActive);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_VER_WIDTH"), &lpModelInfo->m_nTimingVerWidth);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_VER_BACKPORCH"), &lpModelInfo->m_nTimingVerBP);
+	Read_IniFileByPath(iniPath, section, _T("TIMING_VER_FRONTPORCH"), &lpModelInfo->m_nTimingVerFP);
+
+	Read_IniFileByPath(iniPath, section, _T("LCM_SIGNAL_TYPE"), &lpModelInfo->m_nLcmSignalType);
+	Read_IniFileByPath(iniPath, section, _T("LCM_PIXEL_TYPE"), &lpModelInfo->m_nLcmPixelType);
+	Read_IniFileByPath(iniPath, section, _T("LCM_ODD_EVEN"), &lpModelInfo->m_nLcmOddEven);
+	Read_IniFileByPath(iniPath, section, _T("LCM_SIGNAL_BIT"), &lpModelInfo->m_nLcmSignalBit);
+	Read_IniFileByPath(iniPath, section, _T("LCM_BIT_SWAP"), &lpModelInfo->m_nLcmBitSwap);
+	Read_IniFileByPath(iniPath, section, _T("LCM_LVDS_RS_SEL"), &lpModelInfo->m_nLcmLvdsRsSel);
+
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ1"), &lpModelInfo->m_nPowerOnSeq1);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ2"), &lpModelInfo->m_nPowerOnSeq2);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ3"), &lpModelInfo->m_nPowerOnSeq3);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ4"), &lpModelInfo->m_nPowerOnSeq4);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ5"), &lpModelInfo->m_nPowerOnSeq5);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ6"), &lpModelInfo->m_nPowerOnSeq6);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ7"), &lpModelInfo->m_nPowerOnSeq7);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ8"), &lpModelInfo->m_nPowerOnSeq8);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ9"), &lpModelInfo->m_nPowerOnSeq9);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_SEQ10"), &lpModelInfo->m_nPowerOnSeq10);
+
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY1"), &lpModelInfo->m_nPowerOnDelay1);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY2"), &lpModelInfo->m_nPowerOnDelay2);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY3"), &lpModelInfo->m_nPowerOnDelay3);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY4"), &lpModelInfo->m_nPowerOnDelay4);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY5"), &lpModelInfo->m_nPowerOnDelay5);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY6"), &lpModelInfo->m_nPowerOnDelay6);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY7"), &lpModelInfo->m_nPowerOnDelay7);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY8"), &lpModelInfo->m_nPowerOnDelay8);
+	Read_IniFileByPath(iniPath, section, _T("POWER_ON_DELAY9"), &lpModelInfo->m_nPowerOnDelay9);
+
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ1"), &lpModelInfo->m_nPowerOffSeq1);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ2"), &lpModelInfo->m_nPowerOffSeq2);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ3"), &lpModelInfo->m_nPowerOffSeq3);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ4"), &lpModelInfo->m_nPowerOffSeq4);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ5"), &lpModelInfo->m_nPowerOffSeq5);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ6"), &lpModelInfo->m_nPowerOffSeq6);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ7"), &lpModelInfo->m_nPowerOffSeq7);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ8"), &lpModelInfo->m_nPowerOffSeq8);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ9"), &lpModelInfo->m_nPowerOffSeq9);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_SEQ10"), &lpModelInfo->m_nPowerOffSeq10);
+
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY1"), &lpModelInfo->m_nPowerOffDelay1);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY2"), &lpModelInfo->m_nPowerOffDelay2);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY3"), &lpModelInfo->m_nPowerOffDelay3);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY4"), &lpModelInfo->m_nPowerOffDelay4);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY5"), &lpModelInfo->m_nPowerOffDelay5);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY6"), &lpModelInfo->m_nPowerOffDelay6);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY7"), &lpModelInfo->m_nPowerOffDelay7);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY8"), &lpModelInfo->m_nPowerOffDelay8);
+	Read_IniFileByPath(iniPath, section, _T("POWER_OFF_DELAY9"), &lpModelInfo->m_nPowerOffDelay9);
+
+	Read_IniFileByPath(iniPath, section, _T("VCC_VOLT"), &lpModelInfo->m_fVccVolt);
+	Read_IniFileByPath(iniPath, section, _T("VCC_VOLT_OFFSET"), &lpModelInfo->m_fVccVoltOffset);
+	Read_IniFileByPath(iniPath, section, _T("VCC_LIMIT_VOLT_LOW"), &lpModelInfo->m_fVccLimitVoltLow);
+	Read_IniFileByPath(iniPath, section, _T("VCC_LIMIT_VOLT_HIGH"), &lpModelInfo->m_fVccLimitVoltHigh);
+	Read_IniFileByPath(iniPath, section, _T("VCC_LIMIT_CURR_LOW"), &lpModelInfo->m_fVccLimitCurrLow);
+	Read_IniFileByPath(iniPath, section, _T("VCC_LIMIT_CURR_HIGH"), &lpModelInfo->m_fVccLimitCurrHigh);
+
+	Read_IniFileByPath(iniPath, section, _T("VBL_VOLT"), &lpModelInfo->m_fVblVolt);
+	Read_IniFileByPath(iniPath, section, _T("VBL_VOLT_OFFSET"), &lpModelInfo->m_fVblVoltOffset);
+	Read_IniFileByPath(iniPath, section, _T("VBL_LIMIT_VOLT_LOW"), &lpModelInfo->m_fVblLimitVoltLow);
+	Read_IniFileByPath(iniPath, section, _T("VBL_LIMIT_VOLT_HIGH"), &lpModelInfo->m_fVblLimitVoltHigh);
+	Read_IniFileByPath(iniPath, section, _T("VBL_LIMIT_CURR_LOW"), &lpModelInfo->m_fVblLimitCurrLow);
+	Read_IniFileByPath(iniPath, section, _T("VBL_LIMIT_CURR_HIGH"), &lpModelInfo->m_fVblLimitCurrHigh);
+
+	Read_IniFileByPath(iniPath, section, _T("AGING_TIME_HH"), &lpModelInfo->m_nAgingTimeHH);
+	Read_IniFileByPath(iniPath, section, _T("AGING_TIME_MM"), &lpModelInfo->m_nAgingTimeMM);
+	Read_IniFileByPath(iniPath, section, _T("AGING_TIME_MINUTE"), &lpModelInfo->m_nAgingTimeMinute);
+	Read_IniFileByPath(iniPath, section, _T("AGING_END_WAIT_TIME"), &lpModelInfo->m_nAgingEndWaitTime);
+	Read_IniFileByPath(iniPath, section, _T("TEMPERATURE_USE"), &lpModelInfo->m_nOpeTemperatureUse);
+	Read_IniFileByPath(iniPath, section, _T("TEMPERATURE_MIN"), &lpModelInfo->m_nOpeTemperatureMin);
+	Read_IniFileByPath(iniPath, section, _T("TEMPERATURE_MAX"), &lpModelInfo->m_nOpeTemperatureMax);
+	Read_IniFileByPath(iniPath, section, _T("DOOR_USE"), &lpModelInfo->m_nOpeDoorUse);
+
+	return TRUE;
 }
 
+// CurModel 읽기용 wrapper
+BOOL CHseAgingApp::Gf_ReadCurModelIniFile(int rackNo)
+{
+	CString path;
+	path.Format(_T(".\\RMS\\RACK%dCurModel.ini"), rackNo);
 
+	return Gf_ReadModelInfoIniByPath(path);
+}
+
+void CHseAgingApp::Gf_ReadRecipeIniFile(CString recipeFileName)
+{
+	CString key = NormalizeRecipeKey3Digit(recipeFileName);
+	CString path;
+	path.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
+
+	Gf_ReadModelInfoIniByPath(path);
+}
 
 
 void CHseAgingApp::Gf_loadRecipeData(const CString& modelName)

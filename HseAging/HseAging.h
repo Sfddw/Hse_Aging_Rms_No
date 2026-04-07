@@ -94,6 +94,8 @@ public:
 
 	void Gf_WriteRecipeIniFile(CString recipeFileName);
 	void Gf_ReadRecipeIniFile(CString recipeFileName);
+	BOOL Gf_ReadCurModelIniFile(int rackNo);
+	BOOL Gf_ReadModelInfoIniByPath(const CString& iniPath); // CurModel.ini 파일 읽기
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	void Gf_sumWriteSummaryLog(int rack, int layer, int channel);

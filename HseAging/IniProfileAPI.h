@@ -37,6 +37,40 @@ static void delayMs(DWORD delay)
 	}
 }
 
+static CString Make3DigitKey(int no)
+{
+	CString key;
+	key.Format(_T("%03d"), no);
+	return key;
+}
+
+static CString MakeModelListValue(const CString& fileName)
+{
+	// 예: "1_LP14W4AL.SPB-2.ini" -> "1_LP14W4ALSPB-2"
+	CString baseName = fileName;
+
+	int dot = baseName.ReverseFind(_T('.'));
+	if (dot > 0)
+		baseName = baseName.Left(dot); // 확장자 제거
+
+	baseName.Replace(_T("."), _T("")); // 내부 점(.) 제거
+	return baseName;
+}
+
+static CString NormalizeRecipeKey3Digit(const CString& recipeKey)
+{
+	CString text = recipeKey;
+	text.Trim();
+
+	if (text.Right(4).CompareNoCase(_T(".ini")) == 0)
+		text = text.Left(text.GetLength() - 4);
+
+	int no = _ttoi(text);
+	CString key;
+	key.Format(_T("%03d"), no);
+	return key;
+}
+
 // 파일명에서 앞 숫자만 추출
 static BOOL ExtractLeadingNumberFromFileName(const CString& fileName, int& outNo)
 {
@@ -80,28 +114,22 @@ static BOOL BuildModelNumberNameMap(const CString& modelDir, CMapStringToString&
 
 	hFind = FindFirstFile(pattern, &wfd);
 	if (hFind == INVALID_HANDLE_VALUE)
-		return TRUE; // Model 폴더에 ini가 없어도 실패로 보지 않음
+		return TRUE; // Model 폴더에 ini가 없어도 실패 아님
 
 	do
 	{
 		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			continue;
 
-		CString fileName = wfd.cFileName;   // 예: "1_LP160WU3-SPB2-KH1-A.ini"
+		CString fileName = wfd.cFileName;   // 예: "1_LP14W4AL.SPB-2.ini"
 		int no = 0;
 		if (!ExtractLeadingNumberFromFileName(fileName, no))
 			continue;
 
-		CString baseName = fileName;
-		int dot = baseName.ReverseFind(_T('.'));
-		if (dot > 0)
-			baseName = baseName.Left(dot);   // "1_LP160WU3-SPB2-KH1-A"
+		CString key = Make3DigitKey(no);            // "001"
+		CString modelName = MakeModelListValue(fileName); // "1_LP14W4ALSPB-2"
 
-		CString key;
-		key.Format(_T("%d"), no);
-
-		// 같은 번호가 여러 개면 마지막 파일 기준으로 덮어씀
-		outMap.SetAt(key, baseName);
+		outMap.SetAt(key, modelName);
 
 	} while (FindNextFile(hFind, &wfd));
 
@@ -115,14 +143,17 @@ static BOOL BuildModelNumberNameMap(const CString& modelDir, CMapStringToString&
 /// <param name="modelDir"></param>
 /// <param name="recipeDir"></param>
 /// <returns></returns>
-static BOOL BuildModelListIniFromRecipeAndModel(const CString& modelDir, const CString& recipeDir)
+static BOOL BuildModelListIniFromRecipeAndModel(
+	const CString& modelDir,
+	const CString& recipeDir,
+	const CString& rmsRootDir)
 {
 	CMapStringToString modelMap;
 	if (!BuildModelNumberNameMap(modelDir, modelMap))
 		return FALSE;
 
 	CString outPath;
-	outPath.Format(_T("%s\\ModelList.ini"), recipeDir.GetString());
+	outPath.Format(_T("%s\\ModelList.ini"), rmsRootDir.GetString());
 
 	CStdioFile f;
 	if (!f.Open(outPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
@@ -150,18 +181,12 @@ static BOOL BuildModelListIniFromRecipeAndModel(const CString& modelDir, const C
 		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			continue;
 
-		CString fileName = wfd.cFileName;
-
-		// CurModel.ini / ModelList.ini 제외
-		if (fileName.CompareNoCase(_T("CurModel.ini")) == 0 ||
-			fileName.CompareNoCase(_T("ModelList.ini")) == 0)
-			continue;
+		CString fileName = wfd.cFileName; // 001.ini, 002.ini ...
 
 		int no = 0;
 		if (!ExtractLeadingNumberFromFileName(fileName, no))
 			continue;
 
-		// 중복 방지
 		BOOL exists = FALSE;
 		for (INT_PTR i = 0; i < recipeNos.GetCount(); i++)
 		{
@@ -192,11 +217,10 @@ static BOOL BuildModelListIniFromRecipeAndModel(const CString& modelDir, const C
 		}
 	}
 
-	// Model 폴더 원본 이름과 매칭해서 기록
 	for (INT_PTR i = 0; i < recipeNos.GetCount(); i++)
 	{
-		CString key, modelName;
-		key.Format(_T("%d"), recipeNos[i]);
+		CString key = Make3DigitKey(recipeNos[i]); // "001"
+		CString modelName;
 
 		if (modelMap.Lookup(key, modelName))
 		{
@@ -206,7 +230,6 @@ static BOOL BuildModelListIniFromRecipeAndModel(const CString& modelDir, const C
 		}
 		else
 		{
-			// 매칭 모델이 없으면 빈 값으로 남김 (원하면 skip 가능)
 			CString line;
 			line.Format(_T("%s=\n"), key.GetString());
 			f.WriteString(line);
@@ -625,26 +648,22 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			continue;
 
-		CString srcName = wfd.cFileName; // "2_model-spb2.ini"
+		CString srcName = wfd.cFileName;
 		int no = 0;
 		if (!ExtractLeadingNumberFromFileName(srcName, no))
-			continue; // 앞 숫자 없는 파일은 스킵(원하면 로그)
+			continue;
 
 		CString srcPath, dstPath;
 		srcPath.Format(_T("%s\\%s"), modelDir.GetString(), srcName);
-		dstPath.Format(_T("%s\\%d.ini"), recipeDir.GetString(), no); // ✅ "2.ini" 로 저장
+		dstPath.Format(_T("%s\\%03d.ini"), recipeDir.GetString(), no); // 001.ini
 
-		// CopyFile의 bFailIfExists: TRUE면 덮어쓰기 금지
 		BOOL bFailIfExists = (bOverwrite ? FALSE : TRUE);
 
-		// 같은 번호가 여러 모델에 존재하면 마지막이 덮어쓰게 됨(정책 필요)
 		if (!::CopyFile(srcPath, dstPath, bFailIfExists))
 		{
-			// 덮어쓰기 false인데 이미 있으면 OK 처리할지/실패할지 정책 선택
 			if (!bOverwrite && GetLastError() == ERROR_FILE_EXISTS)
 				continue;
 
-			// 여기서 실패 처리
 			FindClose(hFind);
 			return FALSE;
 		}
@@ -667,44 +686,52 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 static BOOL InitRecipeSubFoldersAndCopyModelIni(
 	const CString& modelDir,
 	const CString& recipeRootDir,
-	int recipeCount = 6,
+	int recipeCount = 6,              // 여기서는 rack 개수 개념으로 사용
 	BOOL bCopyIniOverwrite = TRUE,
 	BOOL bBuildModelList = TRUE)
 {
 	if (!EnsureDirectoryExists(recipeRootDir))
 		return FALSE;
 
+	CString recipeDir;
+	recipeDir.Format(_T("%s\\Recipe"), recipeRootDir.GetString());
+
+	if (!EnsureDirectoryExists(recipeDir))
+		return FALSE;
+
+	// Model -> RMS\Recipe 로 001.ini 형식 복사
+	if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
+		return FALSE;
+
+	// Parameter.ini 생성 (내용 없음)
+	CString parameterIni;
+	parameterIni.Format(_T("%s\\Parameter.ini"), recipeRootDir.GetString());
+	if (!EnsureTextFileExists(parameterIni, _T("")))
+		return FALSE;
+
+	// RACK1~6 CurModel 파일 생성 (내용 없음)
 	for (int i = 1; i <= recipeCount; i++)
 	{
-		CString subDir;
-		subDir.Format(_T("%s\\Recipe%d"), recipeRootDir.GetString(), i);
+		CString rackCurModelIni;
+		rackCurModelIni.Format(_T("%s\\RACK%dCurModel.ini"), recipeRootDir.GetString(), i);
 
-		if (!EnsureDirectoryExists(subDir))
+		if (!EnsureTextFileExists(rackCurModelIni, _T("")))
 			return FALSE;
+	}
 
-		// Model -> RecipeN 으로 숫자 ini 복사
-		if (!CopyModelIniToRecipe_NumberOnly(modelDir, subDir, bCopyIniOverwrite))
+	// RMS\ModelList.ini 생성
+	if (bBuildModelList)
+	{
+		if (!BuildModelListIniFromRecipeAndModel(modelDir, recipeDir, recipeRootDir))
 			return FALSE;
+	}
+	else
+	{
+		CString modelListIni;
+		modelListIni.Format(_T("%s\\ModelList.ini"), recipeRootDir.GetString());
 
-		// CurModel.ini 생성
-		CString curModelIni;
-		curModelIni.Format(_T("%s\\CurModel.ini"), subDir.GetString());
-		if (!EnsureTextFileExists(curModelIni, _T("[CurModel]\n")))
+		if (!EnsureTextFileExists(modelListIni, _T("[ModelList]\n")))
 			return FALSE;
-
-		// ModelList.ini 생성
-		if (bBuildModelList)
-		{
-			if (!BuildModelListIniFromRecipeAndModel(modelDir, subDir))
-				return FALSE;
-		}
-		else
-		{
-			CString modelListIni;
-			modelListIni.Format(_T("%s\\ModelList.ini"), subDir.GetString());
-			if (!EnsureTextFileExists(modelListIni, _T("[ModelList]\n")))
-				return FALSE;
-		}
 	}
 
 	return TRUE;
@@ -829,7 +856,7 @@ static BOOL CopyModelIniToRecipe(LPCTSTR modelDir, LPCTSTR recipeDir, BOOL bOver
 static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = TRUE, BOOL bBuildModelList = TRUE)
 {
 	CString modelDir = _T(".\\Model");
-	CString recipeRootDir = _T(".\\Recipe");
+	CString recipeRootDir = _T(".\\RMS");
 
 	// .\Recipe\Recipe1 ~ .\Recipe\Recipe6 생성
 	// 각 폴더에 Model ini들을 번호.ini 형식으로 복사
@@ -927,7 +954,9 @@ static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR
 {
 	TCHAR wszData[400] = { 0, };
 	CString path;
-	path.Format(_T(".\\Recipe\\%s.ini"), recipeKey.GetString());
+	CString key = NormalizeRecipeKey3Digit(recipeKey);
+
+	path.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
 
 	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
 	szRetString->Format(_T("%s"), wszData);
@@ -937,7 +966,9 @@ static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR
 {
 	TCHAR wszData[400] = { 0, };
 	CString path;
-	path.Format(_T(".\\Recipe\\%s.ini"), recipeKey.GetString());
+	CString key = NormalizeRecipeKey3Digit(recipeKey);
+
+	path.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
 
 	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
 	*pRetValue = _ttoi(wszData);
@@ -947,7 +978,9 @@ static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR
 {
 	TCHAR wszData[400] = { 0, };
 	CString path;
-	path.Format(_T(".\\Recipe\\%s.ini"), recipeKey.GetString());
+	CString key = NormalizeRecipeKey3Digit(recipeKey);
+
+	path.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
 
 	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, path);
 	*pRetValue = (float)_tstof(wszData);
@@ -956,7 +989,9 @@ static void Read_RecipeFile(const CString& recipeKey, LPCWSTR lpSection, LPCWSTR
 static void Write_RecipeFile(LPCWSTR lpRecipeFileName, LPCWSTR lpSection, LPCWSTR lpKey, LPCWSTR lpValue)
 {
 	CString szRecipePath;
-	szRecipePath.Format(_T(".\\Recipe\\%s.ini"), lpRecipeFileName);
+	CString key = NormalizeRecipeKey3Digit(lpRecipeFileName);
+
+	szRecipePath.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
 	::WritePrivateProfileString(lpSection, lpKey, lpValue, szRecipePath);
 }
 
@@ -964,19 +999,42 @@ static void Write_RecipeFile(LPCWSTR lpRecipeFileName, LPCWSTR lpSection, LPCWST
 {
 	CString szData;
 	CString szRecipePath;
+	CString key = NormalizeRecipeKey3Digit(lpRecipeFileName);
 
 	szData.Format(_T("%d"), nData);
-	szRecipePath.Format(_T(".\\Recipe\\%s.ini"), lpRecipeFileName);
+	szRecipePath.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
 	::WritePrivateProfileString(lpSection, lpKey, szData, szRecipePath);
 }
 
+// Recipy_YN이 Y일 때 CurModel값 가져오는 함수들
 static void Write_RecipeFile(LPCWSTR lpRecipeFileName, LPCWSTR lpSection, LPCWSTR lpKey, float fData)
 {
 	CString szData;
 	CString szRecipePath;
+	CString key = NormalizeRecipeKey3Digit(lpRecipeFileName);
 
 	szData.Format(_T("%.3f"), fData);
-	szRecipePath.Format(_T(".\\Recipe\\%s.ini"), lpRecipeFileName);
+	szRecipePath.Format(_T(".\\RMS\\Recipe\\%s.ini"), key.GetString());
 	::WritePrivateProfileString(lpSection, lpKey, szData, szRecipePath);
 }
 
+static void Read_IniFileByPath(const CString& filePath, LPCWSTR lpSection, LPCWSTR lpKey, int* pRetValue)
+{
+	TCHAR wszData[400] = { 0, };
+	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, filePath);
+	*pRetValue = _ttoi(wszData);
+}
+
+static void Read_IniFileByPath(const CString& filePath, LPCWSTR lpSection, LPCWSTR lpKey, float* pRetValue)
+{
+	TCHAR wszData[400] = { 0, };
+	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, filePath);
+	*pRetValue = (float)_tstof(wszData);
+}
+
+static void Read_IniFileByPath(const CString& filePath, LPCWSTR lpSection, LPCWSTR lpKey, CString* pRetValue)
+{
+	TCHAR wszData[400] = { 0, };
+	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, filePath);
+	*pRetValue = wszData;
+}

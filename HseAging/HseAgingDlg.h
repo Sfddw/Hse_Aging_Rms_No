@@ -112,6 +112,10 @@ protected:
 
 	void Lf_rmsErcpSet();
 
+	BOOL GetRackSelectedModelName(int nComboCtrlId, CString& outModelName); // RACK마다 현재 선택된 모델 정보 얻기
+	BOOL UpdateRackCurModelIni(int nRackNo, int nComboCtrlId);
+	void UpdateAllRackCurModelIni();
+
 	LPMODELINFO			lpModelInfo;
 	LPSYSTEMINFO		lpSystemInfo;
 	LPINSPWORKINFO		lpInspWorkInfo;

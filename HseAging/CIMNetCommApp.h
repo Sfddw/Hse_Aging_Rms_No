@@ -246,7 +246,7 @@ public:
 	void SetSlotNo(CString strBuff);
 
 	void HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsThread);
-	void HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread);
+	void HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread, int Rackno);
 	void HandleRmsMsg_ERCP(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsThread);
@@ -255,6 +255,8 @@ public:
 	void HandleRmsMsg_EPIQ(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_EWCH(const CString& msg, ICallRMSClass* pRmsThread);
 	void HandleRmsMsg_EWOQ(const CString& msg, ICallRMSClass* pRmsThread);
+
+	CString NormalizeRecipeNo3Digit(const CString& recipe);
 
 	CString ExtractFieldValue(const CString& msg, LPCTSTR keyWithEq);
 

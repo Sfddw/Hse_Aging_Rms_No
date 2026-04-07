@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.9A"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.9B"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -752,6 +752,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(8, 1000, NULL);
 
 	InitRecipeFolderAndFiles(TRUE, TRUE); // Recipe 폴더 생성
+
+	UpdateAllRackCurModelIni();
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -6820,4 +6822,114 @@ void CHseAgingDlg::Gf_clearRecipeIniData(int rack)
 	lpModelInfo->r_nOpeTemperatureMin[rack] = 0;
 	lpModelInfo->r_nOpeTemperatureMax[rack] = 0;
 	lpModelInfo->r_nOpeDoorUse[rack] = 0;
+}
+
+/// <summary>
+/// 콤보박스에서 현재 선택 모델명 얻기
+/// </summary>
+/// <param name="nComboCtrlId"></param>
+/// <param name="outModelName"></param>
+/// <returns></returns>
+BOOL CHseAgingDlg::GetRackSelectedModelName(int nComboCtrlId, CString& outModelName)
+{
+	outModelName.Empty();
+
+	CComboBox* pCombo = (CComboBox*)GetDlgItem(nComboCtrlId);
+	if (pCombo == nullptr)
+		return FALSE;
+
+	int sel = pCombo->GetCurSel();
+	if (sel != CB_ERR)
+	{
+		pCombo->GetLBText(sel, outModelName);
+	}
+	else
+	{
+		// 혹시라도 현재 표시 텍스트를 써야 하는 경우 대비
+		pCombo->GetWindowText(outModelName);
+	}
+
+	outModelName.Trim();
+
+	// "1_LP160WU3-SPB2-KH1-A.ini" 로 들어오는 경우 대비
+	if (outModelName.Right(4).CompareNoCase(_T(".ini")) == 0)
+		outModelName = outModelName.Left(outModelName.GetLength() - 4);
+
+	return !outModelName.IsEmpty();
+}
+
+/// <summary>
+/// 특정 Rack 1개 CurModel.ini 갱신
+/// </summary>
+/// <param name="nRackNo"></param>
+/// <param name="nComboCtrlId"></param>
+/// <returns></returns>
+BOOL CHseAgingDlg::UpdateRackCurModelIni(int nRackNo, int nComboCtrlId)
+{
+	CString modelName;
+	if (!GetRackSelectedModelName(nComboCtrlId, modelName))
+	{
+		CString log;
+		log.Format(_T("[RMS] Rack %d selected model name is empty"), nRackNo);
+		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
+		return FALSE;
+	}
+
+	CString srcPath, dstPath;
+	srcPath.Format(_T(".\\Model\\%s.ini"), modelName.GetString());
+	dstPath.Format(_T(".\\RMS\\RACK%dCurModel.ini"), nRackNo);
+
+	if (_waccess(srcPath, 0) != 0)
+	{
+		CString log;
+		log.Format(_T("[RMS] Source model ini not found: %s"), srcPath.GetString());
+		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
+		return FALSE;
+	}
+
+	// 기존 내용 덮어쓰기
+	if (!::CopyFile(srcPath, dstPath, FALSE))
+	{
+		DWORD dwErr = GetLastError();
+
+		CString log;
+		log.Format(_T("[RMS] CopyFile failed. src=%s dst=%s err=%lu"),
+			srcPath.GetString(), dstPath.GetString(), dwErr);
+		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
+		return FALSE;
+	}
+
+	CString log;
+	log.Format(_T("[RMS] Rack %d CurModel updated: %s -> %s"),
+		nRackNo, modelName.GetString(), dstPath.GetString());
+	((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
+
+	return TRUE;
+}
+
+/// <summary>
+/// Rack 1~6 전체 갱신
+/// </summary>
+void CHseAgingDlg::UpdateAllRackCurModelIni()
+{
+	struct RACK_COMBO_INFO
+	{
+		int nRackNo;
+		int nCtrlId;
+	};
+
+	RACK_COMBO_INFO info[] =
+	{
+		{ 1, IDC_CMB_MA_MODEL_RACK1 },
+		{ 2, IDC_CMB_MA_MODEL_RACK2 },
+		{ 3, IDC_CMB_MA_MODEL_RACK3 },
+		{ 4, IDC_CMB_MA_MODEL_RACK4 },
+		{ 5, IDC_CMB_MA_MODEL_RACK5 },
+		{ 6, IDC_CMB_MA_MODEL_RACK6 },
+	};
+
+	for (int i = 0; i < _countof(info); i++)
+	{
+		UpdateRackCurModelIni(info[i].nRackNo, info[i].nCtrlId);
+	}
 }

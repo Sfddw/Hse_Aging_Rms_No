@@ -146,13 +146,13 @@ static BOOL FindModelNameByRecipeNo(const CString& modelDir, int recipeNo, CStri
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Recipe 폴더에서 번호 ini가 존재하는지 찾는 함수
-static BOOL FindRecipeIniByNo(const CString& recipeDir, int recipeNo, CString& outKey)
+static BOOL FindRecipeIniByNo(const CString& recipeDir, CString& recipeNo, CString& outKey)
 {
 	outKey.Empty();
 
 	// 예: ".\\Recipe\\1.ini"
 	CString fullPath;
-	fullPath.Format(_T("%s\\%d.ini"), recipeDir.GetString(), recipeNo);
+	fullPath.Format(_T("%s\\%s.ini"), recipeDir.GetString(), recipeNo);
 
 	WIN32_FIND_DATA fd = { 0 };
 	HANDLE h = FindFirstFile(fullPath, &fd);
@@ -2837,7 +2837,7 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			}
 			else if (cmd == _T("EPPR"))
 			{
-				pThis->HandleRmsMsg_EPPR(msg, pRmsThread);
+				pThis->HandleRmsMsg_EPPR(msg, pRmsThread, rackNo);
 			}
 			else if (cmd == _T("ERCP"))
 			{
@@ -2924,19 +2924,7 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 
 	CString seqNo = ExtractTokenValue(_T("SEQ_NO="));
 
-	// 3) RECIPEINFO 문자열 생성 (루프로 짧게!)
-	//CString recipeMsgSet, one;
-	//for (int i = 0; i <= 73; ++i)
-	//{
-	//	// 마지막 항목만 ',' 없이 끝내려면
-	//	if (i == 73)
-	//		one.Format(_T("%s:%s:[%03d]:3:U:"), machine, unit, i);
-	//	else
-	//		one.Format(_T("%s:%s:[%03d]:3:U:,"), machine, unit, i);
-
-	//	recipeMsgSet += one;
-	//}
-	CString modelListPath = _T(".\\Recipe\\ModelList.ini");
+	CString modelListPath = _T(".\\RMS\\ModelList.ini");
 	CString recipeMsgSet = BuildRecipeMsgSetFromModelList(machine, unit, modelListPath);
 
 	// 4) EPLR_R 구성
@@ -2953,7 +2941,8 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 	m_pApp->Gf_writeRMSLog(reply);
 
 	// 5) 딱 1번 전송(대기 없음)
-	VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+	VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+	//VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
 
 	if (ok == VARIANT_FALSE)
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send failed"));
@@ -2961,7 +2950,7 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR_R send ok"));
 }
 
-void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread)
+void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread, int RackNo)
 {
 	// 0) 안전 체크
 	if (pRmsThread == nullptr)
@@ -2985,28 +2974,33 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	seq_no						= ExtractFieldValue(msg, _T("SEQ_NO="));
 	mmc_txn_id					= ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
-	if (recipe_yn == "Y")
+	BOOL bLoadOk = FALSE;
+	CString sourcePath;
+
+	/*if (recipe_yn == "Y")
 	{
 		cur_yn = 6;
 	}
 	if (recipe_yn == "N")
 	{
 		cur_yn = 4;
-	}
+	}*/
 	
 
 	int recipeNoInt = _ttoi(recipe);
+	CString RecipeStr = NormalizeRecipeNo3Digit(recipe);   // 추가
 
-	CString recipeDir = _T(".\\Recipe");
+
+	CString recipeDir = _T(".\\RMS\\Recipe");
 	CString recipeKey;
 
-	if (!FindRecipeIniByNo(recipeDir, recipeNoInt, recipeKey))
+	/*if (!FindRecipeIniByNo(recipeDir, RecipeStr, recipeKey))
 	{
 		CString msgErr;
 		msgErr.Format(_T("Recipe ini not found: %s\\%d.ini"), recipeDir.GetString(), recipeNoInt);
 		m_pApp->Gf_writeRMSLog(msgErr);
-		//return;
-	}
+		return;
+	}*/
 
 	//CString modelDir = _T(".\\Model");
 	////CString modelDir = _T(".\\Recipe");
@@ -3049,7 +3043,31 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	// ✅ 찾은 모델 로딩
 	//m_pApp->Gf_loadModelData(model_name);
 	//m_pApp->Gf_loadRecipeData(recipeKey);
-	m_pApp->Gf_ReadRecipeIniFile(recipeKey);
+
+	if (recipe_yn.CompareNoCase(_T("Y")) == 0)
+	{
+		cur_yn = 6;
+		bLoadOk = m_pApp->Gf_ReadCurModelIniFile(RackNo);
+	}
+	else if (recipe_yn.CompareNoCase(_T("N")) == 0)
+	{
+		cur_yn = 4;
+		m_pApp->Gf_ReadRecipeIniFile(RecipeStr); // 기존 void
+		bLoadOk = TRUE;
+	}
+	else
+	{
+		return;
+	}
+
+	if (!bLoadOk)
+	{
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR source load failed"));
+		return;
+	}
+
+
+	m_pApp->Gf_ReadRecipeIniFile(RecipeStr);
 
 	CString recipeMsgSet;
 
@@ -3057,164 +3075,76 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 
 	model_name.Format(_T("MODEL_NB$%d;"), cur_yn);					
 	recipeMsgSet += model_name; // MODEL_NUMBER
-	//model_name.Format(_T("DIMMING_SEL_MODEL_INFO$%d;"), lpModelInfo->m_nDimmingSel);					recipeMsgSet += model_name; // DIMMING SEL
-	//model_name.Format(_T("PWM_FREQ_MODEL_INFO$%d;"),  lpModelInfo->m_nPwmFreq);							recipeMsgSet += model_name; // PWM_FREQ
-	//model_name.Format(_T("PWM_DUTY_MODEL_INFO$%d;"), lpModelInfo->m_nPwmDuty);							recipeMsgSet += model_name; // PWM_DUTY
-	//model_name.Format(_T("VBR_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVbrVolt);							recipeMsgSet += model_name; // VBR_VOLT
-	//model_name.Format(_T("CABLE_OPEN_MODEL_INFO$%d;"), lpModelInfo->m_nFuncCableOpen);					recipeMsgSet += model_name; // CABLE_OPEN
-	//model_name.Format(_T("POWER_ON_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq1);					recipeMsgSet += model_name; // POWER_ON_SEQ1
-	//model_name.Format(_T("POWER_ON_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq2);					recipeMsgSet += model_name; // POWER_ON_SEQ2
-	//model_name.Format(_T("POWER_ON_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq3);					recipeMsgSet += model_name; // POWER_ON_SEQ3
-	//model_name.Format(_T("POWER_ON_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq4);					recipeMsgSet += model_name; // POWER_ON_SEQ4
 
-	//model_name.Format(_T("POWER_ON_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq5);					recipeMsgSet += model_name; // POWER_ON_SEQ5
-	//model_name.Format(_T("POWER_ON_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq6);					recipeMsgSet += model_name; // POWER_ON_SEQ6
-	//model_name.Format(_T("POWER_ON_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq7);					recipeMsgSet += model_name; // POWER_ON_SEQ7
-	//model_name.Format(_T("POWER_ON_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq8);					recipeMsgSet += model_name; // POWER_ON_SEQ8
-	//model_name.Format(_T("POWER_ON_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq9);					recipeMsgSet += model_name; // POWER_ON_SEQ9
-	//model_name.Format(_T("POWER_ON_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq10);				recipeMsgSet += model_name; // POWER_ON_SEQ10
-	//model_name.Format(_T("POWER_ON_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay1);				recipeMsgSet += model_name; // POWER_ON_DELAY1
-	//model_name.Format(_T("POWER_ON_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay2);				recipeMsgSet += model_name; // POWER_ON_DELAY2
-	//model_name.Format(_T("POWER_ON_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay3);				recipeMsgSet += model_name; // POWER_ON_DELAY3
-	//model_name.Format(_T("POWER_ON_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay4);				recipeMsgSet += model_name; // POWER_ON_DELAY4
+	model_name.Format(_T("DIMMING_SEL_MODEL_INFO$%d;"), lpModelInfo->m_nDimmingSel);					recipeMsgSet += model_name; // DIMMING SEL
+	model_name.Format(_T("PWM_FREQ_MODEL_INFO$%d;"),  lpModelInfo->m_nPwmFreq);							recipeMsgSet += model_name; // PWM_FREQ
+	model_name.Format(_T("PWM_DUTY_MODEL_INFO$%d;"), lpModelInfo->m_nPwmDuty);							recipeMsgSet += model_name; // PWM_DUTY
+	model_name.Format(_T("VBR_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVbrVolt);							recipeMsgSet += model_name; // VBR_VOLT
+	model_name.Format(_T("CABLE_OPEN_MODEL_INFO$%d;"), lpModelInfo->m_nFuncCableOpen);					recipeMsgSet += model_name; // CABLE_OPEN
+	model_name.Format(_T("POWER_ON_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq1);					recipeMsgSet += model_name; // POWER_ON_SEQ1
+	model_name.Format(_T("POWER_ON_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq2);					recipeMsgSet += model_name; // POWER_ON_SEQ2
+	model_name.Format(_T("POWER_ON_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq3);					recipeMsgSet += model_name; // POWER_ON_SEQ3
+	model_name.Format(_T("POWER_ON_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq4);					recipeMsgSet += model_name; // POWER_ON_SEQ4
 
-	//model_name.Format(_T("POWER_ON_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay5);				recipeMsgSet += model_name; // POWER_ON_DELAY5
-	//model_name.Format(_T("POWER_ON_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay6);				recipeMsgSet += model_name; // POWER_ON_DELAY6
-	//model_name.Format(_T("POWER_ON_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay7);				recipeMsgSet += model_name; // POWER_ON_DELAY7
-	//model_name.Format(_T("POWER_ON_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay8);				recipeMsgSet += model_name; // POWER_ON_DELAY8
-	//model_name.Format(_T("POWER_ON_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay9);				recipeMsgSet += model_name; // POWER_ON_DELAY9
-	//model_name.Format(_T("POWER_OFF_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq1);				recipeMsgSet += model_name; // POWER_OFF_SEQ1
-	//model_name.Format(_T("POWER_OFF_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq2);				recipeMsgSet += model_name; // POWER_OFF_SEQ2
-	//model_name.Format(_T("POWER_OFF_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq3);				recipeMsgSet += model_name; // POWER_OFF_SEQ3
-	//model_name.Format(_T("POWER_OFF_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq4);				recipeMsgSet += model_name; // POWER_OFF_SEQ4
-	//model_name.Format(_T("POWER_OFF_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq5);				recipeMsgSet += model_name; // POWER_OFF_SEQ5
+	model_name.Format(_T("POWER_ON_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq5);					recipeMsgSet += model_name; // POWER_ON_SEQ5
+	model_name.Format(_T("POWER_ON_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq6);					recipeMsgSet += model_name; // POWER_ON_SEQ6
+	model_name.Format(_T("POWER_ON_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq7);					recipeMsgSet += model_name; // POWER_ON_SEQ7
+	model_name.Format(_T("POWER_ON_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq8);					recipeMsgSet += model_name; // POWER_ON_SEQ8
+	model_name.Format(_T("POWER_ON_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq9);					recipeMsgSet += model_name; // POWER_ON_SEQ9
+	model_name.Format(_T("POWER_ON_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq10);				recipeMsgSet += model_name; // POWER_ON_SEQ10
+	model_name.Format(_T("POWER_ON_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay1);				recipeMsgSet += model_name; // POWER_ON_DELAY1
+	model_name.Format(_T("POWER_ON_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay2);				recipeMsgSet += model_name; // POWER_ON_DELAY2
+	model_name.Format(_T("POWER_ON_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay3);				recipeMsgSet += model_name; // POWER_ON_DELAY3
+	model_name.Format(_T("POWER_ON_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay4);				recipeMsgSet += model_name; // POWER_ON_DELAY4
 
-	//model_name.Format(_T("POWER_OFF_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq6);				recipeMsgSet += model_name; // POWER_OFF_SEQ6
-	//model_name.Format(_T("POWER_OFF_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq7);				recipeMsgSet += model_name; // POWER_OFF_SEQ7
-	//model_name.Format(_T("POWER_OFF_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq8);				recipeMsgSet += model_name; // POWER_OFF_SEQ8
-	//model_name.Format(_T("POWER_OFF_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq9);				recipeMsgSet += model_name; // POWER_OFF_SEQ9
-	//model_name.Format(_T("POWER_OFF_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq10);				recipeMsgSet += model_name; // POWER_OFF_SEQ10
-	//model_name.Format(_T("POWER_OFF_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay1);			recipeMsgSet += model_name; // POWER_OFF_DELAY1
-	//model_name.Format(_T("POWER_OFF_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay2);			recipeMsgSet += model_name; // POWER_OFF_DELAY2
-	//model_name.Format(_T("POWER_OFF_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay3);			recipeMsgSet += model_name; // POWER_OFF_DELAY3
-	//model_name.Format(_T("POWER_OFF_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay4);			recipeMsgSet += model_name; // POWER_OFF_DELAY4
-	//model_name.Format(_T("POWER_OFF_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay5);			recipeMsgSet += model_name; // POWER_OFF_DELAY5
+	model_name.Format(_T("POWER_ON_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay5);				recipeMsgSet += model_name; // POWER_ON_DELAY5
+	model_name.Format(_T("POWER_ON_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay6);				recipeMsgSet += model_name; // POWER_ON_DELAY6
+	model_name.Format(_T("POWER_ON_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay7);				recipeMsgSet += model_name; // POWER_ON_DELAY7
+	model_name.Format(_T("POWER_ON_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay8);				recipeMsgSet += model_name; // POWER_ON_DELAY8
+	model_name.Format(_T("POWER_ON_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay9);				recipeMsgSet += model_name; // POWER_ON_DELAY9
+	model_name.Format(_T("POWER_OFF_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq1);				recipeMsgSet += model_name; // POWER_OFF_SEQ1
+	model_name.Format(_T("POWER_OFF_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq2);				recipeMsgSet += model_name; // POWER_OFF_SEQ2
+	model_name.Format(_T("POWER_OFF_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq3);				recipeMsgSet += model_name; // POWER_OFF_SEQ3
+	model_name.Format(_T("POWER_OFF_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq4);				recipeMsgSet += model_name; // POWER_OFF_SEQ4
+	model_name.Format(_T("POWER_OFF_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq5);				recipeMsgSet += model_name; // POWER_OFF_SEQ5
 
-	//model_name.Format(_T("POWER_OFF_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay6);			recipeMsgSet += model_name; // POWER_OFF_DELAY6
-	//model_name.Format(_T("POWER_OFF_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay7);			recipeMsgSet += model_name; // POWER_OFF_DELAY7
-	//model_name.Format(_T("POWER_OFF_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay8);			recipeMsgSet += model_name; // POWER_OFF_DELAY8
-	//model_name.Format(_T("POWER_OFF_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay9);			recipeMsgSet += model_name; // POWER_OFF_DELAY9
-	//model_name.Format(_T("VCC_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVccVolt);							recipeMsgSet += model_name; // VCC_VOLT
-	//model_name.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVccVoltOffset);				recipeMsgSet += model_name; // VCC_VOLT_OFFSET
-	//model_name.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltLow);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_LOW
-	//model_name.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltHigh);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_HIGH
-	//model_name.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrLow);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_LOW
-	//model_name.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrHigh);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_HIGH
+	model_name.Format(_T("POWER_OFF_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq6);				recipeMsgSet += model_name; // POWER_OFF_SEQ6
+	model_name.Format(_T("POWER_OFF_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq7);				recipeMsgSet += model_name; // POWER_OFF_SEQ7
+	model_name.Format(_T("POWER_OFF_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq8);				recipeMsgSet += model_name; // POWER_OFF_SEQ8
+	model_name.Format(_T("POWER_OFF_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq9);				recipeMsgSet += model_name; // POWER_OFF_SEQ9
+	model_name.Format(_T("POWER_OFF_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq10);				recipeMsgSet += model_name; // POWER_OFF_SEQ10
+	model_name.Format(_T("POWER_OFF_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay1);			recipeMsgSet += model_name; // POWER_OFF_DELAY1
+	model_name.Format(_T("POWER_OFF_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay2);			recipeMsgSet += model_name; // POWER_OFF_DELAY2
+	model_name.Format(_T("POWER_OFF_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay3);			recipeMsgSet += model_name; // POWER_OFF_DELAY3
+	model_name.Format(_T("POWER_OFF_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay4);			recipeMsgSet += model_name; // POWER_OFF_DELAY4
+	model_name.Format(_T("POWER_OFF_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay5);			recipeMsgSet += model_name; // POWER_OFF_DELAY5
 
-	//model_name.Format(_T("VBL_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVblVolt);							recipeMsgSet += model_name; // VBL_VOLT
-	//model_name.Format(_T("VBL_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVblVoltOffset);					recipeMsgSet += model_name; // VBL_VOLT_OFFSET
-	//model_name.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltLow);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_LOW
-	//model_name.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltHigh);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_HIGH
-	//model_name.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrLow);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_LOW
-	//model_name.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrHigh);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_HIGH
-	//model_name.Format(_T("AGING_TIME_HH_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeHH);					recipeMsgSet += model_name; // AGING_TIME_HH
-	//model_name.Format(_T("AGING_TIME_MM_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMM);					recipeMsgSet += model_name; // AGING_TIME_MM
-	//model_name.Format(_T("AGING_TIME_MINUTE_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMinute);			recipeMsgSet += model_name; // AGING_TIME_MINUTE
-	//model_name.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO$%d;"), lpModelInfo->m_nAgingEndWaitTime);		recipeMsgSet += model_name; // AGING_END_WAIT_TIM
+	model_name.Format(_T("POWER_OFF_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay6);			recipeMsgSet += model_name; // POWER_OFF_DELAY6
+	model_name.Format(_T("POWER_OFF_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay7);			recipeMsgSet += model_name; // POWER_OFF_DELAY7
+	model_name.Format(_T("POWER_OFF_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay8);			recipeMsgSet += model_name; // POWER_OFF_DELAY8
+	model_name.Format(_T("POWER_OFF_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay9);			recipeMsgSet += model_name; // POWER_OFF_DELAY9
+	model_name.Format(_T("VCC_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVccVolt);							recipeMsgSet += model_name; // VCC_VOLT
+	model_name.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVccVoltOffset);				recipeMsgSet += model_name; // VCC_VOLT_OFFSET
+	model_name.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltLow);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_LOW
+	model_name.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltHigh);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_HIGH
+	model_name.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrLow);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_LOW
+	model_name.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrHigh);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_HIGH
 
-	//model_name.Format(_T("TEMPERATURE_USE_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureUse);			recipeMsgSet += model_name; // TEMPERATURE_USE
-	//model_name.Format(_T("TEMPERATURE_MIN_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMin);			recipeMsgSet += model_name; // TEMPERATURE_MIN
-	//model_name.Format(_T("TEMPERATURE_MAX_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMax);			recipeMsgSet += model_name; // TEMPERATURE_MAX
-	//model_name.Format(_T("DOOR_USE_MODEL_INFO$%d"), lpModelInfo->m_nOpeDoorUse);						recipeMsgSet += model_name; // DOOR_USE
+	model_name.Format(_T("VBL_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVblVolt);							recipeMsgSet += model_name; // VBL_VOLT
+	model_name.Format(_T("VBL_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVblVoltOffset);					recipeMsgSet += model_name; // VBL_VOLT_OFFSET
+	model_name.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltLow);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_LOW
+	model_name.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltHigh);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_HIGH
+	model_name.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrLow);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_LOW
+	model_name.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrHigh);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_HIGH
+	model_name.Format(_T("AGING_TIME_HH_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeHH);					recipeMsgSet += model_name; // AGING_TIME_HH
+	model_name.Format(_T("AGING_TIME_MM_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMM);					recipeMsgSet += model_name; // AGING_TIME_MM
+	model_name.Format(_T("AGING_TIME_MINUTE_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMinute);			recipeMsgSet += model_name; // AGING_TIME_MINUTE
+	model_name.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO$%d;"), lpModelInfo->m_nAgingEndWaitTime);		recipeMsgSet += model_name; // AGING_END_WAIT_TIM
 
-	for (int rack = 0; rack < 6; ++rack)
-	{
-		CString rackPrefix;
-		rackPrefix.Format(_T("RACK%02d_"), rack + 1);
-
-		model_name.Format(_T("%sDIMMING_SEL_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nDimmingSel[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPWM_FREQ_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPwmFreq[rack]);						recipeMsgSet += model_name;
-		model_name.Format(_T("%sPWM_DUTY_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPwmDuty[rack]);						recipeMsgSet += model_name;
-		model_name.Format(_T("%sVBR_VOLT_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblVolt[rack]);						recipeMsgSet += model_name;
-		model_name.Format(_T("%sCABLE_OPEN_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nFuncCableOpen[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ1_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq1[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ2_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq2[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ3_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq3[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ4_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq4[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ5_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq5[rack]);				recipeMsgSet += model_name;
-
-		model_name.Format(_T("%sPOWER_ON_SEQ6_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq6[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ7_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq7[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ8_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq8[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ9_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq9[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_SEQ10_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnSeq10[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY1_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay1[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY2_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay2[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY3_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay3[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY4_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay4[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY5_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay5[rack]);			recipeMsgSet += model_name;
-
-		model_name.Format(_T("%sPOWER_ON_DELAY6_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay6[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY7_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay7[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY8_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay8[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_ON_DELAY9_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOnDelay9[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_1_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq1[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_2_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq2[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_3_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq3[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_4_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq4[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_5_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq5[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_6_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq6[rack]);			recipeMsgSet += model_name;
-
-		model_name.Format(_T("%sPOWER_OFF_SEQ_7_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq7[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_8_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq8[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_9_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq9[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_SEQ_10_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffSeq10[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY1_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay1[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY2_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay2[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY3_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay3[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY4_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay4[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY5_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay5[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY6_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay6[rack]);		recipeMsgSet += model_name;
-
-		model_name.Format(_T("%sPOWER_OFF_DELAY7_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay7[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY8_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay8[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sPOWER_OFF_DELAY9_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nPowerOffDelay9[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sVCC_VOLT_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVccVolt[rack]);						recipeMsgSet += model_name;
-		model_name.Format(_T("%sVCC_VOLT_OFFSET_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVccVoltOffset[rack]);			recipeMsgSet += model_name;
-		model_name.Format(_T("%sVCC_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVccLimitVoltLow[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVCC_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVccLimitVoltHigh[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVCC_LIMIT_CURR_LOW_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVccLimitCurrLow[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVCC_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVccLimitCurrHigh[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVBL_VOLT_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblVolt[rack]);						recipeMsgSet += model_name;
-
-		model_name.Format(_T("%sVBL_OFFSET_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblVoltOffset[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sVBL_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblLimitVoltLow[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVBL_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblLimitVoltHigh[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVBL_LIMIT_CURR_LOW_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblLimitCurrLow[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sVBL_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), rackPrefix, lpModelInfo->r_fVblLimitCurrHigh[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sAGING_TIME_HH_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nAgingTimeHH[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sAGING_TIME_MM_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nAgingTimeMM[rack]);				recipeMsgSet += model_name;
-		model_name.Format(_T("%sAGING_TIME_MINUTE_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nAgingTimeMinute[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sAGING_END_WAIT_TIME_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nAgingEndWaitTime[rack]);	recipeMsgSet += model_name;
-		model_name.Format(_T("%sTEMPERATURE_USE_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nOpeTemperatureUse[rack]);		recipeMsgSet += model_name;
-
-		model_name.Format(_T("%sTEMPERATURE_MIN_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nOpeTemperatureMin[rack]);		recipeMsgSet += model_name;
-		model_name.Format(_T("%sTEMPERATURE_MAX_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nOpeTemperatureMax[rack]);		recipeMsgSet += model_name;
-
-		if (rack == 5)
-		{
-			model_name.Format(_T("%sDOOR_USE_MODEL_INFO$%d"), rackPrefix, lpModelInfo->r_nOpeDoorUse[rack]);				recipeMsgSet += model_name;
-		}
-		else
-		{
-			model_name.Format(_T("%sDOOR_USE_MODEL_INFO$%d;"), rackPrefix, lpModelInfo->r_nOpeDoorUse[rack]);				recipeMsgSet += model_name;
-		}
-
-
-
-	}
-
-
+	model_name.Format(_T("TEMPERATURE_USE_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureUse);			recipeMsgSet += model_name; // TEMPERATURE_USE
+	model_name.Format(_T("TEMPERATURE_MIN_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMin);			recipeMsgSet += model_name; // TEMPERATURE_MIN
+	model_name.Format(_T("TEMPERATURE_MAX_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMax);			recipeMsgSet += model_name; // TEMPERATURE_MAX
+	model_name.Format(_T("DOOR_USE_MODEL_INFO$%d"), lpModelInfo->m_nOpeDoorUse);						recipeMsgSet += model_name; // DOOR_USE
 
 	//model_name.Format(_T("TEMP_ZONE_S1$%f;"), lpInspWorkInfo->m_fTempReadVal[0]);						recipeMsgSet += model_name; // 1ZONE 온도 (S1)
 	//model_name.Format(_T("TEMP_ZONE_S2$%f;"), lpInspWorkInfo->m_fTempReadVal[1]);						recipeMsgSet += model_name; // 1ZONE 온도 (S2)
@@ -3458,6 +3388,22 @@ void CCimNetCommApi::BuildRmsLocalSubjects(int chamberNo)
 			rack
 		);
 	}
+}
+
+CString CCimNetCommApi::NormalizeRecipeNo3Digit(const CString& recipe)
+{
+	CString text = recipe;
+	text.Trim();
+
+	// 혹시 "001.ini" 같은 값이 들어와도 방어
+	if (text.Right(4).CompareNoCase(_T(".ini")) == 0)
+		text = text.Left(text.GetLength() - 4);
+
+	int no = _ttoi(text);
+
+	CString result;
+	result.Format(_T("%03d"), no);   // 1 -> 001, 11 -> 011, 123 -> 123
+	return result;
 }
 
 BOOL CCimNetCommApi::SendRmsMessageByRack(int rackNo, const CString& msg, CString& outRecvMsg)
