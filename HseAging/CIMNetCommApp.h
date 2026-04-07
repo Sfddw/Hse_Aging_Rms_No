@@ -65,8 +65,8 @@ public:
 	CCimNetCommApi(void);
 	~CCimNetCommApi(void);
 
-	BOOL StartRmsRecvThread();
-	void StopRmsRecvThread();
+	BOOL StartRmsRecvThread(int RackNo);
+	void StopRmsRecvThread(int RackNo);
 
 	BOOL TryPopRmsMessage(CString& outMsg);
 	CString GetLastRmsMessage();
@@ -76,6 +76,9 @@ public:
 	// ===== MES 수신 스레드 관련 =====
 	CWinThread* m_pRmsRecvThread = nullptr;
 	HANDLE      m_hRmsStopEvent = nullptr;
+	CWinThread* m_pRmsRecvThreadRack[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+	HANDLE m_hRmsStopEventRack[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+
 
 	// 수신 데이터 저장
 	CCriticalSection m_csRmsRecv;
@@ -100,6 +103,7 @@ public:
 	INT64 GetbytesSent(CString strIPadress);
 	INT64 GetbytesReceived(CString strIPadress);
 	BOOL MessageSend(int nMode);
+	BOOL MessageSend(int nMode, int rackNo);
 	BOOL MessageReceive();
 
 	BOOL GetFieldData(CString* pszSource, CString sToken, int nMode=0);// TCHAR* wszToken
@@ -164,9 +168,11 @@ public:
 
 	BOOL UNDO(int rack, int layer, int ch);
 	BOOL RMSO();
+	BOOL RMSO(int rackNo);
 
 	// ---------------------------------------
 	BOOL ERCP();
+	BOOL ERCP(int rackNo);
 
 	// ---------------------------------------
 	void SetLocalTest(int nServerType);
@@ -176,6 +182,12 @@ public:
 	void SetMesHostInterface();
 	void SetEasHostInterface();
 	void SetRmsHostInterface();
+
+	// RMS 채널 추가
+	void BuildRmsLocalSubjects(int chamberNo);
+	ICallRMSClass* GetRmsByRack(int rackNo);
+	BOOL SendRmsMessageByRack(int rackNo, const CString& msg, CString& outRecvMsg);
+
 	void SetLocalTimeZone(int timeZone);
 	void SetLocalTimeData(CString strTime);
 	void SetMachineName(CString strBuff);
@@ -264,6 +276,19 @@ public:
 	CString m_strLocalSubjectRmsF;
 
 	CString r_strmodelName;
+
+    // --------------- RMS 6채널 멤버 추가
+	// RMS rack 수
+	static const int RMS_RACK_COUNT = 6;
+
+	// 기존 단일 rms 대신 rack별 객체
+	ICallRMSClass* m_pRms[RMS_RACK_COUNT] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+
+	// rack별 local subject
+	CString m_strLocalSubjectRmsRack[RMS_RACK_COUNT];
+
+	// rack별 연결 상태
+	BOOL m_blsRmsConnectRack[RMS_RACK_COUNT] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE };
 
 protected:
 	BOOL	m_bIsGmesLocalTestMode;

@@ -37,6 +37,254 @@ static void delayMs(DWORD delay)
 	}
 }
 
+// 파일명에서 앞 숫자만 추출
+static BOOL ExtractLeadingNumberFromFileName(const CString& fileName, int& outNo)
+{
+	// fileName 예: "2_model-spb2.ini", "013_LP190.ini", "04.TEST.ini"
+	outNo = 0;
+
+	CString base = fileName;
+	base.Trim();
+
+	// 확장자 제거(.ini)
+	int dot = base.ReverseFind(_T('.'));
+	if (dot > 0)
+		base = base.Left(dot);
+
+	// 맨 앞 연속 숫자 추출
+	int i = 0;
+	while (i < base.GetLength() && _istdigit(base[i])) i++;
+
+	if (i == 0)
+		return FALSE; // 앞에 숫자가 없으면 실패
+
+	outNo = _ttoi(base.Left(i));
+	return (outNo > 0);
+}
+
+/// <summary>
+/// Model 폴더 숫자 <-> 원본 모델명 매핑
+/// </summary>
+/// <param name="modelDir"></param>
+/// <param name="outMap"></param>
+/// <returns></returns>
+static BOOL BuildModelNumberNameMap(const CString& modelDir, CMapStringToString& outMap)
+{
+	outMap.RemoveAll();
+
+	WIN32_FIND_DATA wfd = { 0 };
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+
+	CString pattern;
+	pattern.Format(_T("%s\\*.ini"), modelDir.GetString());
+
+	hFind = FindFirstFile(pattern, &wfd);
+	if (hFind == INVALID_HANDLE_VALUE)
+		return TRUE; // Model 폴더에 ini가 없어도 실패로 보지 않음
+
+	do
+	{
+		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			continue;
+
+		CString fileName = wfd.cFileName;   // 예: "1_LP160WU3-SPB2-KH1-A.ini"
+		int no = 0;
+		if (!ExtractLeadingNumberFromFileName(fileName, no))
+			continue;
+
+		CString baseName = fileName;
+		int dot = baseName.ReverseFind(_T('.'));
+		if (dot > 0)
+			baseName = baseName.Left(dot);   // "1_LP160WU3-SPB2-KH1-A"
+
+		CString key;
+		key.Format(_T("%d"), no);
+
+		// 같은 번호가 여러 개면 마지막 파일 기준으로 덮어씀
+		outMap.SetAt(key, baseName);
+
+	} while (FindNextFile(hFind, &wfd));
+
+	FindClose(hFind);
+	return TRUE;
+}
+
+/// <summary>
+/// Recipe 폴더의 숫자 ini를 읽어서 ModelList.ini 생성
+/// </summary>
+/// <param name="modelDir"></param>
+/// <param name="recipeDir"></param>
+/// <returns></returns>
+static BOOL BuildModelListIniFromRecipeAndModel(const CString& modelDir, const CString& recipeDir)
+{
+	CMapStringToString modelMap;
+	if (!BuildModelNumberNameMap(modelDir, modelMap))
+		return FALSE;
+
+	CString outPath;
+	outPath.Format(_T("%s\\ModelList.ini"), recipeDir.GetString());
+
+	CStdioFile f;
+	if (!f.Open(outPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+		return FALSE;
+
+	f.WriteString(_T("[ModelList]\n"));
+
+	WIN32_FIND_DATA wfd = { 0 };
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+
+	CString pattern;
+	pattern.Format(_T("%s\\*.ini"), recipeDir.GetString());
+
+	hFind = FindFirstFile(pattern, &wfd);
+	if (hFind == INVALID_HANDLE_VALUE)
+	{
+		f.Close();
+		return TRUE;
+	}
+
+	CArray<int, int> recipeNos;
+
+	do
+	{
+		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			continue;
+
+		CString fileName = wfd.cFileName;
+
+		// CurModel.ini / ModelList.ini 제외
+		if (fileName.CompareNoCase(_T("CurModel.ini")) == 0 ||
+			fileName.CompareNoCase(_T("ModelList.ini")) == 0)
+			continue;
+
+		int no = 0;
+		if (!ExtractLeadingNumberFromFileName(fileName, no))
+			continue;
+
+		// 중복 방지
+		BOOL exists = FALSE;
+		for (INT_PTR i = 0; i < recipeNos.GetCount(); i++)
+		{
+			if (recipeNos[i] == no)
+			{
+				exists = TRUE;
+				break;
+			}
+		}
+		if (!exists)
+			recipeNos.Add(no);
+
+	} while (FindNextFile(hFind, &wfd));
+
+	FindClose(hFind);
+
+	// 숫자 오름차순 정렬
+	for (INT_PTR i = 0; i < recipeNos.GetCount(); i++)
+	{
+		for (INT_PTR j = i + 1; j < recipeNos.GetCount(); j++)
+		{
+			if (recipeNos[i] > recipeNos[j])
+			{
+				int tmp = recipeNos[i];
+				recipeNos[i] = recipeNos[j];
+				recipeNos[j] = tmp;
+			}
+		}
+	}
+
+	// Model 폴더 원본 이름과 매칭해서 기록
+	for (INT_PTR i = 0; i < recipeNos.GetCount(); i++)
+	{
+		CString key, modelName;
+		key.Format(_T("%d"), recipeNos[i]);
+
+		if (modelMap.Lookup(key, modelName))
+		{
+			CString line;
+			line.Format(_T("%s=%s\n"), key.GetString(), modelName.GetString());
+			f.WriteString(line);
+		}
+		else
+		{
+			// 매칭 모델이 없으면 빈 값으로 남김 (원하면 skip 가능)
+			CString line;
+			line.Format(_T("%s=\n"), key.GetString());
+			f.WriteString(line);
+		}
+	}
+
+	f.Close();
+	return TRUE;
+}
+
+/// Recipe 폴더 생성할지 안할지 
+static BOOL EnsureDirectoryExists(LPCTSTR dirPath)
+{
+	// 이미 있으면 OK
+	if (_waccess(dirPath, 0) == 0)
+		return TRUE;
+
+	// 없으면 생성
+	if (_wmkdir(dirPath) == 0)
+		return TRUE;
+
+	return (_waccess(dirPath, 0) == 0);
+}
+
+/// <summary>
+///  CurModel.ini / ModelList.ini 생성할지 안할지
+/// </summary>
+/// <param name="filePath"></param>
+/// <param name="defaultContent"></param>
+/// <returns></returns>
+static BOOL EnsureTextFileExists(LPCTSTR filePath, LPCTSTR defaultContent = _T(""))
+{
+	// 파일이 이미 있으면 OK
+	if (_access(CT2A(filePath), 0) == 0)
+		return TRUE;
+
+	CStdioFile f;
+	if (!f.Open(filePath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+		return FALSE;
+
+	if (defaultContent && defaultContent[0] != 0)
+		f.WriteString(defaultContent);
+
+	f.Close();
+	return TRUE;
+}
+
+/// Recipe 상위폴더 생성 후 Recipe1,2,3,4,5,6 생성 후 CurModel, ModelList 생성
+static BOOL InitRecipeSubFoldersAndBaseFiles(const CString& recipeRootDir, int recipeCount = 6)
+{
+	// 상위 Recipe 폴더 먼저 생성
+	if (!EnsureDirectoryExists(recipeRootDir))
+		return FALSE;
+
+	for (int i = 1; i <= recipeCount; i++)
+	{
+		CString subDir;
+		subDir.Format(_T("%s\\Recipe%d"), recipeRootDir.GetString(), i);
+
+		// .\Recipe\Recipe1 ~ .\Recipe\Recipe6 생성
+		if (!EnsureDirectoryExists(subDir))
+			return FALSE;
+
+		// 각 하위 폴더 안에 CurModel.ini, ModelList.ini 생성
+		CString curModelIni, modelListIni;
+		curModelIni.Format(_T("%s\\CurModel.ini"), subDir.GetString());
+		modelListIni.Format(_T("%s\\ModelList.ini"), subDir.GetString());
+
+		if (!EnsureTextFileExists(curModelIni, _T("[CurModel]\n")))
+			return FALSE;
+
+		if (!EnsureTextFileExists(modelListIni, _T("[ModelList]\n")))
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 static int CStringSplit(CString stringValue, CString strToken, CString* pDesc)
 {
@@ -359,61 +607,6 @@ static void Read_MesStatusInfo(LPCWSTR lpTitle, LPCWSTR lpKey, int* pRetValue)
 	*pRetValue = (char)_ttoi(wszData);
 }
 
-static BOOL EnsureDirectoryExists(LPCTSTR dirPath)
-{
-	// 이미 있으면 OK
-	if (_waccess(dirPath, 0) == 0)
-		return TRUE;
-
-	// 없으면 생성
-	if (_wmkdir(dirPath) == 0)
-		return TRUE;
-
-	return (_waccess(dirPath, 0) == 0);
-}
-
-static BOOL EnsureTextFileExists(LPCTSTR filePath, LPCTSTR defaultContent = _T(""))
-{
-	// 파일이 이미 있으면 OK
-	if (_access(CT2A(filePath), 0) == 0)
-		return TRUE;
-
-	CStdioFile f;
-	if (!f.Open(filePath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
-		return FALSE;
-
-	if (defaultContent && defaultContent[0] != 0)
-		f.WriteString(defaultContent);
-
-	f.Close();
-	return TRUE;
-}
-
-// 파일명에서 앞 숫자만 추출
-static BOOL ExtractLeadingNumberFromFileName(const CString& fileName, int& outNo)
-{
-	// fileName 예: "2_model-spb2.ini", "013_LP190.ini", "04.TEST.ini"
-	outNo = 0;
-
-	CString base = fileName;
-	base.Trim();
-
-	// 확장자 제거(.ini)
-	int dot = base.ReverseFind(_T('.'));
-	if (dot > 0)
-		base = base.Left(dot);
-
-	// 맨 앞 연속 숫자 추출
-	int i = 0;
-	while (i < base.GetLength() && _istdigit(base[i])) i++;
-
-	if (i == 0)
-		return FALSE; // 앞에 숫자가 없으면 실패
-
-	outNo = _ttoi(base.Left(i));
-	return (outNo > 0);
-}
-
 // Model -> Recipe 복사할 때 "번호.ini"로 저장
 static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CString& recipeDir, BOOL bOverwrite = TRUE)
 {
@@ -459,6 +652,61 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 	} while (FindNextFile(hFind, &wfd));
 
 	FindClose(hFind);
+	return TRUE;
+}
+
+/// <summary>
+/// Recipe1~Recipe6 생성/복사 함수에서 ModelList.ini 생성 연결
+/// </summary>
+/// <param name="modelDir"></param>
+/// <param name="recipeRootDir"></param>
+/// <param name="recipeCount"></param>
+/// <param name="bCopyIniOverwrite"></param>
+/// <param name="bBuildModelList"></param>
+/// <returns></returns>
+static BOOL InitRecipeSubFoldersAndCopyModelIni(
+	const CString& modelDir,
+	const CString& recipeRootDir,
+	int recipeCount = 6,
+	BOOL bCopyIniOverwrite = TRUE,
+	BOOL bBuildModelList = TRUE)
+{
+	if (!EnsureDirectoryExists(recipeRootDir))
+		return FALSE;
+
+	for (int i = 1; i <= recipeCount; i++)
+	{
+		CString subDir;
+		subDir.Format(_T("%s\\Recipe%d"), recipeRootDir.GetString(), i);
+
+		if (!EnsureDirectoryExists(subDir))
+			return FALSE;
+
+		// Model -> RecipeN 으로 숫자 ini 복사
+		if (!CopyModelIniToRecipe_NumberOnly(modelDir, subDir, bCopyIniOverwrite))
+			return FALSE;
+
+		// CurModel.ini 생성
+		CString curModelIni;
+		curModelIni.Format(_T("%s\\CurModel.ini"), subDir.GetString());
+		if (!EnsureTextFileExists(curModelIni, _T("[CurModel]\n")))
+			return FALSE;
+
+		// ModelList.ini 생성
+		if (bBuildModelList)
+		{
+			if (!BuildModelListIniFromRecipeAndModel(modelDir, subDir))
+				return FALSE;
+		}
+		else
+		{
+			CString modelListIni;
+			modelListIni.Format(_T("%s\\ModelList.ini"), subDir.GetString());
+			if (!EnsureTextFileExists(modelListIni, _T("[ModelList]\n")))
+				return FALSE;
+		}
+	}
+
 	return TRUE;
 }
 
@@ -510,6 +758,8 @@ static void DeleteRecipeIniNotInModel(const CString& modelDir, const CString& re
 	}
 }
 
+
+
 // Model 폴더의 ini 목록을 Recipe\ModelList.txt에 기록 (원하면 사용)
 static BOOL BuildModelListIni(LPCTSTR modelDir, LPCTSTR outTxtPath)
 {
@@ -534,63 +784,6 @@ static BOOL BuildModelListIni(LPCTSTR modelDir, LPCTSTR outTxtPath)
 		f.Close();
 		return TRUE;
 	}
-
-	//do
-	//{
-	//	if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-	//		continue;
-
-	//	CString file = fd.cFileName;   // 예: "001_LP110WU3.ini" / "07.LP140_TEST.ini"
-	//	CString base = file;
-
-	//	// 확장자(.ini) 제거: 마지막 '.' 기준
-	//	int dotExt = base.ReverseFind(_T('.'));
-	//	if (dotExt > 0)
-	//		base = base.Left(dotExt);  // 예: "001_LP110WU3" / "07.LP140_TEST"
-
-	//	// 1) 앞쪽 숫자(prefix) 전체 추출 (연속된 digit)
-	//	int i = 0;
-	//	while (i < base.GetLength() && _istdigit(base[i])) i++;
-
-	//	if (i <= 0)
-	//		continue; // 숫자 prefix 없으면 skip
-
-	//	CString numStr = base.Left(i);        // 예: "001" / "07"
-	//	int num = _ttoi(numStr);              // 1 / 7
-
-	//	// 2) key는 항상 3자리로 저장
-	//	CString key;
-	//	//key.Format(_T("%03d"), num);          // "001" / "007"
-	//	key.Format(_T("%d"), num);          // "001" / "007"
-
-	//	// 3) 값(모델명) 추출: '_' 또는 '.' 다음 부분
-	//	int sep = base.Find(_T('_'), i);
-	//	if (sep < 0)
-	//		sep = base.Find(_T('.'), i);
-
-	//	CString value;
-	//	if (sep >= 0 && sep + 1 < base.GetLength())
-	//	{
-	//		value = base.Mid(sep + 1);        // "LP110WU3", "LP140_TEST", "TEST" ...
-	//	}
-	//	else
-	//	{
-	//		// 구분자가 없으면 숫자 prefix 이후 전체를 값으로
-	//		value = base.Mid(i);
-	//		value.TrimLeft(_T("_."));         // 혹시 바로 "_", "."가 붙어있는 경우 제거
-	//	}
-
-	//	key.Trim();
-	//	value.Trim();
-
-	//	if (value.IsEmpty())
-	//		continue;
-
-	//	CString line;
-	//	line.Format(_T("%s=%s\n"), key, value);
-	//	f.WriteString(line);
-
-	//} while (FindNextFile(h, &fd));
 
 	FindClose(h);
 	f.Close();
@@ -635,35 +828,20 @@ static BOOL CopyModelIniToRecipe(LPCTSTR modelDir, LPCTSTR recipeDir, BOOL bOver
 // "Recipe 폴더 생성 + ini 복사 + txt 생성” 원샷 초기화
 static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = TRUE, BOOL bBuildModelList = TRUE)
 {
-	// 폴더들
 	CString modelDir = _T(".\\Model");
-	CString recipeDir = _T(".\\Recipe");
+	CString recipeRootDir = _T(".\\Recipe");
 
-	if (!EnsureDirectoryExists(recipeDir))
-		return FALSE;
-
-	//DeleteRecipeIniNotInModel(modelDir, recipeDir);
-
-	/*if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
-		return FALSE;*/
-
-	// txt 생성
-	CString curModelIni = _T(".\\Recipe\\CurModel.ini");
-	CString modelListIni = _T(".\\Recipe\\ModelList.ini");
-
-	// CurModel은 기본값 빈 파일(원하면 "01_LP110WU3" 같은 기본값 넣어도 됨)
-	if (!EnsureTextFileExists(curModelIni, _T("[CurModel]")))
-		return FALSE;
-
-	if (bBuildModelList)
+	// .\Recipe\Recipe1 ~ .\Recipe\Recipe6 생성
+	// 각 폴더에 Model ini들을 번호.ini 형식으로 복사
+	// 그리고 CurModel.ini / ModelList.ini 생성
+	if (!InitRecipeSubFoldersAndCopyModelIni(
+		modelDir,
+		recipeRootDir,
+		6,
+		bCopyIniOverwrite,
+		bBuildModelList))
 	{
-		if (!BuildModelListIni(modelDir, modelListIni))
-			return FALSE;
-	}
-	else
-	{
-		if (!EnsureTextFileExists(modelListIni, _T("[ModelList]\n")))
-			return FALSE;
+		return FALSE;
 	}
 
 	return TRUE;
