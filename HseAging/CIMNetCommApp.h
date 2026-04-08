@@ -282,6 +282,8 @@ public:
     // --------------- RMS 6채널 멤버 추가
 	// RMS rack 수
 	static const int RMS_RACK_COUNT = 6;
+	static const int RMS_EXTRA_COMMON_CH = 6;
+	static const int RMS_CHANNEL_COUNT = 7;
 
 	// 기존 단일 rms 대신 rack별 객체
 	ICallRMSClass* m_pRms[RMS_RACK_COUNT] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };

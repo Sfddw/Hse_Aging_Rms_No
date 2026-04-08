@@ -3380,13 +3380,20 @@ void CCimNetCommApi::BuildRmsLocalSubjects(int chamberNo)
 
 	for (int rack = 1; rack <= RMS_RACK_COUNT; rack++)
 	{
-		// chamberNo=4 이면 0401 ~ 0406
-		m_strLocalSubjectRmsRack[rack - 1].Format(
-			_T("%s%02d%02d.UPLOADER"),
-			prefix.GetString(),
-			chamberNo,
-			rack
-		);
+		if (rack == 4) // m_strLocalSubjectRmsRack[3]
+		{
+			m_strLocalSubjectRmsRack[rack - 1].Format(_T("%s.UPLOADER"), m_strLocalSubjectRMS.GetString());
+		}
+		else
+		{
+			// chamberNo=4 이면 0401 ~ 0406
+			m_strLocalSubjectRmsRack[rack - 1].Format(
+				_T("%s%02d%02d.UPLOADER"),
+				prefix.GetString(),
+				chamberNo,
+				rack
+			);
+		}
 	}
 }
 
