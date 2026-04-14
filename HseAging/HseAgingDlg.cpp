@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.9C"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.9I"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -6477,6 +6477,7 @@ void CHseAgingDlg::OnBnClickedButtonDoor3()
 	//Lf_setDoorOnOff(RACK_3);
 	//m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
 
+	lpInspWorkInfo->Msg_Test = 0;
 	m_dlgErcpTest.DoModal();
 
 	//Lf_rmsErcpSet();
@@ -6495,14 +6496,17 @@ void CHseAgingDlg::OnBnClickedButtonDoor5()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	//Lf_setDoorOnOff(RACK_5);
-	Lf_setRecipeMake(1);
+	//Lf_setRecipeMake(1);
+	m_pApp->Gf_gmesSendHost(HOST_EWOQ, NULL, NULL, NULL);
 }
 
 
 void CHseAgingDlg::OnBnClickedButtonDoor6()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	Lf_setDoorOnOff(RACK_6);
+	//Lf_setDoorOnOff(RACK_6);
+	lpInspWorkInfo->Msg_Test = 1;
+	m_dlgErcpTest.DoModal();
 }
 
 void CHseAgingDlg::Lf_AgingProgressLog()
@@ -6636,6 +6640,7 @@ void CHseAgingDlg::Lf_rmsErcpSet()
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
 		m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
+		
 	}
 	catch (const std::exception& ex)
 	{
@@ -6648,6 +6653,8 @@ void CHseAgingDlg::Lf_rmsErcpSet()
 void CHseAgingDlg::OnBnClickedPause1()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	m_pApp->Gf_gmesSendHost(HOST_EPIQ, NULL, NULL, NULL);
+
 }
 
 //void CHseAgingDlg::Lf_setRecipeMake(int rack)

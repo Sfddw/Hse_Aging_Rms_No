@@ -236,7 +236,9 @@ enum
 	HOST_ERCP,
 	HOST_UNDO,
 	HOST_RMSO,
-	HOST_ERCP_TEST
+	HOST_ERCP_TEST,
+	HOST_EWOQ,
+	HOST_EPIQ
 };
 
 /////////////////////////////////////////////////////////////////////////////

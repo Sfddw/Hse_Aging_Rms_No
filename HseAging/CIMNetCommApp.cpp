@@ -23,17 +23,6 @@ BOOL	m_nMessageReceiveFlag;
 static _ATL_FUNC_INFO HandleTibRvMsgEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR } };
 static _ATL_FUNC_INFO HandleTibRvStateEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR} };
 
-/// RMS 송신 rack번호 받아서 보내게 바꾸는 helper
-ICallRMSClass* CCimNetCommApi::GetRmsByRack(int rackNo)
-{
-	// rackNo : 1 ~ 6
-	if (rackNo < 1 || rackNo > RMS_RACK_COUNT)
-		return nullptr;
-
-	return m_pRms[rackNo - 1];
-}
-///
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -224,48 +213,37 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 
 	else if (nServerType == SERVER_RMS)
 	{
-		BOOL bAllOk = TRUE;
-
-		for (int i = 0; i < RMS_RACK_COUNT; i++)
+		if (rms == nullptr)
 		{
-			if (m_pRms[i] == nullptr)
-			{
-				bAllOk = FALSE;
-				m_blsRmsConnectRack[i] = FALSE;
-				continue;
-			}
-
-			VARIANT_BOOL resultConnect = m_pRms[i]->Connect();
-
-			if (resultConnect == VARIANT_TRUE)
-			{
-				m_blsRmsConnectRack[i] = TRUE;
-
-				CString sLog;
-				sLog.Format(_T("<RMS> RMS Server Connection Succeeded - Rack %d / %s"),
-					i + 1, m_strLocalSubjectRmsRack[i].GetString());
-				m_pApp->Gf_writeMLog(sLog);
-
-				StartRmsRecvThread(i + 1);
-			}
-			else
-			{
-				m_blsRmsConnectRack[i] = FALSE;
-				bAllOk = FALSE;
-
-				CString sLog;
-				sLog.Format(_T("<RMS> RMS Server Connection Fail - Rack %d / %s"),
-					i + 1, m_strLocalSubjectRmsRack[i].GetString());
-				m_pApp->Gf_writeMLog(sLog);
-			}
+			m_blsRmsConnect = FALSE;
+			return FALSE;
 		}
 
-		// 필요하면 전체 상태도 같이 유지
-		m_pApp->m_blsRmsConnect = bAllOk;
+		VARIANT_BOOL resultConnect = rms->Connect();
 
-		// 기존 단일 StartRmsRecvThread()는 그대로 쓰면 안 됨
-		// 별도 rack 스캔 방식으로 바꾸거나, 우선 생략
-		return bAllOk;
+		if (resultConnect == VARIANT_TRUE)
+		{
+			m_blsRmsConnect = TRUE;
+
+			CString sLog;
+			sLog.Format(_T("<RMS> RMS Server Connection Succeeded / %s"),
+				m_strLocalSubjectRMS.GetString());
+			m_pApp->Gf_writeMLog(sLog);
+
+			StartRmsRecvThread();
+			return TRUE;
+		}
+		else
+		{
+			m_blsRmsConnect = FALSE;
+
+			CString sLog;
+			sLog.Format(_T("<RMS> RMS Server Connection Fail / %s"),
+				m_strLocalSubjectRMS.GetString());
+			m_pApp->Gf_writeMLog(sLog);
+
+			return FALSE;
+		}
 	}
 
 	return FALSE;
@@ -291,25 +269,17 @@ BOOL CCimNetCommApi::CloseTibRv(int nServerType)
 
 	else if (nServerType == SERVER_RMS)
 	{
-		BOOL bAllOk = TRUE;
+		StopRmsRecvThread();
 
-		for (int i = 0; i < RMS_RACK_COUNT; i++)
-		{
-			StopRmsRecvThread(i + 1);
+		if (rms == nullptr)
+			return TRUE;
 
-			if (m_pRms[i] == nullptr)
-				continue;
+		VARIANT_BOOL resultDisConnect = rms->Terminate();
+		rms->Release();
+		rms = nullptr;
+		m_blsRmsConnect = FALSE;
 
-			VARIANT_BOOL resultDisConnect = m_pRms[i]->Terminate();
-			if (resultDisConnect != VARIANT_TRUE)
-				bAllOk = FALSE;
-
-			m_pRms[i]->Release();
-			m_pRms[i] = nullptr;
-			m_blsRmsConnectRack[i] = FALSE;
-		}
-
-		return bAllOk;
+		return (resultDisConnect == VARIANT_TRUE);
 	}
 
 	return FALSE;
@@ -478,51 +448,44 @@ BOOL CCimNetCommApi::Init(int nServerType)
 	{
 		SetRmsHostInterface();
 
-		for (int i = 0; i < RMS_RACK_COUNT; i++)
+		if (rms != nullptr)
 		{
-			if (m_pRms[i] != nullptr)
-			{
-				m_pRms[i]->Terminate();
-				m_pRms[i]->Release();
-				m_pRms[i] = nullptr;
-			}
+			rms->Terminate();
+			rms->Release();
+			rms = nullptr;
+		}
 
-			HRESULT rmsHr = CoCreateInstance(
-				CLSID_DllRms,
-				NULL,
-				CLSCTX_INPROC_SERVER,
-				IID_ICallRMSClass,
-				reinterpret_cast<void**>(&m_pRms[i])
-			);
+		HRESULT rmsHr = CoCreateInstance(
+			CLSID_DllRms,
+			NULL,
+			CLSCTX_INPROC_SERVER,
+			IID_ICallRMSClass,
+			reinterpret_cast<void**>(&rms)
+		);
 
-			if (FAILED(rmsHr) || m_pRms[i] == nullptr)
-			{
-				CString sLog;
-				sLog.Format(_T("<RMS> RMS CoCreateInstance Fail - Rack %d"), i + 1);
-				m_pApp->Gf_writeMLog(sLog);
-				return FALSE;
-			}
+		if (FAILED(rmsHr) || rms == nullptr)
+		{
+			m_pApp->Gf_writeMLog(_T("<RMS> RMS CoCreateInstance Fail"));
+			return FALSE;
+		}
 
-			m_pRms[i]->SetTimeOut(5);
+		rms->SetTimeOut(5);
 
-			// 중요:
-			// 현재 네 C++/DLL 동작 기준에 맞춰 "remote, local" 순서를 그대로 유지
-			VARIANT_BOOL resultIni = m_pRms[i]->Init(
-				(_bstr_t)m_strServicePortRMS,
-				(_bstr_t)m_strNetworkRMS,
-				(_bstr_t)m_strDaemonRMS,
-				(_bstr_t)m_strRemoteSubjectRMS,
-				(_bstr_t)m_strLocalSubjectRmsRack[i]
-			);
+		VARIANT_BOOL resultIni = rms->Init(
+			(_bstr_t)m_strServicePortRMS,
+			(_bstr_t)m_strNetworkRMS,
+			(_bstr_t)m_strDaemonRMS,
+			(_bstr_t)m_strRemoteSubjectRMS,
+			(_bstr_t)m_strLocalSubjectRMS
+		);
 
-			if (resultIni != VARIANT_TRUE)
-			{
-				CString sLog;
-				sLog.Format(_T("<RMS> RMS TIB INIT Fail - Rack %d / LocalSubject=%s"),
-					i + 1, m_strLocalSubjectRmsRack[i].GetString());
-				m_pApp->Gf_writeMLog(sLog);
-				return FALSE;
-			}
+		if (resultIni != VARIANT_TRUE)
+		{
+			CString sLog;
+			sLog.Format(_T("<RMS> RMS TIB INIT Fail / LocalSubject=%s"),
+				m_strLocalSubjectRMS.GetString());
+			m_pApp->Gf_writeMLog(sLog);
+			return FALSE;
 		}
 
 		return TRUE;
@@ -709,31 +672,31 @@ BOOL CCimNetCommApi::MessageSend(int nMode, int rackNo)
 	}
 	else if (nMode == ECS_MODE_RMSO || nMode == ECS_MODE_ERCP)
 	{
-		if (rackNo < 1 || rackNo > RMS_RACK_COUNT)
+		if (m_blsRmsConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
 
-		if (m_blsRmsConnectRack[rackNo - 1] == FALSE)
-			return RTN_MSG_NOT_SEND;
+		VARIANT_BOOL bRet = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
 
-		CString recvMsg;
-		BOOL bRet = SendRmsMessageByRack(rackNo, m_strHostSendMessage, recvMsg);
-
-		if (bRet == FALSE)
+		if (bRet == VARIANT_FALSE)
 		{
-			CString sRetry;
-			sRetry.Format(_T("<HOST_S> Did not send a RMS Message. Retry !!! (Rack %d)"), rackNo);
-			m_pApp->Gf_writeMLog(sRetry);
+			m_pApp->Gf_writeMLog(_T("<HOST_S> Did not send a RMS Message. Retry !!!"));
+			bRet = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
 
-			bRet = SendRmsMessageByRack(rackNo, m_strHostSendMessage, recvMsg);
-
-			if (bRet == FALSE)
+			if (bRet == VARIANT_FALSE)
 			{
 				AfxMessageBox(_T("Did not send a message !!! (RMS)"));
 				return RTN_MSG_NOT_SEND;
 			}
 		}
 
-		m_sReceiveMessage = recvMsg;
+		do
+		{
+			if (rms->GetreceivedDataFlag() == VARIANT_TRUE)
+			{
+				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
+				break;
+			}
+		} while (1);
 	}
 	else
 	{
@@ -999,8 +962,6 @@ void CCimNetCommApi::SetRmsHostInterface()
 	Read_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), &m_strRemoteSubjectRMS);
 	Read_SysIniFile(_T("RMS"), _T("RMS_EQP"), &m_strEqpRMS);
 
-	// CHAMBER4 기준
-	BuildRmsLocalSubjects(4);
 }
 
 void CCimNetCommApi::SetLocalTest(int nServerType)
@@ -1435,30 +1396,45 @@ CString CCimNetCommApi::GetPF()
 //////////////////////////////////////////////////////////////////////////////s
 BOOL CCimNetCommApi::ERCP()
 {
-	return ERCP(3);
+	MakeClientTimeString();
+
+	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+	CString localSubject = m_strLocalSubjectRMS;
+	CString unitName;
+	unitName.Format(_T("%s01"), m_strMachineName.GetString());
+
+	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
+
+	m_strERCP.Format(
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE= RECIPEVER= OPER= NW_CD= NW_DESCRIPTION=[] CHANGE_TYPE=B VALIDATIONINFO=[] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		m_strRemoteSubjectRMS,
+		localSubject,
+		m_strEqpRMS,
+		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
+		m_strMachineName,
+		/*m_strMachineName,
+		unitName,*/
+		r_strmodelName,
+		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
+		m_strMachineName,
+		m_strERCPInfo
+	);
+
+	BOOL nRetCode = MessageSend(ECS_MODE_ERCP);
+	if (nRetCode != RTN_OK)
+		return nRetCode;
+
+	CString strMsg;
+	GetFieldData(&strMsg, _T("RTN_CD"));
+	if (strMsg.Compare(_T("0")) != 0)
+		return 3;
+
+	GetFieldData(&strMsg, _T("ERR_CD"));
+	if (strMsg.Compare(_T("0")) != 0)
+		return 3;
+
+	return RTN_OK;
 }
-BOOL CCimNetCommApi::ERCP(int rackNo) {
-	if (rackNo < 1 || rackNo > RMS_RACK_COUNT) return FALSE; MakeClientTimeString(); 
-	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo(); 
-	CString localSubject = m_strLocalSubjectRmsRack[rackNo - 1]; 
-	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo); 
-	m_strERCP.Format(_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE= RECIPEVER= OPER= NW_CD= NW_DESCRIPTION=[] CHANGE_TYPE=B VALIDATIONINFO=[] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="), 
-		m_strRemoteSubjectRMS, // ADDR 1 
-		localSubject, // ADDR 2 (rack별 LOCAL SUBJECT) 
-		m_strEqpRMS, // EQP 
-		m_strMachineName.Left(m_strMachineName.GetLength() - 2), // MACHINE 
-		m_strMachineName, // UNIT 
-		r_strmodelName, // MODEL 
-		m_strMachineName.Left(m_strMachineName.GetLength() - 2), m_strMachineName, m_strERCPInfo ); 
-	BOOL nRetCode = MessageSend(ECS_MODE_ERCP, rackNo); 
-	if (nRetCode != RTN_OK) { return nRetCode; } 
-	CString strMsg; GetFieldData(&strMsg, _T("RTN_CD")); 
-	if (strMsg.Compare(_T("0"))) 
-	{ return 3; } 
-	GetFieldData(&strMsg, _T("ERR_CD")); 
-	if (strMsg.Compare(_T("0"))) 
-	{ return 3; } 
-	return RTN_OK; }
 //////////////////////////////////////////////////////////////////////////////
 BOOL CCimNetCommApi::EAYT ()
 {
@@ -2342,8 +2318,10 @@ BOOL CCimNetCommApi::SSIR()
 BOOL CCimNetCommApi::EWOQ()
 {
 	MakeClientTimeString();
-	m_strEWOQ.Format(_T("EWOQ ADDR=%s,%s EQP=%s COMPLETE_YN=N USER_ID=%s MODE=AUTO CLIENT_DATE=%s")
+	m_strEWOQ.Format(_T("EWOQ ADDR=%s,%s EQP=%s COMPLETE_YN=Y USER_ID=%s MODE=AUTO CLIENT_DATE=%s")
+		//, m_strRemoteSubjectRMS
 		, m_strLocalSubjectMesF
+		//, m_strLocalSubjectRMS
 		, m_strLocalSubjectMesF
 		, m_strMachineName
 		, m_strUserID
@@ -2364,6 +2342,19 @@ BOOL CCimNetCommApi::EWOQ()
 	}
 
 	return RTN_OK;
+	/*if (nRetCode != RTN_OK)
+		return nRetCode;
+
+	CString strMsg;
+	GetFieldData(&strMsg, _T("RTN_CD"));
+	if (strMsg.Compare(_T("0")) != 0)
+		return 3;
+
+	GetFieldData(&strMsg, _T("ERR_CD"));
+	if (strMsg.Compare(_T("0")) != 0)
+		return 3;
+
+	return RTN_OK;*/
 }
 
 BOOL CCimNetCommApi::EWCH()
@@ -2631,11 +2622,23 @@ BOOL CCimNetCommApi::RMSO()
 		, lpInspWorkInfo->m_fTempReadValST590_4_SET[0]);*/
 
 
-	int nRetCode = MessageSend(ECS_MODE_RMSO);
-	if (nRetCode != RTN_OK)
+	if (lpInspWorkInfo->Msg_Test == 1) // RMS
 	{
-		return nRetCode;
+		int nRetCode = MessageSend(ECS_MODE_RMSO);
+		if (nRetCode != RTN_OK)
+		{
+			return nRetCode;
+		}
 	}
+	else
+	{
+		int nRetCode = MessageSend(ECS_MODE_EAYT);
+		if (nRetCode != RTN_OK)
+		{
+			return nRetCode;
+		}
+	}
+	
 
 	CString strMsg;
 	GetFieldData(&strMsg, _T("RTN_CD"));
@@ -2651,145 +2654,78 @@ struct RMS_RECV_THREAD_PARAM
 {
 	CCimNetCommApi* pThis;
 	IStream* pStream;   // marshaled ICallRMSClass
-	int rackNo;         // 1 ~ 6
 };
 
-//BOOL CCimNetCommApi::StartRmsRecvThread()
-//{
-//	// 이미 돌고 있으면 OK
-//	if (m_pRmsRecvThread != nullptr)
-//		return TRUE;
-//
-//	// Stop Event 생성
-//	if (m_hRmsStopEvent == nullptr)
-//	{
-//		m_hRmsStopEvent = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
-//		if (m_hRmsStopEvent == nullptr)
-//			return FALSE;
-//	}
-//	::ResetEvent(m_hRmsStopEvent);
-//
-//	// gmes 유효성 체크
-//	if (rms == nullptr)
-//		return FALSE;
-//
-//	// ✅ 스레드에 COM 인터페이스를 안전하게 넘기기 위해 Marshal
-//	IStream* pStream = nullptr;
-//	HRESULT hr = CoMarshalInterThreadInterfaceInStream(IID_ICallRMSClass, rms, &pStream);
-//	if (FAILED(hr) || pStream == nullptr)
-//		return FALSE;
-//
-//	auto* pParam = new RMS_RECV_THREAD_PARAM;
-//	pParam->pThis = this;
-//	pParam->pStream = pStream;
-//
-//	m_pRmsRecvThread = AfxBeginThread(RmsRecvThreadProc, pParam);
-//	if (!m_pRmsRecvThread)
-//	{
-//		pStream->Release();
-//		delete pParam;
-//		return FALSE;
-//	}
-//
-//	m_pRmsRecvThread->m_bAutoDelete = TRUE;
-//	return TRUE;
-//}
-
-BOOL CCimNetCommApi::StartRmsRecvThread(int rackNo)
+BOOL CCimNetCommApi::StartRmsRecvThread()
 {
-	if (rackNo < 1 || rackNo > RMS_RACK_COUNT)
-		return FALSE;
-
-	int idx = rackNo - 1;
-
-	if (m_pRmsRecvThreadRack[idx] != nullptr)
+	// 이미 돌고 있으면 OK
+	if (m_pRmsRecvThread != nullptr)
 		return TRUE;
 
-	if (m_hRmsStopEventRack[idx] == nullptr)
+	// Stop Event 생성
+	if (m_hRmsStopEvent == nullptr)
 	{
-		m_hRmsStopEventRack[idx] = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
-		if (m_hRmsStopEventRack[idx] == nullptr)
+		m_hRmsStopEvent = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
+		if (m_hRmsStopEvent == nullptr)
 			return FALSE;
 	}
-	::ResetEvent(m_hRmsStopEventRack[idx]);
+	::ResetEvent(m_hRmsStopEvent);
 
-	if (m_pRms[idx] == nullptr)
+	// gmes 유효성 체크
+	if (rms == nullptr)
 		return FALSE;
 
+	// ✅ 스레드에 COM 인터페이스를 안전하게 넘기기 위해 Marshal
 	IStream* pStream = nullptr;
-	HRESULT hr = CoMarshalInterThreadInterfaceInStream(IID_ICallRMSClass, m_pRms[idx], &pStream);
+	HRESULT hr = CoMarshalInterThreadInterfaceInStream(IID_ICallRMSClass, rms, &pStream);
 	if (FAILED(hr) || pStream == nullptr)
 		return FALSE;
 
 	auto* pParam = new RMS_RECV_THREAD_PARAM;
 	pParam->pThis = this;
 	pParam->pStream = pStream;
-	pParam->rackNo = rackNo;
 
-	m_pRmsRecvThreadRack[idx] = AfxBeginThread(RmsRecvThreadProc, pParam);
-	if (!m_pRmsRecvThreadRack[idx])
+	m_pRmsRecvThread = AfxBeginThread(RmsRecvThreadProc, pParam);
+	if (!m_pRmsRecvThread)
 	{
 		pStream->Release();
 		delete pParam;
 		return FALSE;
 	}
 
-	m_pRmsRecvThreadRack[idx]->m_bAutoDelete = TRUE;
+	m_pRmsRecvThread->m_bAutoDelete = TRUE;
 	return TRUE;
 }
 
-//void CCimNetCommApi::StopRmsRecvThread()
-//{
-//	if (m_hRmsStopEvent)
-//		::SetEvent(m_hRmsStopEvent);
-//
-//	// 스레드가 CWinThread라 Join 개념이 약해서, 약간 대기만
-//	if (m_pRmsRecvThread)
-//	{
-//		// 최대 1초 정도 기다렸다가 정리
-//		for (int i = 0; i < 100; i++)
-//		{
-//			::Sleep(10);
-//			// 강제 종료는 비추. stop event로 정상 종료 유도
-//		}
-//		m_pRmsRecvThread = nullptr;
-//	}
-//
-//	if (m_hRmsStopEvent)
-//	{
-//		::CloseHandle(m_hRmsStopEvent);
-//		m_hRmsStopEvent = nullptr;
-//	}
-//
-//	// 큐/마지막 메시지 정리(선택)
-//	{
-//		CSingleLock lock(&m_csRmsRecv, TRUE);
-//		m_lastRmsRecv.Empty();
-//		m_rmsRecvQueue.clear();
-//	}
-//}
-void CCimNetCommApi::StopRmsRecvThread(int rackNo)
+
+void CCimNetCommApi::StopRmsRecvThread()
 {
-	if (rackNo < 1 || rackNo > RMS_RACK_COUNT)
-		return;
+	if (m_hRmsStopEvent)
+		::SetEvent(m_hRmsStopEvent);
 
-	int idx = rackNo - 1;
-
-	if (m_hRmsStopEventRack[idx])
-		::SetEvent(m_hRmsStopEventRack[idx]);
-
-	if (m_pRmsRecvThreadRack[idx])
+	// 스레드가 CWinThread라 Join 개념이 약해서, 약간 대기만
+	if (m_pRmsRecvThread)
 	{
+		// 최대 1초 정도 기다렸다가 정리
 		for (int i = 0; i < 100; i++)
+		{
 			::Sleep(10);
-
-		m_pRmsRecvThreadRack[idx] = nullptr;
+			// 강제 종료는 비추. stop event로 정상 종료 유도
+		}
+		m_pRmsRecvThread = nullptr;
 	}
 
-	if (m_hRmsStopEventRack[idx])
+	if (m_hRmsStopEvent)
 	{
-		::CloseHandle(m_hRmsStopEventRack[idx]);
-		m_hRmsStopEventRack[idx] = nullptr;
+		::CloseHandle(m_hRmsStopEvent);
+		m_hRmsStopEvent = nullptr;
+	}
+
+	// 큐/마지막 메시지 정리(선택)
+	{
+		CSingleLock lock(&m_csRmsRecv, TRUE);
+		m_lastRmsRecv.Empty();
+		m_rmsRecvQueue.clear();
 	}
 }
 
@@ -2798,8 +2734,6 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 	auto* param = reinterpret_cast<RMS_RECV_THREAD_PARAM*>(pParam);
 	CCimNetCommApi* pThis = param->pThis;
 	IStream* pStream = param->pStream;
-	int rackNo = param->rackNo;
-	int idx = rackNo - 1;
 	delete param;
 
 	HRESULT hrCo = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -2814,8 +2748,8 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 
 	while (true)
 	{
-		if (pThis->m_hRmsStopEventRack[idx] &&
-			::WaitForSingleObject(pThis->m_hRmsStopEventRack[idx], 0) == WAIT_OBJECT_0)
+		if (pThis->m_hRmsStopEvent &&
+			::WaitForSingleObject(pThis->m_hRmsStopEvent, 0) == WAIT_OBJECT_0)
 		{
 			break;
 		}
@@ -2826,7 +2760,7 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			CString msg = (LPCTSTR)b;
 
 			CString log;
-			log.Format(_T("[RMS RACK %d] %s"), rackNo, msg.GetString());
+			log.Format(_T("[RMS] %s"), msg.GetString());
 			m_pApp->Gf_writeRMSLog(log);
 
 			CString cmd = msg.Left(4);
@@ -2837,7 +2771,8 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			}
 			else if (cmd == _T("EPPR"))
 			{
-				pThis->HandleRmsMsg_EPPR(msg, pRmsThread, rackNo);
+				// rackNo 인자 제거 버전으로 바꾸는게 가장 깔끔
+				pThis->HandleRmsMsg_EPPR(msg, pRmsThread, 1);
 			}
 			else if (cmd == _T("ERCP"))
 			{
@@ -2846,6 +2781,10 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			else if (cmd == _T("EPSC"))
 			{
 				pThis->HandleRmsMsg_EPSC(msg, pRmsThread);
+			}
+			else if (cmd == _T("EPDC"))
+			{
+				pThis->HandleRmsMsg_EPDC(msg, pRmsThread);
 			}
 		}
 
@@ -2989,7 +2928,6 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 
 	int recipeNoInt = _ttoi(recipe);
 	CString RecipeStr = NormalizeRecipeNo3Digit(recipe);   // 추가
-
 
 	CString recipeDir = _T(".\\RMS\\Recipe");
 	CString recipeKey;
@@ -3357,46 +3295,6 @@ CString CCimNetCommApi::ExtractFieldValue(const CString& msg, LPCTSTR keyWithEq)
 	return msg.Mid(start, end - start);
 }
 
-void CCimNetCommApi::BuildRmsLocalSubjects(int chamberNo)
-{
-	// 예:
-	// 원본: W4.G3.W4AMAL04HV.UPLOADER
-	// 결과: W4.G3.W4AMAL04HV0401.UPLOADER ~ 0406.UPLOADER
-
-	CString prefix = m_strLocalSubjectRMS;
-	prefix.Trim();
-
-	// 마지막 ".UPLOADER" 제거
-	if (prefix.Right(10).CompareNoCase(_T(".UPLOADER")) == 0)
-	{
-		prefix = prefix.Left(prefix.GetLength() - 10);
-	}
-	else if (prefix.Right(9).CompareNoCase(_T("UPLOADER")) == 0)
-	{
-		// 혹시 점 없이 들어온 경우 대비
-		prefix = prefix.Left(prefix.GetLength() - 9);
-		prefix.TrimRight(_T("."));
-	}
-
-	for (int rack = 1; rack <= RMS_RACK_COUNT; rack++)
-	{
-		if (rack == 4) // m_strLocalSubjectRmsRack[3]
-		{
-			m_strLocalSubjectRmsRack[rack - 1].Format(_T("%s.UPLOADER"), m_strLocalSubjectRMS.GetString());
-		}
-		else
-		{
-			// chamberNo=4 이면 0401 ~ 0406
-			m_strLocalSubjectRmsRack[rack - 1].Format(
-				_T("%s%02d%02d.UPLOADER"),
-				prefix.GetString(),
-				chamberNo,
-				rack
-			);
-		}
-	}
-}
-
 CString CCimNetCommApi::NormalizeRecipeNo3Digit(const CString& recipe)
 {
 	CString text = recipe;
@@ -3411,26 +3309,4 @@ CString CCimNetCommApi::NormalizeRecipeNo3Digit(const CString& recipe)
 	CString result;
 	result.Format(_T("%03d"), no);   // 1 -> 001, 11 -> 011, 123 -> 123
 	return result;
-}
-
-BOOL CCimNetCommApi::SendRmsMessageByRack(int rackNo, const CString& msg, CString& outRecvMsg)
-{
-	ICallRMSClass* pRms = GetRmsByRack(rackNo);
-	if (pRms == nullptr)
-		return FALSE;
-
-	if (!m_blsRmsConnectRack[rackNo - 1])
-		return FALSE;
-
-	VARIANT_BOOL bRetCode = pRms->SendTibMessage((_bstr_t)msg);
-	if (bRetCode != VARIANT_TRUE)
-		return FALSE;
-
-	if (pRms->GetreceivedDataFlag() == VARIANT_TRUE)
-	{
-		outRecvMsg = (LPCTSTR)pRms->GetReceiveData();
-		return TRUE;
-	}
-
-	return FALSE;
 }

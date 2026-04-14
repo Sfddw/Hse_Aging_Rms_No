@@ -2926,8 +2926,9 @@ Send_RETRY:
 		}*/
 		nRtnCD = pCimNet->PCHK_B(lpInspWorkInfo->m_nPid);
 	}
-	else if (hostCMD == HOST_FLDR)
+	else if (hostCMD == HOST_EWOQ)
 	{
+		nRtnCD = pCimNet->EWOQ();
 	}
 	else if (hostCMD == HOST_EICR)
 	{
@@ -3015,7 +3016,7 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_ERCP)
 	{
-		nRtnCD = pCimNet->ERCP(4);
+		nRtnCD = pCimNet->ERCP();
 	}
 	else if (hostCMD == HOST_UNDO)
 	{
@@ -3025,6 +3026,10 @@ Send_RETRY:
 	else if (hostCMD == HOST_RMSO)
 	{
 		nRtnCD = pCimNet->RMSO();
+	}
+	else if (hostCMD == HOST_EPIQ)
+	{
+		nRtnCD = pCimNet->EPIQ();
 	}
 	else if (hostCMD == HOST_ERCP_TEST)
 	{

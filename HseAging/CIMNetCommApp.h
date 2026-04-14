@@ -65,8 +65,8 @@ public:
 	CCimNetCommApi(void);
 	~CCimNetCommApi(void);
 
-	BOOL StartRmsRecvThread(int RackNo);
-	void StopRmsRecvThread(int RackNo);
+	BOOL StartRmsRecvThread();
+	void StopRmsRecvThread();
 
 	BOOL TryPopRmsMessage(CString& outMsg);
 	CString GetLastRmsMessage();
@@ -76,8 +76,6 @@ public:
 	// ===== MES 수신 스레드 관련 =====
 	CWinThread* m_pRmsRecvThread = nullptr;
 	HANDLE      m_hRmsStopEvent = nullptr;
-	CWinThread* m_pRmsRecvThreadRack[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-	HANDLE m_hRmsStopEventRack[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
 
 	// 수신 데이터 저장
@@ -88,7 +86,7 @@ public:
 
 	ICallGmesClass *gmes;
 	ICallEASClass *eas;
-	ICallRMSClass *rms;
+	//ICallRMSClass *rms;
 
 	LPINSPWORKINFO lpInspWorkInfo;
 
@@ -168,11 +166,9 @@ public:
 
 	BOOL UNDO(int rack, int layer, int ch);
 	BOOL RMSO();
-	BOOL RMSO(int rackNo);
 
 	// ---------------------------------------
 	BOOL ERCP();
-	BOOL ERCP(int rackNo);
 
 	// ---------------------------------------
 	void SetLocalTest(int nServerType);
@@ -185,7 +181,6 @@ public:
 
 	// RMS 채널 추가
 	void BuildRmsLocalSubjects(int chamberNo);
-	ICallRMSClass* GetRmsByRack(int rackNo);
 	BOOL SendRmsMessageByRack(int rackNo, const CString& msg, CString& outRecvMsg);
 
 	void SetLocalTimeZone(int timeZone);
@@ -286,13 +281,10 @@ public:
 	static const int RMS_CHANNEL_COUNT = 7;
 
 	// 기존 단일 rms 대신 rack별 객체
-	ICallRMSClass* m_pRms[RMS_RACK_COUNT] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-
-	// rack별 local subject
-	CString m_strLocalSubjectRmsRack[RMS_RACK_COUNT];
+	ICallRMSClass* rms = nullptr;
 
 	// rack별 연결 상태
-	BOOL m_blsRmsConnectRack[RMS_RACK_COUNT] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE };
+	BOOL m_blsRmsConnect = FALSE;
 
 protected:
 	BOOL	m_bIsGmesLocalTestMode;

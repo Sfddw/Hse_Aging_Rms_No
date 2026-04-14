@@ -52,8 +52,18 @@ void ErcpTest::OnBnClickedOk()
 	CString strInput;
 	GetDlgItemText(IDC_ERCP_SEND, strInput);
 	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
 	lpInspWorkInfo->Ercp_Test_Message = strInput;
-	m_pApp->Gf_gmesSendHost(HOST_ERCP_TEST, NULL, NULL, NULL);
+	if (lpInspWorkInfo->Msg_Test == 1) // RMS
+	{
+		SetDlgItemText(IDC_CONNECT_STATE, _T("RMS"));
+		m_pApp->Gf_gmesSendHost(HOST_ERCP_TEST, NULL, NULL, NULL);
+	}
+	else // MES
+	{
+		SetDlgItemText(IDC_CONNECT_STATE, _T("MES"));
+		m_pApp->Gf_gmesSendHost(HOST_ERCP_TEST, NULL, NULL, NULL);
+	}
 
 	m_pApp->Gf_writeMLog(strInput);
 	//CDialogEx::OnOK();
