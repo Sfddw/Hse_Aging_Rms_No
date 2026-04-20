@@ -1406,19 +1406,24 @@ BOOL CCimNetCommApi::ERCP()
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 
 	m_strERCP.Format(
-		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE= RECIPEVER= OPER= NW_CD= NW_DESCRIPTION=[] CHANGE_TYPE=B VALIDATIONINFO=[] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD= NW_DESCRIPTION=[] CHANGE_TYPE=B VALIDATIONINFO=[] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
 		m_strRemoteSubjectRMS,
 		localSubject,
 		m_strEqpRMS,
-		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
+		//m_strMachineName.Left(m_strMachineName.GetLength() - 2),
+		m_strMachineName,
 		m_strMachineName,
 		/*m_strMachineName,
 		unitName,*/
-		r_strmodelName,
+		lpInspWorkInfo->Ercp_Model_Name,
+		lpInspWorkInfo->Ercp_Recipe,
 		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
 		m_strMachineName,
 		m_strERCPInfo
 	);
+
+	CString modelname = lpInspWorkInfo->Ercp_Model_Name;
+	int recipe = lpInspWorkInfo->Ercp_Recipe;
 
 	BOOL nRetCode = MessageSend(ECS_MODE_ERCP);
 	if (nRetCode != RTN_OK)
@@ -2389,7 +2394,7 @@ BOOL CCimNetCommApi::EWCH()
 BOOL CCimNetCommApi::EPIQ()
 {
 	MakeClientTimeString();
-	m_strEPIQ.Format(_T("EPIQ ADDR=%s,%s EQP=%s USER_ID=%s MODE=AUTO CLIENT_DATE=%s COMMENT=[]")
+	m_strEPIQ.Format(_T("EPIQ ADDR=%s,%s EQP=%s COMPLETE_YN=Y USER_ID=%s MODE=AUTO CLIENT_DATE=%s COMMENT=[]")
 		, m_strLocalSubjectMesF
 		, m_strLocalSubjectMesF
 		, m_strMachineName
@@ -2866,6 +2871,20 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 	CString modelListPath = _T(".\\RMS\\ModelList.ini");
 	CString recipeMsgSet = BuildRecipeMsgSetFromModelList(machine, unit, modelListPath);
 
+	CString oneItem, recipeMsgSet_Test;
+	for (int i = 1; i <= 100; i++)
+	{
+		/*oneItem.Format(_T("W4AMAL04HV:W4AMAL04HV01:[%03d]:3:U:"), i);*/
+		oneItem.Format(_T("W4AMAL04HV:W4AMAL04HV01:[%d]:3:U:"), i);
+
+		// 첫 항목이 아니면 앞에 콤마 추가
+		if (!recipeMsgSet_Test.IsEmpty())
+			recipeMsgSet_Test += _T(",");
+
+		recipeMsgSet_Test += oneItem;
+	}
+
+
 	// 4) EPLR_R 구성
 	CString reply;
 	reply.Format(
@@ -2873,7 +2892,8 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 		m_strRemoteSubjectRMS,
 		m_strLocalSubjectRMS,
 		m_strEqpRMS,
-		recipeMsgSet,
+		//recipeMsgSet,
+		recipeMsgSet_Test,
 		seqNo
 	);
 
@@ -3110,7 +3130,8 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 
 	m_pApp->Gf_writeRMSLog(reply);
 
-	VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+	//VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+	VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
 	if (ok == VARIANT_FALSE)
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send failed"));
 	else
@@ -3204,11 +3225,90 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 	seq_no					= ExtractFieldValue(msg, _T("SEQ_NO="));
 	mmc_txn_id				= ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 	
+	CString St_Msg, St_Header;
+	int ParaCount = 0;
+
+	St_Header.Format(_T(":MODEL_NB:["));
+	St_Msg += St_Header;
+
+	St_Header.Format(_T("DIMMING_SEL_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("PWM_FREQ_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("PWM_DUTY_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBR_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("CABLE_OPEN_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ1_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ2_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ3_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ4_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_ON_SEQ5_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ6_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ7_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ8_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ9_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_ON_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_OFF_SEQ6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_OFF_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("VBL_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_OFFSET_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_TIME_HH_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_TIME_MM_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_TIME_MINUTE_HIGH_MODEL_INFO#^"));								St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("TEMPERATURE_USE_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("TEMPERATURE_MIN_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("TEMPERATURE_MAX_MODEL_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("DOOR_USE_MODEL_MODEL_INFO#]"));										St_Msg += St_Header, ParaCount += 1;
+
+
+	
+	
 	CString reply;
 	if (command_code == "I")
 	{
 		reply.Format(
-			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s COMMAND_CODE=%s PARACOUNT= SETTING_INFO= ACK= ERR_MSG_LOC= SEQ_NO= MMC_TXN_ID="),
+			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[%s] ACK= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
 			m_strRemoteSubjectRMS,
 			m_strLocalSubjectRMS,
 			m_strEqpRMS,
@@ -3217,7 +3317,11 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			system,
 			unit_type,
 			operation_type,
-			command_code
+			command_code,
+			ParaCount,
+			St_Msg,
+			seq_no,
+			mmc_txn_id
 		);
 	}
 	else
@@ -3252,8 +3356,124 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 
 void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsThread)
 {
+	if (pRmsThread == nullptr)
+		return;
 
-}
+	CString addr, eqp, machine, unit, system, unit_type, operation_type, paracount, delete_info, seq_no, mmc_txn_id;
+
+	addr = ExtractFieldValue(msg, _T("ADDR="));
+	eqp = ExtractFieldValue(msg, _T("EQP="));
+	machine = ExtractFieldValue(msg, _T("MACHINE="));
+	unit = ExtractFieldValue(msg, _T("UNIT="));
+	system = ExtractFieldValue(msg, _T("SYSTEM="));
+	unit_type = ExtractFieldValue(msg, _T("UNIT_TYPE="));
+	operation_type = ExtractFieldValue(msg, _T("OPERATION_TYPE="));
+	paracount = ExtractFieldValue(msg, _T("PARACOUNT="));
+	delete_info = ExtractFieldValue(msg, _T("DELETE_INFO="));
+	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
+	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
+
+	CString St_Msg, St_Header;
+	int ParaCount = 0;
+
+	St_Header.Format(_T(":MODEL_NB:["));
+	St_Msg += St_Header;
+
+	St_Header.Format(_T("DIMMING_SEL_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("PWM_FREQ_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("PWM_DUTY_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBR_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("CABLE_OPEN_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ1_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ2_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ3_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ4_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_ON_SEQ5_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ6_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ7_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ8_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ9_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_ON_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_ON_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_OFF_SEQ6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("POWER_OFF_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("POWER_OFF_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("VBL_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_OFFSET_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_TIME_HH_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_TIME_MM_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_TIME_MINUTE_HIGH_MODEL_INFO#^"));								St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+
+	St_Header.Format(_T("TEMPERATURE_USE_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("TEMPERATURE_MIN_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("TEMPERATURE_MAX_MODEL_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
+	St_Header.Format(_T("DOOR_USE_MODEL_MODEL_INFO#]"));										St_Msg += St_Header, ParaCount += 1;
+
+	CString reply;
+	reply.Format(
+		_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_I=%s"),
+		addr,
+		eqp,
+		machine,
+		unit,
+		system,
+		unit_type,
+		operation_type,
+		seq_no,
+		mmc_txn_id
+	);
+
+	m_pApp->Gf_writeRMSLog(reply);
+
+	//VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+	VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+	if (ok == VARIANT_FALSE)
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
+	else
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
+
+	}
+
 void CCimNetCommApi::HandleRmsMsg_EPCC(const CString& msg, ICallRMSClass* pRmsThread)
 {
 

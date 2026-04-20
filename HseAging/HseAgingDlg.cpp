@@ -705,23 +705,12 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.2.9I"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.3.0A"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
 		m_bFwMismatchNotified[i] = FALSE;
 		lpInspWorkInfo->m_nAgingStatusS[i] = 0;
-	}
-
-	if (m_pApp->m_sUserID == "WD")
-	{
-		CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
-		if (pDlg)
-		{
-			CWnd* pBtnDoor3 = pDlg->GetDlgItem(IDC_BUTTON_DOOR3);
-			if (pBtnDoor3)
-				pBtnDoor3->ShowWindow(SW_SHOW);  // 버튼 표시
-		}
 	}
 	
 	pCimNet = new CCimNetCommApi;
@@ -4509,6 +4498,18 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	m_pApp->pCimNet->r_strmodelName = sModelName;
 
+	lpInspWorkInfo->Ercp_Model_Name = sModelName;
+	CString sRecipeNo;
+	int nPos = sModelName.Find(_T('_'));
+
+	if (nPos >= 0)
+		sRecipeNo = sModelName.Left(nPos);   // '_' 앞까지
+	else
+		sRecipeNo = sModelName;              // '_' 없으면 전체 사용
+
+	lpInspWorkInfo->Ercp_Recipe = _ttoi(sRecipeNo);
+	Lf_rmsErcpSet(rack);
+
 	// 모델정보에서 AGING 시간 정보를 LOAD하여 UI에 표시한다.
 	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &nValue);
 	sdata.Format(_T("%02d:%02d"), nValue / 60, nValue % 60);
@@ -6488,7 +6489,7 @@ void CHseAgingDlg::OnBnClickedButtonDoor4()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	//Lf_setDoorOnOff(RACK_4);
-	Lf_rmsErcpSet();
+	Lf_rmsErcpSet(1);
 }
 
 
@@ -6547,7 +6548,7 @@ void CHseAgingDlg::Lf_AgingProgressLog()
 	}
 }
 
-void CHseAgingDlg::Lf_rmsErcpSet()
+void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 {
 	CString ErcpDataSet, setPW, ErcpMessageSet;
 	CString rackKeys[] = {
@@ -6639,7 +6640,7 @@ void CHseAgingDlg::Lf_rmsErcpSet()
 
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
-		m_pApp->Gf_gmesSendHost(HOST_ERCP, NULL, NULL, NULL);
+		m_pApp->Gf_gmesSendHost(HOST_ERCP, rack, NULL, NULL);
 		
 	}
 	catch (const std::exception& ex)

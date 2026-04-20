@@ -110,7 +110,7 @@ protected:
 	void Lf_flickerCompleteRackNumber();
 	void Lf_AgingProgressLog();
 
-	void Lf_rmsErcpSet();
+	void Lf_rmsErcpSet(int rack);
 
 	BOOL GetRackSelectedModelName(int nComboCtrlId, CString& outModelName); // RACK마다 현재 선택된 모델 정보 얻기
 	BOOL UpdateRackCurModelIni(int nRackNo, int nComboCtrlId);
