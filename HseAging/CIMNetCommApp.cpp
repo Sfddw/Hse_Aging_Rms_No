@@ -24,6 +24,164 @@ static _ATL_FUNC_INFO HandleTibRvMsgEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR
 static _ATL_FUNC_INFO HandleTibRvStateEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR} };
 
 
+// ===================== [추가 시작] EPSC_R I용 Parameter.ini -> SETTING_INFO builder =====================
+
+static CString ReadIniValueSimple(const CString& iniPath, const CString& section, const CString& key)
+{
+	TCHAR buf[512] = { 0 };
+	::GetPrivateProfileString(section, key, _T(""), buf, _countof(buf), iniPath);
+	return CString(buf);
+}
+
+struct EpscParaMap
+{
+	LPCTSTR displayName;   // EPSC_R에 넣을 파라미터 이름
+	LPCTSTR iniSection;    // Parameter.ini 섹션명
+};
+
+static void AppendEpscSettingItemFromIni(
+	CString& outMsg,
+	const CString& parameterIniPath,
+	const CString& displayName,
+	const CString& iniSection)
+{
+	static const LPCTSTR kRmsFields[] =
+	{
+		_T("PINDEX"),
+		_T("SPECIAL_ITEM"),
+		_T("ADDRESS"),
+		_T("PARA_OFFSET"),
+		_T("CURRENT_ADDRESS"),
+		_T("UNIT_TYPE"),
+		_T("WORD_SIZE"),
+		_T("DECIMAL_PLACE"),
+		_T("SIGN_YN"),
+		_T("SNDPOS"),
+		_T("FILE_PATH"),
+		_T("FILE_NAME"),
+		_T("INTERNAL_PARA_NAME"),
+		_T("DELIMITER"),
+		_T("ROW_NUM"),
+		_T("COL_NUM"),
+		_T("BIT_LENGTH")
+	};
+
+	if (!outMsg.IsEmpty())
+		outMsg += _T(",");
+
+	outMsg.AppendFormat(_T(":%s:["), displayName.GetString());
+
+	for (int i = 0; i < _countof(kRmsFields); ++i)
+	{
+		CString val = ReadIniValueSimple(parameterIniPath, iniSection, kRmsFields[i]);
+
+		// 네가 원하는 형식대로 마지막도 ^ 유지
+		outMsg.AppendFormat(_T("%s#%s^"), kRmsFields[i], val.GetString());
+	}
+
+	outMsg += _T("]");
+}
+
+static CString BuildEpscSettingInfoFromParameterIni(const CString& parameterIniPath, int& outParaCount)
+{
+	static const EpscParaMap kParams[] =
+	{
+		// MODEL_NB는 MODEL_NUMBER 섹션 값을 사용
+		{ _T("MODEL_NB"),        _T("MODEL_NUMBER") },
+
+		// RECIPE 파라미터들
+		{ _T("DIMMING_SEL"),     _T("DIMMING_SEL") },
+		{ _T("PWM_FREQ"),        _T("PWM_FREQ") },
+		{ _T("PWM_DUTY"),        _T("PWM_DUTY") },
+		{ _T("VBR_VOLT"),        _T("VBR_VOLT") },
+		{ _T("CABLE_OPEN"),      _T("CABLE_OPEN") },
+
+		{ _T("POWER_ON_SEQ1"),   _T("POWER_ON_SEQ1") },
+		{ _T("POWER_ON_SEQ2"),   _T("POWER_ON_SEQ2") },
+		{ _T("POWER_ON_SEQ3"),   _T("POWER_ON_SEQ3") },
+		{ _T("POWER_ON_SEQ4"),   _T("POWER_ON_SEQ4") },
+		{ _T("POWER_ON_SEQ5"),   _T("POWER_ON_SEQ5") },
+		{ _T("POWER_ON_SEQ6"),   _T("POWER_ON_SEQ6") },
+		{ _T("POWER_ON_SEQ7"),   _T("POWER_ON_SEQ7") },
+		{ _T("POWER_ON_SEQ8"),   _T("POWER_ON_SEQ8") },
+		{ _T("POWER_ON_SEQ9"),   _T("POWER_ON_SEQ9") },
+		{ _T("POWER_ON_SEQ10"),  _T("POWER_ON_SEQ10") },
+
+		{ _T("POWER_ON_DELAY1"), _T("POWER_ON_DELAY1") },
+		{ _T("POWER_ON_DELAY2"), _T("POWER_ON_DELAY2") },
+		{ _T("POWER_ON_DELAY3"), _T("POWER_ON_DELAY3") },
+		{ _T("POWER_ON_DELAY4"), _T("POWER_ON_DELAY4") },
+		{ _T("POWER_ON_DELAY5"), _T("POWER_ON_DELAY5") },
+		{ _T("POWER_ON_DELAY6"), _T("POWER_ON_DELAY6") },
+		{ _T("POWER_ON_DELAY7"), _T("POWER_ON_DELAY7") },
+		{ _T("POWER_ON_DELAY8"), _T("POWER_ON_DELAY8") },
+		{ _T("POWER_ON_DELAY9"), _T("POWER_ON_DELAY9") },
+
+		{ _T("POWER_OFF_SEQ1"),  _T("POWER_OFF_SEQ1") },
+		{ _T("POWER_OFF_SEQ2"),  _T("POWER_OFF_SEQ2") },
+		{ _T("POWER_OFF_SEQ3"),  _T("POWER_OFF_SEQ3") },
+		{ _T("POWER_OFF_SEQ4"),  _T("POWER_OFF_SEQ4") },
+		{ _T("POWER_OFF_SEQ5"),  _T("POWER_OFF_SEQ5") },
+		{ _T("POWER_OFF_SEQ6"),  _T("POWER_OFF_SEQ6") },
+		{ _T("POWER_OFF_SEQ7"),  _T("POWER_OFF_SEQ7") },
+		{ _T("POWER_OFF_SEQ8"),  _T("POWER_OFF_SEQ8") },
+		{ _T("POWER_OFF_SEQ9"),  _T("POWER_OFF_SEQ9") },
+		{ _T("POWER_OFF_SEQ10"), _T("POWER_OFF_SEQ10") },
+
+		{ _T("POWER_OFF_DELAY1"), _T("POWER_OFF_DELAY1") },
+		{ _T("POWER_OFF_DELAY2"), _T("POWER_OFF_DELAY2") },
+		{ _T("POWER_OFF_DELAY3"), _T("POWER_OFF_DELAY3") },
+		{ _T("POWER_OFF_DELAY4"), _T("POWER_OFF_DELAY4") },
+		{ _T("POWER_OFF_DELAY5"), _T("POWER_OFF_DELAY5") },
+		{ _T("POWER_OFF_DELAY6"), _T("POWER_OFF_DELAY6") },
+		{ _T("POWER_OFF_DELAY7"), _T("POWER_OFF_DELAY7") },
+		{ _T("POWER_OFF_DELAY8"), _T("POWER_OFF_DELAY8") },
+		{ _T("POWER_OFF_DELAY9"), _T("POWER_OFF_DELAY9") },
+
+		{ _T("VCC_VOLT"),            _T("VCC_VOLT") },
+		{ _T("VCC_VOLT_OFFSET"),     _T("VCC_VOLT_OFFSET") },
+		{ _T("VCC_LIMIT_VOLT_LOW"),  _T("VCC_LIMIT_VOLT_LOW") },
+		{ _T("VCC_LIMIT_VOLT_HIGH"), _T("VCC_LIMIT_VOLT_HIGH") },
+		{ _T("VCC_LIMIT_CURR_LOW"),  _T("VCC_LIMIT_CURR_LOW") },
+		{ _T("VCC_LIMIT_CURR_HIGH"), _T("VCC_LIMIT_CURR_HIGH") },
+
+		{ _T("VBL_VOLT"),            _T("VBL_VOLT") },
+		{ _T("VBL_VOLT_OFFSET"),     _T("VBL_VOLT_OFFSET") },
+		{ _T("VBL_LIMIT_VOLT_LOW"),  _T("VBL_LIMIT_VOLT_LOW") },
+		{ _T("VBL_LIMIT_VOLT_HIGH"), _T("VBL_LIMIT_VOLT_HIGH") },
+		{ _T("VBL_LIMIT_CURR_LOW"),  _T("VBL_LIMIT_CURR_LOW") },
+		{ _T("VBL_LIMIT_CURR_HIGH"), _T("VBL_LIMIT_CURR_HIGH") },
+
+		{ _T("AGING_TIME_HH"),        _T("AGING_TIME_HH") },
+		{ _T("AGING_TIME_MM"),        _T("AGING_TIME_MM") },
+		{ _T("AGING_TIME_MINUTE"),    _T("AGING_TIME_MINUTE") },
+		{ _T("AGING_END_WAIT_TIME"),  _T("AGING_END_WAIT_TIME") },
+
+		{ _T("TEMPERATURE_USE"), _T("TEMPERATURE_USE") },
+		{ _T("TEMPERATURE_MIN"), _T("TEMPERATURE_MIN") },
+		{ _T("TEMPERATURE_MAX"), _T("TEMPERATURE_MAX") },
+		{ _T("DOOR_USE"),        _T("DOOR_USE") }
+	};
+
+	CString msg;
+	outParaCount = 0;
+
+	for (int i = 0; i < _countof(kParams); ++i)
+	{
+		AppendEpscSettingItemFromIni(
+			msg,
+			parameterIniPath,
+			kParams[i].displayName,
+			kParams[i].iniSection
+		);
+		outParaCount++;
+	}
+
+	return msg;
+}
+
+// ===================== [추가 끝] EPSC_R I용 Parameter.ini -> SETTING_INFO builder =====================
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ModelList.ini에서 키(001,002...) 목록 읽기 함수3
@@ -3214,99 +3372,27 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 
 	CString machine, unit, system, unit_type, operation_type, command_code, paracount, setting_info, seq_no, mmc_txn_id;
 
-	machine					= ExtractFieldValue(msg, _T("MACHINE="));
-	unit					= ExtractFieldValue(msg, _T("UNIT="));
-	system					= ExtractFieldValue(msg, _T("SYSTEM="));
-	unit_type				= ExtractFieldValue(msg, _T("UNIT_TYPE="));
-	operation_type			= ExtractFieldValue(msg, _T("OPERATION_TYPE="));
-	command_code			= ExtractFieldValue(msg, _T("COMMAND_CODE="));
-	paracount				= ExtractFieldValue(msg, _T("PARACOUNT="));
-	setting_info			= ExtractFieldValue(msg, _T("SETTING_INFO="));
-	seq_no					= ExtractFieldValue(msg, _T("SEQ_NO="));
-	mmc_txn_id				= ExtractFieldValue(msg, _T("MMC_TXN_ID="));
-	
-	CString St_Msg, St_Header;
-	int ParaCount = 0;
+	machine = ExtractFieldValue(msg, _T("MACHINE="));
+	unit = ExtractFieldValue(msg, _T("UNIT="));
+	system = ExtractFieldValue(msg, _T("SYSTEM="));
+	unit_type = ExtractFieldValue(msg, _T("UNIT_TYPE="));
+	operation_type = ExtractFieldValue(msg, _T("OPERATION_TYPE="));
+	command_code = ExtractFieldValue(msg, _T("COMMAND_CODE="));
+	paracount = ExtractFieldValue(msg, _T("PARACOUNT="));
+	setting_info = ExtractFieldValue(msg, _T("SETTING_INFO="));
+	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
+	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
-	St_Header.Format(_T(":MODEL_NB:["));
-	St_Msg += St_Header;
-
-	St_Header.Format(_T("DIMMING_SEL_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("PWM_FREQ_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("PWM_DUTY_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBR_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("CABLE_OPEN_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ1_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ2_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ3_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ4_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_ON_SEQ5_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ6_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ7_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ8_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ9_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_ON_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_OFF_SEQ6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_OFF_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("VBL_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_OFFSET_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_TIME_HH_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_TIME_MM_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_TIME_MINUTE_HIGH_MODEL_INFO#^"));								St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("TEMPERATURE_USE_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("TEMPERATURE_MIN_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("TEMPERATURE_MAX_MODEL_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("DOOR_USE_MODEL_MODEL_INFO#]"));										St_Msg += St_Header, ParaCount += 1;
-
-
-	
-	
 	CString reply;
-	if (command_code == "I")
+
+	if (command_code == _T("I"))
 	{
+		// 실제 경로에 맞게 수정
+		CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
+
+		int paraCount = 0;
+		CString stMsg = BuildEpscSettingInfoFromParameterIni(parameterIniPath, paraCount);
+
 		reply.Format(
 			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[%s] ACK= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
 			m_strRemoteSubjectRMS,
@@ -3318,8 +3404,8 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			unit_type,
 			operation_type,
 			command_code,
-			ParaCount,
-			St_Msg,
+			paraCount,
+			stMsg,
 			seq_no,
 			mmc_txn_id
 		);
@@ -3350,8 +3436,6 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
 	else
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
-
-
 }
 
 void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsThread)

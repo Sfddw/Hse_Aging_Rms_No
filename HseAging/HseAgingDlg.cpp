@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.3.0A"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.3.0B"));
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{

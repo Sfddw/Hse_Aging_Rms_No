@@ -240,6 +240,170 @@ static BOOL BuildModelListIniFromRecipeAndModel(
 	return TRUE;
 }
 
+/// <summary>
+/// Parameter.ini 파일 내용 생성
+/// </summary>
+/// <param name="filePath"></param>
+/// <returns></returns>
+static BOOL FileExistsSimple(const CString& filePath)
+{
+	DWORD attr = ::GetFileAttributes(filePath);
+	if (attr == INVALID_FILE_ATTRIBUTES)
+		return FALSE;
+
+	return ((attr & FILE_ATTRIBUTE_DIRECTORY) == 0);
+}
+
+static CString BuildDefaultParameterIniContent()
+{
+	// RECIPE 파라미터 목록
+	static const LPCTSTR recipeParams[] =
+	{
+		_T("TIMING_MAIN_CLOCK"),
+		_T("TIMING_HOR_TOTAL"),
+		_T("TIMING_HOR_ACTIVE"),
+		_T("TIMING_HOR_WIDTH"),
+		_T("TIMING_HOR_BACKPORCH"),
+		_T("TIMING_HOR_FRONTPORCH"),
+		_T("TIMING_VER_TOTAL"),
+		_T("TIMING_VER_ACTIVE"),
+		_T("TIMING_VER_WIDTH"),
+		_T("TIMING_VER_BACKPORCH"),
+		_T("TIMING_VER_FRONTPORCH"),
+		_T("LCM_SIGNAL_TYPE"),
+		_T("LCM_PIXEL_TYPE"),
+		_T("LCM_ODD_EVEN"),
+		_T("LCM_SIGNAL_BIT"),
+		_T("LCM_BIT_SWAP"),
+		_T("LCM_LVDS_RS_SEL"),
+		_T("LCM_DP_SET"),
+		_T("INVERTER_MODE"),
+		_T("DIMMING_SEL"),
+		_T("PWM_FREQ"),
+		_T("PWM_DUTY"),
+		_T("STRING_COUNT"),
+		_T("STRING_CURRENT"),
+		_T("VBR_VOLT"),
+		_T("CABLE_OPEN"),
+		_T("GENDER_OPEN"),
+		_T("POWER_ON_SEQ1"),
+		_T("POWER_ON_SEQ2"),
+		_T("POWER_ON_SEQ3"),
+		_T("POWER_ON_SEQ4"),
+		_T("POWER_ON_SEQ5"),
+		_T("POWER_ON_SEQ6"),
+		_T("POWER_ON_SEQ7"),
+		_T("POWER_ON_SEQ8"),
+		_T("POWER_ON_SEQ9"),
+		_T("POWER_ON_SEQ10"),
+		_T("POWER_ON_DELAY1"),
+		_T("POWER_ON_DELAY2"),
+		_T("POWER_ON_DELAY3"),
+		_T("POWER_ON_DELAY4"),
+		_T("POWER_ON_DELAY5"),
+		_T("POWER_ON_DELAY6"),
+		_T("POWER_ON_DELAY7"),
+		_T("POWER_ON_DELAY8"),
+		_T("POWER_ON_DELAY9"),
+		_T("POWER_OFF_SEQ1"),
+		_T("POWER_OFF_SEQ2"),
+		_T("POWER_OFF_SEQ3"),
+		_T("POWER_OFF_SEQ4"),
+		_T("POWER_OFF_SEQ5"),
+		_T("POWER_OFF_SEQ6"),
+		_T("POWER_OFF_SEQ7"),
+		_T("POWER_OFF_SEQ8"),
+		_T("POWER_OFF_SEQ9"),
+		_T("POWER_OFF_SEQ10"),
+		_T("POWER_OFF_DELAY1"),
+		_T("POWER_OFF_DELAY2"),
+		_T("POWER_OFF_DELAY3"),
+		_T("POWER_OFF_DELAY4"),
+		_T("POWER_OFF_DELAY5"),
+		_T("POWER_OFF_DELAY6"),
+		_T("POWER_OFF_DELAY7"),
+		_T("POWER_OFF_DELAY8"),
+		_T("POWER_OFF_DELAY9"),
+		_T("POWER_OFF_DELAY"),
+		_T("VCC_VOLT"),
+		_T("VCC_VOLT_OFFSET"),
+		_T("VCC_LIMIT_VOLT_LOW"),
+		_T("VCC_LIMIT_VOLT_HIGH"),
+		_T("VCC_LIMIT_CURR_LOW"),
+		_T("VCC_LIMIT_CURR_HIGH"),
+		_T("VBL_VOLT"),
+		_T("VBL_VOLT_OFFSET"),
+		_T("VBL_LIMIT_VOLT_LOW"),
+		_T("VBL_LIMIT_VOLT_HIGH"),
+		_T("VBL_LIMIT_CURR_LOW"),
+		_T("VBL_LIMIT_CURR_HIGH"),
+		_T("AGING_TIME_HH"),
+		_T("AGING_TIME_MM"),
+		_T("AGING_TIME_MINUTE"),
+		_T("AGING_END_WAIT_TIME"),
+		_T("TEMPERATURE_USE"),
+		_T("TEMPERATURE_MIN"),
+		_T("TEMPERATURE_MAX"),
+		_T("DOOR_USE"),
+		_T("MODEL_NUMBER")
+	};
+
+	// RMS PARA LIST
+	static const LPCTSTR rmsParaList[] =
+	{
+		_T("PINDEX"),
+		_T("SPECIAL_ITEM"),
+		_T("ADDRESS"),
+		_T("PARA_OFFSET"),
+		_T("CURRENT_ADDRESS"),
+		_T("UNIT_TYPE"),
+		_T("WORD_SIZE"),
+		_T("DECIMAL_PLACE"),
+		_T("SIGN_YN"),
+		_T("SNDPOS"),
+		_T("FILE_PATH"),
+		_T("FILE_NAME"),
+		_T("INTERNAL_PARA_NAME"),
+		_T("DELIMITER"),
+		_T("ROW_NUM"),
+		_T("COL_NUM"),
+		_T("BIT_LENGTH")
+	};
+
+	CString content;
+
+	for (int i = 0; i < _countof(recipeParams); i++)
+	{
+		content.AppendFormat(_T("[%s]\r"), recipeParams[i]);
+
+		for (int j = 0; j < _countof(rmsParaList); j++)
+		{
+			content.AppendFormat(_T("%s=\r"), rmsParaList[j]);
+		}
+
+		content += _T("\r");
+	}
+
+	return content;
+}
+
+static BOOL CreateDefaultParameterIniIfNotExists(const CString& parameterIniPath)
+{
+	if (FileExistsSimple(parameterIniPath))
+		return TRUE; // 이미 있으면 그대로 사용
+
+	CString content = BuildDefaultParameterIniContent();
+
+	CStdioFile file;
+	if (!file.Open(parameterIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+		return FALSE;
+
+	file.WriteString(content);
+	file.Close();
+
+	return TRUE;
+}
+
 /// Recipe 폴더 생성할지 안할지 
 static BOOL EnsureDirectoryExists(LPCTSTR dirPath)
 {
@@ -703,10 +867,11 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 	if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
 		return FALSE;
 
-	// Parameter.ini 생성 (내용 없음)
+	// Parameter.ini 생성 (기본 RMS PARA LIST 내용 포함)
 	CString parameterIni;
 	parameterIni.Format(_T("%s\\Parameter.ini"), recipeRootDir.GetString());
-	if (!EnsureTextFileExists(parameterIni, _T("")))
+
+	if (!CreateDefaultParameterIniIfNotExists(parameterIni))
 		return FALSE;
 
 	// RACK1~6 CurModel 파일 생성 (내용 없음)
