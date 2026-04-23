@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <map>
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,6 +24,693 @@ BOOL	m_nMessageReceiveFlag;
 static _ATL_FUNC_INFO HandleTibRvMsgEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR } };
 static _ATL_FUNC_INFO HandleTibRvStateEvent = { CC_STDCALL, VT_EMPTY, 1, { VT_BSTR} };
 
+// ===================== [추가 시작] EPDC DELETE_INFO -> Parameter.ini clear helper =====================
+
+static BOOL IsWhiteSpaceChar_EPDC(TCHAR ch)
+{
+	return (ch == _T(' ') ||
+		ch == _T('\t') ||
+		ch == _T('\r') ||
+		ch == _T('\n'));
+}
+
+static CString TrimCopy_EPDC(const CString& s)
+{
+	CString t = s;
+	t.Trim();
+	return t;
+}
+
+// DELETE_INFO 같이 중첩 [] 구조를 통째로 가져오기 위한 전용 함수
+static CString ExtractFieldValueFullBracket_EPDC(const CString& msg, LPCTSTR keyWithEq)
+{
+	CString key(keyWithEq);
+
+	int pos = msg.Find(key);
+	if (pos < 0)
+		return _T("");
+
+	int start = pos + key.GetLength();
+	if (start >= msg.GetLength())
+		return _T("");
+
+	while (start < msg.GetLength() && IsWhiteSpaceChar_EPDC(msg[start]))
+		start++;
+
+	if (start >= msg.GetLength())
+		return _T("");
+
+	if (msg[start] != _T('['))
+	{
+		int end = start;
+		while (end < msg.GetLength() && !IsWhiteSpaceChar_EPDC(msg[end]))
+			end++;
+
+		return msg.Mid(start, end - start);
+	}
+
+	int depth = 0;
+	for (int i = start; i < msg.GetLength(); ++i)
+	{
+		if (msg[i] == _T('['))
+			++depth;
+		else if (msg[i] == _T(']'))
+		{
+			--depth;
+			if (depth == 0)
+				return msg.Mid(start, i - start + 1);
+		}
+	}
+
+	return msg.Mid(start);
+}
+
+static CString MapEpdcDeleteNameToIniSection(const CString& paramName)
+{
+	// RMS의 MODEL_NB는 Parameter.ini의 MODEL_NUMBER 섹션과 동일하게 처리
+	if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		return _T("MODEL_NUMBER");
+
+	// 나머지는 현재 장비 기준으로 섹션명과 동일하다고 가정
+	return paramName;
+}
+
+static BOOL IniSectionExistsSimple(const CString& iniPath, const CString& section)
+{
+	TCHAR buf[4096] = { 0 };
+	DWORD n = ::GetPrivateProfileSection(section, buf, _countof(buf), iniPath);
+	return (n > 0);
+}
+
+static void SplitDeleteNamesByCaret(const CString& src, std::vector<CString>& outNames)
+{
+	CString cur;
+
+	for (int i = 0; i < src.GetLength(); ++i)
+	{
+		TCHAR ch = src[i];
+
+		if (ch == _T('^'))
+		{
+			cur.Trim();
+			if (!cur.IsEmpty())
+				outNames.push_back(cur);
+			cur.Empty();
+		}
+		else
+		{
+			cur.AppendChar(ch);
+		}
+	}
+
+	cur.Trim();
+	if (!cur.IsEmpty())
+		outNames.push_back(cur);
+}
+
+static BOOL ParseEpdcDeleteInfo(const CString& deleteInfoRaw, std::vector<CString>& outNames)
+{
+	outNames.clear();
+
+	CString text = TrimCopy_EPDC(deleteInfoRaw);
+	if (text.IsEmpty())
+		return TRUE;
+
+	// 바깥 [] 제거: [:[MODEL_NB^DIMMING_SEL]] -> :[MODEL_NB^DIMMING_SEL]
+	if (text.GetLength() >= 2 && text[0] == _T('[') && text[text.GetLength() - 1] == _T(']'))
+		text = text.Mid(1, text.GetLength() - 2);
+
+	text.Trim();
+	if (text.IsEmpty())
+		return TRUE;
+
+	int searchPos = 0;
+	bool foundBlock = false;
+
+	while (true)
+	{
+		int start = text.Find(_T(":["), searchPos);
+		if (start < 0)
+			break;
+
+		int end = text.Find(_T(']'), start + 2);
+		if (end < 0)
+			break;
+
+		CString block = text.Mid(start + 2, end - (start + 2)); // MODEL_NB^DIMMING_SEL
+		SplitDeleteNamesByCaret(block, outNames);
+
+		foundBlock = true;
+		searchPos = end + 1;
+	}
+
+	// 혹시 :[ ] 형식 없이 그냥 MODEL_NB^DIMMING_SEL 형태로 들어오면 fallback
+	if (!foundBlock)
+	{
+		SplitDeleteNamesByCaret(text, outNames);
+	}
+
+	// trim + 중복 제거
+	std::vector<CString> cleaned;
+	for (size_t i = 0; i < outNames.size(); ++i)
+	{
+		CString one = TrimCopy_EPDC(outNames[i]);
+		if (one.IsEmpty())
+			continue;
+
+		bool exists = false;
+		for (size_t j = 0; j < cleaned.size(); ++j)
+		{
+			if (cleaned[j].CompareNoCase(one) == 0)
+			{
+				exists = true;
+				break;
+			}
+		}
+
+		if (!exists)
+			cleaned.push_back(one);
+	}
+
+	outNames.swap(cleaned);
+	return TRUE;
+}
+
+static BOOL ClearParaListValuesInSection(const CString& parameterIniPath, const CString& section, CString& outErrMsg)
+{
+	static const LPCTSTR kParaKeys[] =
+	{
+		_T("PINDEX"),
+		_T("SPECIAL_ITEM"),
+		_T("ADDRESS"),
+		_T("PARA_OFFSET"),
+		_T("CURRENT_ADDRESS"),
+		_T("UNIT_TYPE"),
+		_T("WORD_SIZE"),
+		_T("DECIMAL_PLACE"),
+		_T("SIGN_YN"),
+		_T("SNDPOS"),
+		_T("FILE_PATH"),
+		_T("FILE_NAME"),
+		_T("INTERNAL_PARA_NAME"),
+		_T("DELIMITER"),
+		_T("ROW_NUM"),
+		_T("COL_NUM"),
+		_T("BIT_LENGTH")
+	};
+
+	for (int i = 0; i < _countof(kParaKeys); ++i)
+	{
+		if (!::WritePrivateProfileString(section, kParaKeys[i], _T(""), parameterIniPath))
+		{
+			outErrMsg.Format(_T("Clear failed. section=%s key=%s"),
+				section.GetString(),
+				kParaKeys[i]);
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+static BOOL ApplyEpdcDeleteInfoToParameterIni(
+	const CString& parameterIniPath,
+	const CString& deleteInfoRaw,
+	int& outDeletedCount,
+	CString& outErrMsg)
+{
+	outDeletedCount = 0;
+	outErrMsg.Empty();
+
+	std::vector<CString> names;
+	if (!ParseEpdcDeleteInfo(deleteInfoRaw, names))
+	{
+		outErrMsg = _T("ParseEpdcDeleteInfo failed");
+		return FALSE;
+	}
+
+	for (size_t i = 0; i < names.size(); ++i)
+	{
+		CString iniSection = MapEpdcDeleteNameToIniSection(names[i]);
+
+		// 다른 설비명처럼 현재 장비 Parameter.ini에 없는 섹션이면 건너뜀
+		if (!IniSectionExistsSimple(parameterIniPath, iniSection))
+			continue;
+
+		if (!ClearParaListValuesInSection(parameterIniPath, iniSection, outErrMsg))
+			return FALSE;
+
+		outDeletedCount++;
+	}
+
+	return TRUE;
+}
+
+// ===================== [추가 끝] EPDC DELETE_INFO -> Parameter.ini clear helper =====================
+
+// ===================== [추가 시작] EPSC 파싱/타입 helper =====================
+
+struct CStringNoCaseLess
+{
+	bool operator()(const CString& a, const CString& b) const
+	{
+		return a.CompareNoCase(b) < 0;
+	}
+};
+
+// KEY#VALUE 1개
+struct EpscSettingField
+{
+	CString key;
+	CString rawValue;
+	CString decodedValue;
+};
+
+// 파라미터 1개
+class EpscSettingItem
+{
+public:
+	CString paramName;
+	CString subUnit;
+	CString rawBlock;
+
+	std::vector<EpscSettingField> fields;
+
+	void Clear()
+	{
+		paramName.Empty();
+		subUnit.Empty();
+		rawBlock.Empty();
+		fields.clear();
+		m_fieldIndex.clear();
+	}
+
+	void SetField(const CString& key, const CString& rawValue, const CString& decodedValue = _T(""))
+	{
+		auto it = m_fieldIndex.find(key);
+		CString finalDecoded = decodedValue.IsEmpty() ? rawValue : decodedValue;
+
+		if (it == m_fieldIndex.end())
+		{
+			EpscSettingField f;
+			f.key = key;
+			f.rawValue = rawValue;
+			f.decodedValue = finalDecoded;
+
+			m_fieldIndex[key] = fields.size();
+			fields.push_back(f);
+		}
+		else
+		{
+			EpscSettingField& f = fields[it->second];
+			f.rawValue = rawValue;
+			f.decodedValue = finalDecoded;
+		}
+	}
+
+	CString GetRaw(const CString& key) const
+	{
+		auto it = m_fieldIndex.find(key);
+		if (it == m_fieldIndex.end())
+			return _T("");
+		return fields[it->second].rawValue;
+	}
+
+	CString GetDecoded(const CString& key) const
+	{
+		auto it = m_fieldIndex.find(key);
+		if (it == m_fieldIndex.end())
+			return _T("");
+		return fields[it->second].decodedValue;
+	}
+
+	bool HasField(const CString& key) const
+	{
+		return m_fieldIndex.find(key) != m_fieldIndex.end();
+	}
+
+private:
+	std::map<CString, size_t, CStringNoCaseLess> m_fieldIndex;
+};
+
+// SETTING_INFO 전체
+class EpscSettingInfo
+{
+public:
+	CString rawText;
+	std::vector<EpscSettingItem> items;
+
+	void Clear()
+	{
+		rawText.Empty();
+		items.clear();
+		m_itemIndex.clear();
+	}
+
+	EpscSettingItem* Find(const CString& paramName)
+	{
+		auto it = m_itemIndex.find(paramName);
+		if (it == m_itemIndex.end())
+			return nullptr;
+		return &items[it->second];
+	}
+
+	const EpscSettingItem* Find(const CString& paramName) const
+	{
+		auto it = m_itemIndex.find(paramName);
+		if (it == m_itemIndex.end())
+			return nullptr;
+		return &items[it->second];
+	}
+
+	EpscSettingItem& AddOrGet(const CString& paramName)
+	{
+		auto it = m_itemIndex.find(paramName);
+		if (it != m_itemIndex.end())
+			return items[it->second];
+
+		EpscSettingItem item;
+		item.paramName = paramName;
+
+		size_t newIndex = items.size();
+		items.push_back(item);
+		m_itemIndex[paramName] = newIndex;
+
+		return items[newIndex];
+	}
+
+private:
+	std::map<CString, size_t, CStringNoCaseLess> m_itemIndex;
+};
+
+static BOOL IsWhiteSpaceChar(TCHAR ch)
+{
+	return (ch == _T(' ') ||
+		ch == _T('\t') ||
+		ch == _T('\r') ||
+		ch == _T('\n'));
+}
+
+// 중첩 [] 전체를 안전하게 추출
+static CString ExtractFieldValueFullBracket(const CString& msg, LPCTSTR keyWithEq)
+{
+	CString key(keyWithEq);
+
+	int pos = msg.Find(key);
+	if (pos < 0)
+		return _T("");
+
+	int start = pos + key.GetLength();
+	if (start >= msg.GetLength())
+		return _T("");
+
+	while (start < msg.GetLength() && IsWhiteSpaceChar(msg[start]))
+		start++;
+
+	if (start >= msg.GetLength())
+		return _T("");
+
+	// [로 시작 안 하면 일반 토큰처럼 처리
+	if (msg[start] != _T('['))
+	{
+		int end = start;
+		while (end < msg.GetLength() && !IsWhiteSpaceChar(msg[end]))
+			end++;
+
+		return msg.Mid(start, end - start);
+	}
+
+	int depth = 0;
+	for (int i = start; i < msg.GetLength(); ++i)
+	{
+		if (msg[i] == _T('['))
+			++depth;
+		else if (msg[i] == _T(']'))
+		{
+			--depth;
+			if (depth == 0)
+				return msg.Mid(start, i - start + 1);
+		}
+	}
+
+	return msg.Mid(start);
+}
+
+static int HexCharToInt(TCHAR ch)
+{
+	if (ch >= _T('0') && ch <= _T('9'))
+		return ch - _T('0');
+	if (ch >= _T('A') && ch <= _T('F'))
+		return 10 + (ch - _T('A'));
+	if (ch >= _T('a') && ch <= _T('f'))
+		return 10 + (ch - _T('a'));
+	return -1;
+}
+
+static CString TrimCopy(const CString& s)
+{
+	CString t = s;
+	t.Trim();
+	return t;
+}
+
+static CString DecodeEpscToken(const CString& src)
+{
+	CString out;
+	const int len = src.GetLength();
+
+	for (int i = 0; i < len; ++i)
+	{
+		TCHAR ch = src[i];
+
+		if (ch == _T('?') && (i + 2) < len)
+		{
+			int hi = HexCharToInt(src[i + 1]);
+			int lo = HexCharToInt(src[i + 2]);
+
+			if (hi >= 0 && lo >= 0)
+			{
+				TCHAR decoded = (TCHAR)((hi << 4) | lo);
+				out.AppendChar(decoded);
+				i += 2;
+				continue;
+			}
+		}
+
+		out.AppendChar(ch);
+	}
+
+	return out;
+}
+
+static CString RemoveOuterSquareBracketsIfWhole(const CString& s)
+{
+	CString t = TrimCopy(s);
+	if (t.GetLength() >= 2 && t[0] == _T('[') && t[t.GetLength() - 1] == _T(']'))
+	{
+		int depth = 0;
+		bool wrapsWhole = false;
+
+		for (int i = 0; i < t.GetLength(); ++i)
+		{
+			if (t[i] == _T('['))
+				++depth;
+			else if (t[i] == _T(']'))
+			{
+				--depth;
+				if (depth == 0)
+				{
+					wrapsWhole = (i == t.GetLength() - 1);
+					break;
+				}
+			}
+		}
+
+		if (wrapsWhole)
+			return t.Mid(1, t.GetLength() - 2);
+	}
+
+	return t;
+}
+
+static std::vector<CString> SplitTopLevelByComma(const CString& s)
+{
+	std::vector<CString> parts;
+	CString cur;
+	int depth = 0;
+
+	for (int i = 0; i < s.GetLength(); ++i)
+	{
+		TCHAR ch = s[i];
+
+		if (ch == _T('['))
+		{
+			++depth;
+			cur.AppendChar(ch);
+		}
+		else if (ch == _T(']'))
+		{
+			--depth;
+			cur.AppendChar(ch);
+		}
+		else if (ch == _T(',') && depth == 0)
+		{
+			CString part = TrimCopy(cur);
+			if (!part.IsEmpty())
+				parts.push_back(part);
+			cur.Empty();
+		}
+		else
+		{
+			cur.AppendChar(ch);
+		}
+	}
+
+	cur.Trim();
+	if (!cur.IsEmpty())
+		parts.push_back(cur);
+
+	return parts;
+}
+
+static std::vector<CString> SplitTopLevelByCaret(const CString& s)
+{
+	std::vector<CString> parts;
+	CString cur;
+	int depth = 0;
+
+	for (int i = 0; i < s.GetLength(); ++i)
+	{
+		TCHAR ch = s[i];
+
+		if (ch == _T('['))
+		{
+			++depth;
+			cur.AppendChar(ch);
+		}
+		else if (ch == _T(']'))
+		{
+			--depth;
+			cur.AppendChar(ch);
+		}
+		else if (ch == _T('^') && depth == 0)
+		{
+			CString part = TrimCopy(cur);
+			if (!part.IsEmpty())
+				parts.push_back(part);
+			cur.Empty();
+		}
+		else
+		{
+			cur.AppendChar(ch);
+		}
+	}
+
+	cur.Trim();
+	if (!cur.IsEmpty())
+		parts.push_back(cur);
+
+	return parts;
+}
+
+static BOOL ParseOneSettingEntry(const CString& entryRaw, EpscSettingItem& outItem)
+{
+	outItem.Clear();
+
+	CString entry = TrimCopy(entryRaw);
+	if (entry.IsEmpty())
+		return FALSE;
+
+	// 앞의 ':' 제거
+	if (entry[0] == _T(':'))
+		entry = entry.Mid(1);
+
+	int posOpen = entry.Find(_T(":["));
+	if (posOpen < 0)
+		return FALSE;
+
+	CString paramName = entry.Left(posOpen);
+	paramName.Trim();
+	if (paramName.IsEmpty())
+		return FALSE;
+
+	CString rest = entry.Mid(posOpen + 2);
+	rest.Trim();
+
+	if (!rest.IsEmpty() && rest[rest.GetLength() - 1] == _T(']'))
+		rest = rest.Left(rest.GetLength() - 1);
+
+	outItem.paramName = paramName;
+	outItem.rawBlock = entryRaw;
+
+	std::vector<CString> fieldTokens = SplitTopLevelByCaret(rest);
+
+	for (size_t i = 0; i < fieldTokens.size(); ++i)
+	{
+		CString token = TrimCopy(fieldTokens[i]);
+		if (token.IsEmpty())
+			continue;
+
+		int sharp = token.Find(_T('#'));
+
+		CString key;
+		CString rawValue;
+
+		if (sharp >= 0)
+		{
+			key = token.Left(sharp);
+			rawValue = token.Mid(sharp + 1);
+		}
+		else
+		{
+			key = token;
+			rawValue = _T("");
+		}
+
+		key.Trim();
+		rawValue.Trim();
+
+		CString decodedValue = DecodeEpscToken(rawValue);
+		outItem.SetField(key, rawValue, decodedValue);
+
+		if (key.CompareNoCase(_T("SUBUNIT")) == 0)
+			outItem.subUnit = decodedValue;
+	}
+
+	return TRUE;
+}
+
+static BOOL ParseSettingInfo(const CString& settingInfoRaw, EpscSettingInfo& outInfo)
+{
+	outInfo.Clear();
+	outInfo.rawText = settingInfoRaw;
+
+	CString text = TrimCopy(settingInfoRaw);
+	if (text.IsEmpty())
+		return TRUE;
+
+	text = RemoveOuterSquareBracketsIfWhole(text);
+	text.Trim();
+
+	if (text.IsEmpty())
+		return TRUE;
+
+	std::vector<CString> entries = SplitTopLevelByComma(text);
+
+	for (size_t i = 0; i < entries.size(); ++i)
+	{
+		EpscSettingItem item;
+		if (ParseOneSettingEntry(entries[i], item))
+		{
+			EpscSettingItem& dst = outInfo.AddOrGet(item.paramName);
+			dst = item;
+		}
+	}
+
+	return TRUE;
+}
+
+// ===================== [추가 끝] EPSC 파싱/타입 helper =====================
 
 // ===================== [추가 시작] EPSC_R I용 Parameter.ini -> SETTING_INFO builder =====================
 
@@ -75,7 +763,6 @@ static void AppendEpscSettingItemFromIni(
 	{
 		CString val = ReadIniValueSimple(parameterIniPath, iniSection, kRmsFields[i]);
 
-		// 네가 원하는 형식대로 마지막도 ^ 유지
 		outMsg.AppendFormat(_T("%s#%s^"), kRmsFields[i], val.GetString());
 	}
 
@@ -181,6 +868,84 @@ static CString BuildEpscSettingInfoFromParameterIni(const CString& parameterIniP
 }
 
 // ===================== [추가 끝] EPSC_R I용 Parameter.ini -> SETTING_INFO builder =====================
+
+// ===================== [추가 시작] EPSC S -> Parameter.ini apply helper =====================
+
+static CString MapEpscParamNameToIniSection(const CString& paramName)
+{
+	// RMS의 MODEL_NB는 Parameter.ini의 MODEL_NUMBER 섹션으로 매핑
+	if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		return _T("MODEL_NUMBER");
+
+	return paramName;
+}
+
+static BOOL WriteIniValueSimple(const CString& iniPath, const CString& section, const CString& key, const CString& value)
+{
+	// value가 빈 문자열이어도 key= 형태로 기록됨
+	return ::WritePrivateProfileString(section, key, value, iniPath);
+}
+
+static BOOL ApplyOneEpscItemToParameterIni(
+	const CString& parameterIniPath,
+	const EpscSettingItem& item,
+	CString& outErrMsg)
+{
+	CString iniSection = MapEpscParamNameToIniSection(item.paramName);
+
+	if (iniSection.IsEmpty())
+	{
+		outErrMsg = _T("Invalid section name");
+		return FALSE;
+	}
+
+	for (size_t i = 0; i < item.fields.size(); ++i)
+	{
+		const EpscSettingField& field = item.fields[i];
+
+		CString key = field.key;
+		CString value = field.decodedValue;   // ?2E -> . , ?5F -> _ 반영된 값 사용
+
+		key.Trim();
+		if (key.IsEmpty())
+			continue;
+
+		if (!WriteIniValueSimple(parameterIniPath, iniSection, key, value))
+		{
+			outErrMsg.Format(_T("WritePrivateProfileString failed. section=%s key=%s value=%s"),
+				iniSection.GetString(),
+				key.GetString(),
+				value.GetString());
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+static BOOL ApplyEpscSettingInfoToParameterIni(
+	const CString& parameterIniPath,
+	const EpscSettingInfo& info,
+	int& outAppliedCount,
+	CString& outErrMsg)
+{
+	outAppliedCount = 0;
+	outErrMsg.Empty();
+
+	for (size_t i = 0; i < info.items.size(); ++i)
+	{
+		const EpscSettingItem& item = info.items[i];
+
+		if (!ApplyOneEpscItemToParameterIni(parameterIniPath, item, outErrMsg))
+			return FALSE;
+
+		outAppliedCount++;
+	}
+
+	return TRUE;
+}
+
+// ===================== [추가 끝] EPSC S -> Parameter.ini apply helper =====================
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3379,15 +4144,21 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 	operation_type = ExtractFieldValue(msg, _T("OPERATION_TYPE="));
 	command_code = ExtractFieldValue(msg, _T("COMMAND_CODE="));
 	paracount = ExtractFieldValue(msg, _T("PARACOUNT="));
-	setting_info = ExtractFieldValue(msg, _T("SETTING_INFO="));
+
+	// 중요: nested [] 전체 추출
+	setting_info = ExtractFieldValueFullBracket(msg, _T("SETTING_INFO="));
+
 	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
 	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
+	// 공통 파싱
+	EpscSettingInfo info;
+	ParseSettingInfo(setting_info, info);
+
 	CString reply;
 
-	if (command_code == _T("I"))
+	if (command_code == _T("I")) // 현재 PARA 정보 전송 (조회)
 	{
-		// 실제 경로에 맞게 수정
 		CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
 
 		int paraCount = 0;
@@ -3410,10 +4181,68 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			mmc_txn_id
 		);
 	}
+	else if (command_code == _T("S")) // RMS 서버에서 준 PARA 정보로 Parameter.ini 수정
+	{
+		CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
+
+		int appliedCount = 0;
+		CString errMsg;
+
+		BOOL applied = ApplyEpscSettingInfoToParameterIni(parameterIniPath, info, appliedCount, errMsg);
+
+		if (applied)
+		{
+			// ACK=0 을 성공으로 가정
+			reply.Format(
+				_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[] ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
+				m_strRemoteSubjectRMS,
+				m_strLocalSubjectRMS,
+				m_strEqpRMS,
+				machine,
+				unit,
+				system,
+				unit_type,
+				operation_type,
+				command_code,
+				appliedCount,
+				seq_no,
+				mmc_txn_id
+			);
+
+			CString log;
+			log.Format(_T("[EPSC] Parameter.ini update success. count=%d"), appliedCount);
+			m_pApp->Gf_writeRMSLog(log);
+		}
+		else
+		{
+			// ACK 값은 RMS 규격에 따라 조정 필요
+			reply.Format(
+				_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[] ACK=1 ERR_MSG_ENG=%s ERR_MSG_LOC=%s SEQ_NO=%s MMC_TXN_ID=%s"),
+				m_strRemoteSubjectRMS,
+				m_strLocalSubjectRMS,
+				m_strEqpRMS,
+				machine,
+				unit,
+				system,
+				unit_type,
+				operation_type,
+				command_code,
+				appliedCount,
+				errMsg.GetString(),
+				errMsg.GetString(),
+				seq_no,
+				mmc_txn_id
+			);
+
+			CString log;
+			log.Format(_T("[EPSC] Parameter.ini update failed. err=%s"), errMsg.GetString());
+			m_pApp->Gf_writeRMSLog(log);
+		}
+	}
 	else
 	{
 		reply.Format(
-			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%s SETTING_INFO=[] ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
+			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%s SETTING_INFO=[] ACK=1 ERR_MSG_ENG=Unsupported COMMAND_CODE ERR_MSG_LOC=Unsupported COMMAND_CODE SEQ_NO=%s MMC_TXN_ID=%s"),
 			m_strRemoteSubjectRMS,
 			m_strLocalSubjectRMS,
 			m_strEqpRMS,
@@ -3453,110 +4282,73 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 	unit_type = ExtractFieldValue(msg, _T("UNIT_TYPE="));
 	operation_type = ExtractFieldValue(msg, _T("OPERATION_TYPE="));
 	paracount = ExtractFieldValue(msg, _T("PARACOUNT="));
-	delete_info = ExtractFieldValue(msg, _T("DELETE_INFO="));
+
+	// 중요: DELETE_INFO 전체 추출
+	delete_info = ExtractFieldValueFullBracket_EPDC(msg, _T("DELETE_INFO="));
+
 	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
 	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
-	CString St_Msg, St_Header;
-	int ParaCount = 0;
+	CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
 
-	St_Header.Format(_T(":MODEL_NB:["));
-	St_Msg += St_Header;
-
-	St_Header.Format(_T("DIMMING_SEL_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("PWM_FREQ_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("PWM_DUTY_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBR_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("CABLE_OPEN_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ1_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ2_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ3_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ4_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_ON_SEQ5_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ6_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ7_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ8_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ9_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_ON_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_ON_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_OFF_SEQ6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_SEQ10_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY1_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY2_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY3_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY4_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY5_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("POWER_OFF_DELAY6_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY7_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY8_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("POWER_OFF_DELAY9_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("VBL_VOLT_MODEL_INFO#^"));												St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_OFFSET_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_TIME_HH_MODEL_INFO#^"));											St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_TIME_MM_HIGH_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_TIME_MINUTE_HIGH_MODEL_INFO#^"));								St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-
-	St_Header.Format(_T("TEMPERATURE_USE_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("TEMPERATURE_MIN_MODEL_INFO#^"));										St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("TEMPERATURE_MAX_MODEL_MODEL_INFO#^"));									St_Msg += St_Header, ParaCount += 1;
-	St_Header.Format(_T("DOOR_USE_MODEL_MODEL_INFO#]"));										St_Msg += St_Header, ParaCount += 1;
+	int deletedCount = 0;
+	CString errMsg;
+	BOOL applied = ApplyEpdcDeleteInfoToParameterIni(parameterIniPath, delete_info, deletedCount, errMsg);
 
 	CString reply;
-	reply.Format(
-		_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_I=%s"),
-		addr,
-		eqp,
-		machine,
-		unit,
-		system,
-		unit_type,
-		operation_type,
-		seq_no,
-		mmc_txn_id
-	);
+	if (applied)
+	{
+		reply.Format(
+			_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
+			addr,
+			eqp,
+			machine,
+			unit,
+			system,
+			unit_type,
+			operation_type,
+			seq_no,
+			mmc_txn_id
+		);
+
+		CString log;
+		log.Format(_T("[EPDC] Parameter.ini clear success. deletedCount=%d, DELETE_INFO=%s"),
+			deletedCount,
+			delete_info.GetString());
+		m_pApp->Gf_writeRMSLog(log);
+	}
+	else
+	{
+		reply.Format(
+			_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=1 ERR_MSG_ENG=%s ERR_MSG_LOC=%s SEQ_NO=%s MMC_TXN_ID=%s"),
+			addr,
+			eqp,
+			machine,
+			unit,
+			system,
+			unit_type,
+			operation_type,
+			errMsg.GetString(),
+			errMsg.GetString(),
+			seq_no,
+			mmc_txn_id
+		);
+
+		CString log;
+		log.Format(_T("[EPDC] Parameter.ini clear failed. err=%s, DELETE_INFO=%s"),
+			errMsg.GetString(),
+			delete_info.GetString());
+		m_pApp->Gf_writeRMSLog(log);
+	}
 
 	m_pApp->Gf_writeRMSLog(reply);
 
-	//VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
 	VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
 	if (ok == VARIANT_FALSE)
-		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send failed"));
 	else
-		m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
-
-	}
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send ok"));
+}
 
 void CCimNetCommApi::HandleRmsMsg_EPCC(const CString& msg, ICallRMSClass* pRmsThread)
 {
