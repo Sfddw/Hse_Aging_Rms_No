@@ -85,11 +85,11 @@ static CString ExtractFieldValueFullBracket_EPDC(const CString& msg, LPCTSTR key
 	return msg.Mid(start);
 }
 
-static CString MapEpdcDeleteNameToIniSection(const CString& paramName)
+static CString MapEpdcDeleteNameToIniSection(const CString& paramName) // EPDC
 {
 	// RMS의 MODEL_NB는 Parameter.ini의 MODEL_NUMBER 섹션과 동일하게 처리
-	if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
-		return _T("MODEL_NUMBER");
+	/*if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		return _T("MODEL_NUMBER");*/
 
 	// 나머지는 현재 장비 기준으로 섹션명과 동일하다고 가정
 	return paramName;
@@ -874,8 +874,8 @@ static CString BuildEpscSettingInfoFromParameterIni(const CString& parameterIniP
 static CString MapEpscParamNameToIniSection(const CString& paramName)
 {
 	// RMS의 MODEL_NB는 Parameter.ini의 MODEL_NUMBER 섹션으로 매핑
-	if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
-		return _T("MODEL_NUMBER");
+	/*if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		return _T("MODEL_NUMBER");*/
 
 	return paramName;
 }
@@ -3895,11 +3895,11 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	//}
 
 	// 값이 없으면 그냥 종료(로그는 선택)
-	if (machine.GetLength() != 10 || unit.GetLength() != 12)
+	/*if (machine.GetLength() != 10 || unit.GetLength() != 12)
 	{
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR parse fail (MACHINE/UNIT)"));
 		return;
-	}
+	}*/
 
 	// 2) SEQ_NO 추출
 	auto ExtractTokenValue = [&](LPCTSTR key) -> CString

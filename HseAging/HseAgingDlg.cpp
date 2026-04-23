@@ -705,7 +705,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	lpInspWorkInfo = m_pApp->GetInspWorkInfo();
 
 	//GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(lpSystemInfo->m_SwVersion);
-	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v1.3.0C"));
+	GetDlgItem(IDC_STT_MA_SW_VER)->SetWindowText(_T("HseAging_v")PGM_VERSION);
 
 	for (int i = 0; i < MAX_RACK; ++i)
 	{
@@ -6867,6 +6867,42 @@ BOOL CHseAgingDlg::GetRackSelectedModelName(int nComboCtrlId, CString& outModelN
 }
 
 /// <summary>
+/// CurModel.ini에 MODEL_NUMBER 카피해서 MODEL_NB 생성하는 함수
+/// </summary>
+/// <param name="iniPath"></param>
+/// <returns></returns>
+static BOOL AddModelNbFromModelNumberToIni(const CString& iniPath)
+{
+	TCHAR szModelNumber[256] = { 0 };
+
+	// [MODEL_INFO]의 MODEL_NUMBER 읽기
+	DWORD dwRead = ::GetPrivateProfileString(
+		_T("MODEL_INFO"),
+		_T("MODEL_NUMBER"),
+		_T(""),
+		szModelNumber,
+		_countof(szModelNumber),
+		iniPath
+	);
+
+	// MODEL_NUMBER가 없으면 실패
+	if (dwRead == 0)
+		return FALSE;
+
+	// 같은 값을 MODEL_NB로 추가
+	if (!::WritePrivateProfileString(
+		_T("MODEL_INFO"),
+		_T("MODEL_NB"),
+		szModelNumber,
+		iniPath))
+	{
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/// <summary>
 /// 특정 Rack 1개 CurModel.ini 갱신
 /// </summary>
 /// <param name="nRackNo"></param>
@@ -6907,8 +6943,17 @@ BOOL CHseAgingDlg::UpdateRackCurModelIni(int nRackNo, int nComboCtrlId)
 		return FALSE;
 	}
 
+	// 복사된 RACKnCurModel.ini에 MODEL_NB 추가
+	if (!AddModelNbFromModelNumberToIni(dstPath))
+	{
+		CString log;
+		log.Format(_T("[RMS] MODEL_NB add failed. dst=%s"), dstPath.GetString());
+		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
+		return FALSE;
+	}
+
 	CString log;
-	log.Format(_T("[RMS] Rack %d CurModel updated: %s -> %s"),
+	log.Format(_T("[RMS] Rack %d CurModel updated: %s -> %s (MODEL_NB added)"),
 		nRackNo, modelName.GetString(), dstPath.GetString());
 	((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
 

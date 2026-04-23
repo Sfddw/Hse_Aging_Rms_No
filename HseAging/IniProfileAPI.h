@@ -345,7 +345,8 @@ static CString BuildDefaultParameterIniContent()
 		_T("TEMPERATURE_MIN"),
 		_T("TEMPERATURE_MAX"),
 		_T("DOOR_USE"),
-		_T("MODEL_NUMBER")
+		//_T("MODEL_NUMBER"),
+		_T("MODEL_NB")
 	};
 
 	// RMS PARA LIST
@@ -794,6 +795,38 @@ static void Read_MesStatusInfo(LPCWSTR lpTitle, LPCWSTR lpKey, int* pRetValue)
 	*pRetValue = (char)_ttoi(wszData);
 }
 
+// Recipe 파일에 MODEL_NUMBER - MODEL_NB로 카피
+static BOOL AddModelNbToRecipeIni(const CString& iniPath)
+{
+	TCHAR szModelNumber[256] = { 0 };
+
+	// [MODEL_INFO] 섹션의 MODEL_NUMBER 값 읽기
+	DWORD dwRead = ::GetPrivateProfileString(
+		_T("MODEL_INFO"),
+		_T("MODEL_NUMBER"),
+		_T(""),
+		szModelNumber,
+		_countof(szModelNumber),
+		iniPath
+	);
+
+	// MODEL_NUMBER가 없으면 실패 처리
+	if (dwRead == 0)
+		return FALSE;
+
+	// 같은 값을 MODEL_NB로 추가
+	if (!::WritePrivateProfileString(
+		_T("MODEL_INFO"),
+		_T("MODEL_NB"),
+		szModelNumber,
+		iniPath))
+	{
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 // Model -> Recipe 복사할 때 "번호.ini"로 저장
 static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CString& recipeDir, BOOL bOverwrite = TRUE)
 {
@@ -828,6 +861,13 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 			if (!bOverwrite && GetLastError() == ERROR_FILE_EXISTS)
 				continue;
 
+			FindClose(hFind);
+			return FALSE;
+		}
+
+		// 복사된 Recipe ini에 MODEL_NB 추가
+		if (!AddModelNbToRecipeIni(dstPath))
+		{
 			FindClose(hFind);
 			return FALSE;
 		}
