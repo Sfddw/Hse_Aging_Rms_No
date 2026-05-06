@@ -907,14 +907,17 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 	if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
 		return FALSE;
 
-	// Parameter.ini 생성 (기본 RMS PARA LIST 내용 포함)
-	CString parameterIni;
-	parameterIni.Format(_T("%s\\Parameter.ini"), recipeRootDir.GetString());
+	// RACK1Parameter.ini ~ RACKnParameter.ini 생성
+	for (int i = 1; i <= recipeCount; i++)
+	{
+		CString rackParameterIni;
+		rackParameterIni.Format(_T("%s\\RACK%dParameter.ini"), recipeRootDir.GetString(), i);
 
-	if (!CreateDefaultParameterIniIfNotExists(parameterIni))
-		return FALSE;
+		if (!CreateDefaultParameterIniIfNotExists(rackParameterIni))
+			return FALSE;
+	}
 
-	// RACK1~6 CurModel 파일 생성 (내용 없음)
+	// RACK1~6 CurModel 파일 생성
 	for (int i = 1; i <= recipeCount; i++)
 	{
 		CString rackCurModelIni;

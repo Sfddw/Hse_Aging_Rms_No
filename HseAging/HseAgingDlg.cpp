@@ -1666,27 +1666,27 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		{
 			if(i == 0)
 			{ 
-				lpInspWorkInfo->m_fTempReadVal[i] = 45 + lpInspWorkInfo->TempTest;
+				lpinspworkinfo->m_ftempreadval[i] = 45 + lpinspworkinfo->temptest;
 			}
 			if (i == 1)
 			{
-				lpInspWorkInfo->m_fTempReadVal[i] = 46 + lpInspWorkInfo->TempTest;
+				lpinspworkinfo->m_ftempreadval[i] = 46 + lpinspworkinfo->temptest;
 			}
 			if (i == 2)
 			{
-				lpInspWorkInfo->m_fTempReadVal[i] = 47 + lpInspWorkInfo->TempTest;
+				lpinspworkinfo->m_ftempreadval[i] = 47 + lpinspworkinfo->temptest;
 			}
 			if (i == 3)
 			{
-				lpInspWorkInfo->m_fTempReadVal[i] = 48 + lpInspWorkInfo->TempTest;
+				lpinspworkinfo->m_ftempreadval[i] = 48 + lpinspworkinfo->temptest;
 			}
 			if (i == 4)
 			{
-				lpInspWorkInfo->m_fTempReadVal[i] = 49 + lpInspWorkInfo->TempTest;
+				lpinspworkinfo->m_ftempreadval[i] = 49 + lpinspworkinfo->temptest;
 			}
 			if (i == 5)
 			{
-				lpInspWorkInfo->m_fTempReadVal[i] = 50 + lpInspWorkInfo->TempTest;
+				lpinspworkinfo->m_ftempreadval[i] = 50 + lpinspworkinfo->temptest;
 			}
 		}*/
 
@@ -4468,11 +4468,11 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 			break;
 		}
 	}
-	if (bFusing == FALSE)
+	/*if (bFusing == FALSE)
 	{
 		Lf_writeRackMLog(rack, _T("Fusing : N/C"));
 		return;
-	}
+	}*/
 	////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -5493,12 +5493,12 @@ CString CHseAgingDlg::Lf_getLimitErrorString(int rack, int layer, int ch)
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_HIGH)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VCC_LIMIT_VOLT_HIGH"), &modelSetValue);
-			retString.Format(_T("VCC HIGH Limit (Set:%.2fV, Meas:%.2fV)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("VCC HIGH Limit (Set:%.2fV, Meas:%.2fV) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), VCC_HIGH_LIMIT);
 		}
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_LOW)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VCC_LIMIT_VOLT_LOW"), &modelSetValue);
-			retString.Format(_T("VCC LOW Limit (Set:%.2fV, Meas:%.2fV)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("VCC LOW Limit (Set:%.2fV, Meas:%.2fV [CODE = %d])"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), VCC_LOW_LIMIT);
 		}
 	}
 	if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_ICC)
@@ -5506,12 +5506,12 @@ CString CHseAgingDlg::Lf_getLimitErrorString(int rack, int layer, int ch)
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_HIGH)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VCC_LIMIT_CURR_HIGH"), &modelSetValue);
-			retString.Format(_T("ICC HIGH Limit (Set:%.2fA, Meas:%.2fA)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("ICC HIGH Limit (Set:%.2fA, Meas:%.2fA) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), ICC_HIGH_LIMIT);
 		}
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_LOW)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VCC_LIMIT_CURR_LOW"), &modelSetValue);
-			retString.Format(_T("ICC LOW Limit (Set:%.2fA, Meas:%.2fA)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("ICC LOW Limit (Set:%.2fA, Meas:%.2fA) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), ICC_HIGH_LIMIT);
 		}
 	}
 	if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_VBL)
@@ -5519,12 +5519,12 @@ CString CHseAgingDlg::Lf_getLimitErrorString(int rack, int layer, int ch)
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_HIGH)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VBL_LIMIT_VOLT_HIGH"), &modelSetValue);
-			retString.Format(_T("VBL HIGH Limit (Set:%.2fV, Meas:%.2fV)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("VBL HIGH Limit (Set:%.2fV, Meas:%.2fV) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), VBL_HIGH_LIMIT);
 		}
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_LOW)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VBL_LIMIT_VOLT_LOW"), &modelSetValue);
-			retString.Format(_T("VBL LOW Limit (Set:%.2fV, Meas:%.2fV)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("VBL LOW Limit (Set:%.2fV, Meas:%.2fV) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), VBL_LOW_LIMIT);
 		}
 	}
 	if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_IBL)
@@ -5532,12 +5532,12 @@ CString CHseAgingDlg::Lf_getLimitErrorString(int rack, int layer, int ch)
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_HIGH)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_HIGH"), &modelSetValue);
-			retString.Format(_T("IBL HIGH Limit (Set:%.2fA, Meas:%.2fA)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("IBL HIGH Limit (Set:%.2fA, Meas:%.2fA) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), IBL_HIGH_LIMIT);
 		}
 		if (lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] == LIMIT_LOW)
 		{
 			Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_LOW"), &modelSetValue);
-			retString.Format(_T("IBL LOW Limit (Set:%.2fA, Meas:%.2fA)"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f));
+			retString.Format(_T("IBL LOW Limit (Set:%.2fA, Meas:%.2fA) [CODE = %d]"), modelSetValue, (float)((float)lpInspWorkInfo->m_ast_AgingChErrorValue[rack][layer][ch] / 100.f), IBL_LOW_LIMIT);
 		}
 	}
 	if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_TEMP)
@@ -5639,7 +5639,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 						//limitAlarm.Append(sdata);
 						if (!tempErrorLogged[rack])
 						{
-							sdata.Format(_T("TEMP ERROR (RACK%d)"), rack+1);
+							sdata.Format(_T("TEMP ERROR (RACK%d) [CODE = %d]"), rack+1, TEMP_ERROR);
 							limitAlarm.Append(sdata);
 							tempErrorLogged[rack] = true;
 						}
@@ -6562,7 +6562,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 
 
 	try {
-		ErcpDataSet.Format(_T("MODEL_NB#1^"));																									ErcpMessageSet += ErcpDataSet; // MODEL_NUMBER
+		ErcpDataSet.Format(_T("MODEL_NB#%d^"), lpModelInfo->m_nModelNumber);																	ErcpMessageSet += ErcpDataSet; // Model Number(Model NB)																								ErcpMessageSet += ErcpDataSet; // MODEL_NUMBER
 		ErcpDataSet.Format(_T("%s_DIMMING_SEL_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nDimmingSel);					ErcpMessageSet += ErcpDataSet; // DIMMING SEL
 		ErcpDataSet.Format(_T("%s_PWM_FREQ_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPwmFreq);						ErcpMessageSet += ErcpDataSet; // PWM_FREQ
 		ErcpDataSet.Format(_T("%s_PWM_DUTY_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPwmDuty);						ErcpMessageSet += ErcpDataSet; // PWM_DUTY
@@ -6628,15 +6628,15 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 		ErcpDataSet.Format(_T("%s_TEMPERATURE_MIN_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureMin);		ErcpMessageSet += ErcpDataSet; // TEMPERATURE_MIN
 		ErcpDataSet.Format(_T("%s_TEMPERATURE_MAX_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureMax);		ErcpMessageSet += ErcpDataSet; // TEMPERATURE_MAX
 		ErcpDataSet.Format(_T("%s_DOOR_USE_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeDoorUse);					ErcpMessageSet += ErcpDataSet; // DOOR_USE
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_S1#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[0]);					ErcpMessageSet += ErcpDataSet; // 1ZONE 온도 (S1)
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_S2#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[1]);					ErcpMessageSet += ErcpDataSet; // 1ZONE 온도 (S2)
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_S3#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[2]);					ErcpMessageSet += ErcpDataSet; // 2ZONE 온도 (S3)
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_S4#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[3]);					ErcpMessageSet += ErcpDataSet; // 2ZONE 온도 (S4)
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_S5#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[4]);					ErcpMessageSet += ErcpDataSet; // 3ZONE 온도 (S5)
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_S6#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[5]);					ErcpMessageSet += ErcpDataSet; // 3ZONE 온도 (S6)
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET1#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[0]);			ErcpMessageSet += ErcpDataSet; // 1ZONE 메인 컨트롤러 세팅값
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET2#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[1]);			ErcpMessageSet += ErcpDataSet; // 2ZONE 메인 컨트롤러 세팅값
-		ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET3#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[2]);			ErcpMessageSet += ErcpDataSet; // 3ZONE 메인 컨트롤러 세팅값
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S1#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[0]);					ErcpMessageSet += ErcpDataSet; // 1ZONE 온도 (S1)
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S2#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[1]);					ErcpMessageSet += ErcpDataSet; // 1ZONE 온도 (S2)
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S3#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[2]);					ErcpMessageSet += ErcpDataSet; // 2ZONE 온도 (S3)
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S4#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[3]);					ErcpMessageSet += ErcpDataSet; // 2ZONE 온도 (S4)
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S5#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[4]);					ErcpMessageSet += ErcpDataSet; // 3ZONE 온도 (S5)
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S6#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[5]);					ErcpMessageSet += ErcpDataSet; // 3ZONE 온도 (S6)
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET1#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[0]);			ErcpMessageSet += ErcpDataSet; // 1ZONE 메인 컨트롤러 세팅값
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET2#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[1]);			ErcpMessageSet += ErcpDataSet; // 2ZONE 메인 컨트롤러 세팅값
+		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET3#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[2]);			ErcpMessageSet += ErcpDataSet; // 3ZONE 메인 컨트롤러 세팅값
 
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
@@ -6656,54 +6656,6 @@ void CHseAgingDlg::OnBnClickedPause1()
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	m_pApp->Gf_gmesSendHost(HOST_EPIQ, NULL, NULL, NULL);
 
-}
-
-//void CHseAgingDlg::Lf_setRecipeMake(int rack)
-//{
-//	CString sModelName;
-//	for (int i = 0; i < 6; i++)
-//	{
-//		m_pCmbMaModel[i]->GetWindowText(sModelName);
-//		m_pApp->Gf_loadRecipeIniData(sModelName, i);
-//	}
-//}
-
-
-
-/// <summary>
-/// 레시피파일 만들기
-/// </summary>
-/// <param name="rack"></param>
-void CHseAgingDlg::Lf_setRecipeMake(int rack)
-{
-	CString sModelName;
-
-	for (int i = 0; i < 6; i++) // rack1 ~ rack6까지의 데이터 저장
-	{
-		m_pCmbMaModel[i]->GetWindowText(sModelName);
-		sModelName.Trim();
-
-		if (sModelName.IsEmpty() || sModelName == _T("- MODEL LIST -"))
-		{
-			Gf_clearRecipeIniData(i);
-			continue;
-		}
-
-		m_pApp->Gf_loadRecipeIniData(sModelName, i);
-	}
-
-	// 다음 사용 가능한 번호 찾기
-	int nextRecipeNo = GetNextRecipeFileNumber();
-
-	CString recipeFileName;
-	recipeFileName.Format(_T("%d"), nextRecipeNo);
-
-	// 최종적으로 Recipe\{번호}.ini 생성
-	m_pApp->Gf_WriteRecipeIniFile(recipeFileName);
-
-	CString msg;
-	msg.Format(_T("Recipe file [%s.ini] created successfully."), recipeFileName.GetString());
-	m_pApp->Gf_ShowMessageBox(msg);
 }
 
 /// <summary>

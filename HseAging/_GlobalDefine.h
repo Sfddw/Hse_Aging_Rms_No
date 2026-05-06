@@ -10,7 +10,7 @@
 #define ETHERNET_MLOG_ONOFF					0	// 0:OFF, 1:ON
 
 /////////////////////////////////////////////////////////////////////////////Đs
-#define PGM_VERSION							_T("1.3.0_E")
+#define PGM_VERSION							_T("1.3.0_F")
 
 /////////////////////////////////////////////////////////////////////////////
 #define DEBUG_TCP_RECEIVE_OK				0
@@ -88,6 +88,19 @@
 #define RESET_RACK_PID						13
 #define PID_LENGTH							14
 
+////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////
+#define VCC_LOW_LIMIT						1
+#define VCC_HIGH_LIMIT						2
+#define VBL_LOW_LIMIT						3
+#define VBL_HIGH_LIMIT						4
+#define ICC_LOW_LIMIT						5
+#define ICC_HIGH_LIMIT						6
+#define	IBL_LOW_LIMIT						7
+#define IBL_HIGH_LIMIT						8
+#define TEMP_ERROR							9
+#define MES_MSG_ERROR						10
 ////////////////////////////////////////////////////////////////////////////
 enum
 {

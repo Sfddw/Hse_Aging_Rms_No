@@ -2798,7 +2798,7 @@ void CHseAgingApp::Gf_gmesShowLocalErrorMsg(int hostCMD)
 	CMessageError errDlg;
 
 	pCimNet->GetFieldData(&strMsg, _T("ERR_MSG_ENG"));	//ERR_MSG_ENG	ERR_MSG_LOC
-	errDlg.m_strEMessage.Format(_T("<MESSAGE> MSG ERROR %s "), strMsg);
+	errDlg.m_strEMessage.Format(_T("<MESSAGE> MSG ERROR %s [CODE = %d]"), strMsg, MES_MSG_ERROR);
 	//errDlg.m_strEMessage.Format(_T("<MES> MES ERROR %s "), strMsg, lpInspWorkInfo->m_AgnInStartRack + 1, lpInspWorkInfo->m_AgnInStartLayer + 1, lpInspWorkInfo->m_AgnInStartChannel + 1);
 
 	if (hostCMD == HOST_PCHK)

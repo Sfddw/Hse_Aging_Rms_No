@@ -268,6 +268,34 @@ static BOOL ApplyEpdcDeleteInfoToParameterIni(
 
 // ===================== [추가 끝] EPDC DELETE_INFO -> Parameter.ini clear helper =====================
 
+/// <summary>
+/// EPSC PARAMETER.INI을 RACK별로 분리하는 함수
+/// </summary>
+/// <param name="unit"></param>
+/// <param name="outRackNo"></param>
+/// <returns></returns>
+static BOOL GetRackNoFromUnit(const CString& unit, int& outRackNo)
+{
+	outRackNo = 0;
+
+	if (unit.IsEmpty())
+		return FALSE;
+
+	TCHAR ch = unit[unit.GetLength() - 1];
+
+	if (ch < _T('0') || ch > _T('9'))
+		return FALSE;
+
+	outRackNo = ch - _T('0');
+
+	// 현재 장비는 Rack 1~6만 사용
+	if (outRackNo < 1 || outRackNo > 6)
+		return FALSE;
+
+	return TRUE;
+}
+
+
 // ===================== [추가 시작] EPSC 파싱/타입 helper =====================
 
 struct CStringNoCaseLess
@@ -4157,10 +4185,41 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 
 	CString reply;
 
+	// UNIT 끝자리로 Rack 번호 추출
+	int rackNo = 0;
+	if (!GetRackNoFromUnit(unit, rackNo))
+	{
+		reply.Format(
+			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=0 SETTING_INFO=[] ACK=1 ERR_MSG_ENG=Invalid UNIT rack number ERR_MSG_LOC=Invalid UNIT rack number SEQ_NO=%s MMC_TXN_ID=%s"),
+			m_strRemoteSubjectRMS,
+			m_strLocalSubjectRMS,
+			m_strEqpRMS,
+			machine,
+			unit,
+			system,
+			unit_type,
+			operation_type,
+			command_code,
+			seq_no,
+			mmc_txn_id
+		);
+
+		m_pApp->Gf_writeRMSLog(reply);
+
+		VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
+		if (ok == VARIANT_FALSE)
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send failed"));
+		else
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPSC_R send ok"));
+
+		return;
+	}
+
+	CString parameterIniPath;
+	parameterIniPath.Format(_T(".\\RMS\\RACK%dParameter.ini"), rackNo);
+
 	if (command_code == _T("I")) // 현재 PARA 정보 전송 (조회)
 	{
-		CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
-
 		int paraCount = 0;
 		CString stMsg = BuildEpscSettingInfoFromParameterIni(parameterIniPath, paraCount);
 
@@ -4180,11 +4239,13 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			seq_no,
 			mmc_txn_id
 		);
-	}
-	else if (command_code == _T("S")) // RMS 서버에서 준 PARA 정보로 Parameter.ini 수정
-	{
-		CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
 
+		CString log;
+		log.Format(_T("[EPSC] Rack %d Parameter.ini read: %s"), rackNo, parameterIniPath.GetString());
+		m_pApp->Gf_writeRMSLog(log);
+	}
+	else if (command_code == _T("S")) // RMS 서버에서 준 PARA 정보로 해당 Rack Parameter.ini 수정
+	{
 		int appliedCount = 0;
 		CString errMsg;
 
@@ -4192,7 +4253,6 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 
 		if (applied)
 		{
-			// ACK=0 을 성공으로 가정
 			reply.Format(
 				_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[] ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
 				m_strRemoteSubjectRMS,
@@ -4210,12 +4270,14 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			);
 
 			CString log;
-			log.Format(_T("[EPSC] Parameter.ini update success. count=%d"), appliedCount);
+			log.Format(_T("[EPSC] Rack %d Parameter.ini update success. file=%s count=%d"),
+				rackNo,
+				parameterIniPath.GetString(),
+				appliedCount);
 			m_pApp->Gf_writeRMSLog(log);
 		}
 		else
 		{
-			// ACK 값은 RMS 규격에 따라 조정 필요
 			reply.Format(
 				_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[] ACK=1 ERR_MSG_ENG=%s ERR_MSG_LOC=%s SEQ_NO=%s MMC_TXN_ID=%s"),
 				m_strRemoteSubjectRMS,
@@ -4235,7 +4297,10 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			);
 
 			CString log;
-			log.Format(_T("[EPSC] Parameter.ini update failed. err=%s"), errMsg.GetString());
+			log.Format(_T("[EPSC] Rack %d Parameter.ini update failed. file=%s err=%s"),
+				rackNo,
+				parameterIniPath.GetString(),
+				errMsg.GetString());
 			m_pApp->Gf_writeRMSLog(log);
 		}
 	}
@@ -4289,13 +4354,44 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
 	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
-	CString parameterIniPath = _T(".\\RMS\\Parameter.ini");
+	CString reply;
+
+	// UNIT 끝자리로 Rack 번호 추출
+	int rackNo = 0;
+	if (!GetRackNoFromUnit(unit, rackNo))
+	{
+		reply.Format(
+			_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=1 ERR_MSG_ENG=Invalid UNIT rack number ERR_MSG_LOC=Invalid UNIT rack number SEQ_NO=%s MMC_TXN_ID=%s"),
+			addr,
+			eqp,
+			machine,
+			unit,
+			system,
+			unit_type,
+			operation_type,
+			seq_no,
+			mmc_txn_id
+		);
+
+		m_pApp->Gf_writeRMSLog(reply);
+
+		VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+		if (ok == VARIANT_FALSE)
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send failed"));
+		else
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send ok"));
+
+		return;
+	}
+
+	// Rack별 Parameter.ini 경로
+	CString parameterIniPath;
+	parameterIniPath.Format(_T(".\\RMS\\RACK%dParameter.ini"), rackNo);
 
 	int deletedCount = 0;
 	CString errMsg;
 	BOOL applied = ApplyEpdcDeleteInfoToParameterIni(parameterIniPath, delete_info, deletedCount, errMsg);
 
-	CString reply;
 	if (applied)
 	{
 		reply.Format(
@@ -4312,7 +4408,9 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 		);
 
 		CString log;
-		log.Format(_T("[EPDC] Parameter.ini clear success. deletedCount=%d, DELETE_INFO=%s"),
+		log.Format(_T("[EPDC] Rack %d Parameter.ini clear success. file=%s deletedCount=%d, DELETE_INFO=%s"),
+			rackNo,
+			parameterIniPath.GetString(),
 			deletedCount,
 			delete_info.GetString());
 		m_pApp->Gf_writeRMSLog(log);
@@ -4335,7 +4433,9 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 		);
 
 		CString log;
-		log.Format(_T("[EPDC] Parameter.ini clear failed. err=%s, DELETE_INFO=%s"),
+		log.Format(_T("[EPDC] Rack %d Parameter.ini clear failed. file=%s err=%s, DELETE_INFO=%s"),
+			rackNo,
+			parameterIniPath.GetString(),
 			errMsg.GetString(),
 			delete_info.GetString());
 		m_pApp->Gf_writeRMSLog(log);

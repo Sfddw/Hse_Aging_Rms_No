@@ -400,6 +400,8 @@ typedef struct _ST_INSPWORKINFO_
 	CString m_AgingErrorMsg;
 	BOOL m_PidTestError[MAX_RACK] = { false, false, false, false, false, false };
 
+	CString ErrorCode;
+
 }INSPWORKINFO, * LPINSPWORKINFO;
 
 enum

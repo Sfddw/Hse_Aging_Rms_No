@@ -3110,13 +3110,14 @@ BOOL CPidInput::HandlePIDScan()
 				m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1); // 부져 on
 
 				//sdata.Format(_T("PCHK ERROR [%s]"), m_nMainKeyInData);
-				m_pApp->Gf_ShowMessageBox(lpInspWorkInfo->m_AgingErrorMsg);
+				sdata.Format(_T("%s [CODE = %d]"), lpInspWorkInfo->m_AgingErrorMsg, MES_MSG_ERROR);
+				m_pApp->Gf_ShowMessageBox(sdata);
 
 				lpInspWorkInfo->m_nDioOutputData = lpInspWorkInfo->m_nDioOutputData & ~DIO_OUT_BUZZER;
 
 				m_pApp->pCommand->Gf_dio_setDIOWriteOutput(lpInspWorkInfo->m_nDioOutputData, lpInspWorkInfo->m_nDioOutputMode); // 부져 off
 
-				sdata.Format(_T("PCHK ERROR [%s]"), m_nMainKeyInData);
+				sdata.Format(_T("PCHK ERROR [%s] [CODE = %d]"), m_nMainKeyInData, MES_MSG_ERROR);
 				Lf_addMessage(sdata);
 
 				CWnd* pFocusedWnd = GetFocus();
