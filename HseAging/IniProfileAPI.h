@@ -2,6 +2,8 @@
 
 #include <direct.h>
 #include <io.h>
+#include <vector>
+#include <tchar.h>
 
 class CIniProfileAPI
 {
@@ -904,6 +906,155 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 }
 
 /// <summary>
+/// Recipe 폴더의 recipe.ini 구조 그대로 RACK1Recipe.ini으로 Copy
+/// </summary>
+/// <param name="srcIniPath"></param>
+/// <param name="dstIniPath"></param>
+/// <param name="bOverwrite"></param>
+/// <returns></returns>
+static BOOL BuildEmptyValueRecipeIniFromSource(
+	const CString& srcIniPath,
+	const CString& dstIniPath,
+	BOOL bOverwrite = TRUE)
+{
+	if (!FileExistsSimple(srcIniPath))
+		return FALSE;
+
+	if (!bOverwrite && FileExistsSimple(dstIniPath))
+		return TRUE;
+
+	const DWORD SECTION_BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> sectionBuf(SECTION_BUF_SIZE, 0);
+
+	DWORD sectionLen = ::GetPrivateProfileSectionNames(
+		sectionBuf.data(),
+		(DWORD)sectionBuf.size(),
+		srcIniPath
+	);
+
+	if (sectionLen == 0)
+		return FALSE;
+
+	CStdioFile outFile;
+	if (!outFile.Open(dstIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+		return FALSE;
+
+	const TCHAR* pSection = sectionBuf.data();
+
+	while (*pSection)
+	{
+		CString section = pSection;
+
+		CString sectionHeader;
+		sectionHeader.Format(_T("[%s]\n"), section.GetString());
+		outFile.WriteString(sectionHeader);
+
+		const DWORD KEY_BUF_SIZE = 64 * 1024;
+		std::vector<TCHAR> keyBuf(KEY_BUF_SIZE, 0);
+
+		DWORD keyLen = ::GetPrivateProfileSection(
+			section,
+			keyBuf.data(),
+			(DWORD)keyBuf.size(),
+			srcIniPath
+		);
+
+		if (keyLen > 0)
+		{
+			const TCHAR* pLine = keyBuf.data();
+
+			while (*pLine)
+			{
+				CString line = pLine;
+
+				int eqPos = line.Find(_T('='));
+				if (eqPos > 0)
+				{
+					CString key = line.Left(eqPos);
+					key.Trim();
+
+					if (!key.IsEmpty())
+					{
+						CString outLine;
+						outLine.Format(_T("%s=\n"), key.GetString());
+						outFile.WriteString(outLine);
+					}
+				}
+
+				pLine += _tcslen(pLine) + 1;
+			}
+		}
+
+		outFile.WriteString(_T("\n"));
+
+		pSection += _tcslen(pSection) + 1;
+	}
+
+	outFile.Close();
+	return TRUE;
+}
+
+static BOOL GetRecipeNoFromModelText(const CString& modelText, int& outRecipeNo)
+{
+	outRecipeNo = 0;
+
+	CString text = modelText;
+	text.Trim();
+
+	if (text.IsEmpty())
+		return FALSE;
+
+	if (text.Right(4).CompareNoCase(_T(".ini")) == 0)
+		text = text.Left(text.GetLength() - 4);
+
+	int i = 0;
+	while (i < text.GetLength() && _istdigit(text[i]))
+		i++;
+
+	if (i <= 0)
+		return FALSE;
+
+	outRecipeNo = _ttoi(text.Left(i));
+
+	return outRecipeNo > 0;
+}
+
+static CString GetRmsRackDir(int rackNo)
+{
+	CString path;
+	path.Format(_T(".\\RMS\\RACK%d"), rackNo);
+	return path;
+}
+
+static CString GetRmsRackCurModelPath(int rackNo)
+{
+	CString path;
+	path.Format(_T(".\\RMS\\RACK%d\\RACK%d_CurModel.ini"), rackNo, rackNo);
+	return path;
+}
+
+static CString GetRmsRackParameterPath(int rackNo)
+{
+	CString path;
+	path.Format(_T(".\\RMS\\RACK%d\\RACK%d_Parameter.ini"), rackNo, rackNo);
+	return path;
+}
+
+static CString GetRmsRackRecipePath(int rackNo)
+{
+	CString path;
+	path.Format(_T(".\\RMS\\RACK%d\\RACK%d_Recipe.ini"), rackNo, rackNo);
+	return path;
+}
+
+static CString GetSharedRecipePathByNo(int recipeNo)
+{
+	CString path;
+	path.Format(_T(".\\RMS\\Recipe\\%03d.ini"), recipeNo);
+	return path;
+}
+
+/// <summary>
 /// Recipe1~Recipe6 생성/복사 함수에서 ModelList.ini 생성 연결
 /// </summary>
 /// <param name="modelDir"></param>
@@ -915,40 +1066,64 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 static BOOL InitRecipeSubFoldersAndCopyModelIni(
 	const CString& modelDir,
 	const CString& recipeRootDir,
-	int recipeCount = 6,              // 여기서는 rack 개수 개념으로 사용
+	int recipeCount = 6,
 	BOOL bCopyIniOverwrite = FALSE,
 	BOOL bBuildModelList = TRUE)
 {
 	if (!EnsureDirectoryExists(recipeRootDir))
 		return FALSE;
 
+	// RMS\Recipe 생성
 	CString recipeDir;
 	recipeDir.Format(_T("%s\\Recipe"), recipeRootDir.GetString());
 
 	if (!EnsureDirectoryExists(recipeDir))
 		return FALSE;
 
-	// Model -> RMS\Recipe 로 001.ini 형식 복사
+	// Model -> RMS\Recipe 로 001.ini, 002.ini 형식 복사
 	if (!CopyModelIniToRecipe_NumberOnly(modelDir, recipeDir, bCopyIniOverwrite))
 		return FALSE;
 
-	// RACK1Parameter.ini ~ RACKnParameter.ini 생성
+	// RMS\RACK1 ~ RMS\RACK6 생성
 	for (int i = 1; i <= recipeCount; i++)
 	{
+		CString rackDir;
+		rackDir.Format(_T("%s\\RACK%d"), recipeRootDir.GetString(), i);
+
+		if (!EnsureDirectoryExists(rackDir))
+			return FALSE;
+
+		// RMS\RACKn\RACKn_Parameter.ini
 		CString rackParameterIni;
-		rackParameterIni.Format(_T("%s\\RACK%dParameter.ini"), recipeRootDir.GetString(), i);
+		rackParameterIni.Format(
+			_T("%s\\RACK%d_Parameter.ini"),
+			rackDir.GetString(),
+			i
+		);
 
 		if (!CreateDefaultParameterIniIfNotExists(rackParameterIni))
 			return FALSE;
-	}
 
-	// RACK1~6 CurModel 파일 생성
-	for (int i = 1; i <= recipeCount; i++)
-	{
+		// RMS\RACKn\RACKn_CurModel.ini
 		CString rackCurModelIni;
-		rackCurModelIni.Format(_T("%s\\RACK%dCurModel.ini"), recipeRootDir.GetString(), i);
+		rackCurModelIni.Format(
+			_T("%s\\RACK%d_CurModel.ini"),
+			rackDir.GetString(),
+			i
+		);
 
 		if (!EnsureTextFileExists(rackCurModelIni, _T("")))
+			return FALSE;
+
+		// RMS\RACKn\RACKn_Recipe.ini
+		CString rackRecipeIni;
+		rackRecipeIni.Format(
+			_T("%s\\RACK%d_Recipe.ini"),
+			rackDir.GetString(),
+			i
+		);
+
+		if (!EnsureTextFileExists(rackRecipeIni, _T("[MODEL_INFO]\n")))
 			return FALSE;
 	}
 

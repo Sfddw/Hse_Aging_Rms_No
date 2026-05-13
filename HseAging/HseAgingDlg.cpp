@@ -6870,54 +6870,58 @@ static BOOL AddModelNbFromModelNumberToIni(const CString& iniPath)
 /// <param name="nRackNo"></param>
 /// <param name="nComboCtrlId"></param>
 /// <returns></returns>
-BOOL CHseAgingDlg::UpdateRackCurModelIni(int nRackNo, int nComboCtrlId)
+BOOL CHseAgingDlg::UpdateRackCurModelIni(int rackNo, int comboCtrlId)
 {
-	CString modelName;
-	if (!GetRackSelectedModelName(nComboCtrlId, modelName))
+	if (rackNo < 1 || rackNo > 6)
+		return FALSE;
+
+	CComboBox* pCombo = (CComboBox*)GetDlgItem(comboCtrlId);
+	if (pCombo == nullptr)
+		return FALSE;
+
+	CString selectedModel;
+	pCombo->GetWindowText(selectedModel);
+	selectedModel.Trim();
+
+	if (selectedModel.IsEmpty())
+		return FALSE;
+
+	int recipeNo = 0;
+	if (!GetRecipeNoFromModelText(selectedModel, recipeNo))
+		return FALSE;
+
+	CString srcRecipeIni = GetSharedRecipePathByNo(recipeNo);
+	CString rackDir = GetRmsRackDir(rackNo);
+	CString rackCurModelIni = GetRmsRackCurModelPath(rackNo);
+	CString rackRecipeIni = GetRmsRackRecipePath(rackNo);
+
+	if (!EnsureDirectoryExists(rackDir))
+		return FALSE;
+
+	if (!FileExistsSimple(srcRecipeIni))
+		return FALSE;
+
+	// 1) 현재 Rack의 CurModel은 실제 value가 있는 Recipe 내용 복사
+	// 예: RMS\Recipe\009.ini -> RMS\RACK1\RACK1_CurModel.ini
+	if (!::CopyFile(srcRecipeIni, rackCurModelIni, FALSE))
 	{
-		CString log;
-		log.Format(_T("[RMS] Rack %d selected model name is empty"), nRackNo);
-		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
+		DWORD err = ::GetLastError();
+
+		// 필요하면 로그 추가 가능
+		// CString log;
+		// log.Format(_T("[RMS] Copy CurModel failed. rack=%d err=%lu src=%s dst=%s"),
+		// 	rackNo, err, srcRecipeIni.GetString(), rackCurModelIni.GetString());
+		// Gf_writeMLog(log);
+
 		return FALSE;
 	}
 
-	CString srcPath, dstPath;
-	srcPath.Format(_T(".\\Model\\%s.ini"), modelName.GetString());
-	dstPath.Format(_T(".\\RMS\\RACK%dCurModel.ini"), nRackNo);
-
-	if (_waccess(srcPath, 0) != 0)
+	// 2) 현재 Rack의 Recipe는 key만 있고 value는 비운 형태로 생성
+	// 예: RMS\Recipe\009.ini -> RMS\RACK1\RACK1_Recipe.ini
+	if (!BuildEmptyValueRecipeIniFromSource(srcRecipeIni, rackRecipeIni, TRUE))
 	{
-		CString log;
-		log.Format(_T("[RMS] Source model ini not found: %s"), srcPath.GetString());
-		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
 		return FALSE;
 	}
-
-	// 기존 내용 덮어쓰기
-	if (!::CopyFile(srcPath, dstPath, FALSE))
-	{
-		DWORD dwErr = GetLastError();
-
-		CString log;
-		log.Format(_T("[RMS] CopyFile failed. src=%s dst=%s err=%lu"),
-			srcPath.GetString(), dstPath.GetString(), dwErr);
-		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
-		return FALSE;
-	}
-
-	// 복사된 RACKnCurModel.ini에 MODEL_NB 추가
-	if (!AddModelNbFromModelNumberToIni(dstPath))
-	{
-		CString log;
-		log.Format(_T("[RMS] MODEL_NB add failed. dst=%s"), dstPath.GetString());
-		((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
-		return FALSE;
-	}
-
-	CString log;
-	log.Format(_T("[RMS] Rack %d CurModel updated: %s -> %s (MODEL_NB added)"),
-		nRackNo, modelName.GetString(), dstPath.GetString());
-	((CHseAgingApp*)AfxGetApp())->Gf_writeRMSLog(log);
 
 	return TRUE;
 }

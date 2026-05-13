@@ -233,8 +233,135 @@ static BOOL ClearParaListValuesInSection(const CString& parameterIniPath, const 
 	return TRUE;
 }
 
-static BOOL ApplyEpdcDeleteInfoToParameterIni(
+/// <summary>
+/// EPDC의 섹션 및 키 삭제
+/// </summary>
+/// <param name="iniPath"></param>
+/// <param name="keyName"></param>
+/// <param name="outDeletedKeyCount"></param>
+/// <param name="outErrMsg"></param>
+/// <returns></returns>
+static BOOL DeleteKeyFromAllSections(
+	const CString& iniPath,
+	const CString& keyName,
+	int& outDeletedKeyCount,
+	CString& outErrMsg)
+{
+	outDeletedKeyCount = 0;
+
+	CString key = keyName;
+	key.Trim();
+
+	if (key.IsEmpty())
+		return TRUE;
+
+	const DWORD BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> sectionBuf(BUF_SIZE, 0);
+
+	DWORD n = ::GetPrivateProfileSectionNames(
+		sectionBuf.data(),
+		(DWORD)sectionBuf.size(),
+		iniPath
+	);
+
+	if (n == 0)
+		return TRUE;
+
+	const TCHAR* p = sectionBuf.data();
+
+	while (*p)
+	{
+		CString section = p;
+
+		TCHAR valueBuf[1024] = { 0 };
+		const TCHAR* marker = _T("__EPDC_KEY_NOT_FOUND__");
+
+		::GetPrivateProfileString(
+			section,
+			key,
+			marker,
+			valueBuf,
+			_countof(valueBuf),
+			iniPath
+		);
+
+		if (_tcscmp(valueBuf, marker) != 0)
+		{
+			if (!::WritePrivateProfileString(section, key, NULL, iniPath))
+			{
+				outErrMsg.Format(
+					_T("Delete key failed. file=%s section=%s key=%s"),
+					iniPath.GetString(),
+					section.GetString(),
+					key.GetString()
+				);
+				return FALSE;
+			}
+
+			outDeletedKeyCount++;
+		}
+
+		p += _tcslen(p) + 1;
+	}
+
+	return TRUE;
+}
+
+static BOOL DeleteIniSectionWhole(
+	const CString& iniPath,
+	const CString& section,
+	CString& outErrMsg)
+{
+	CString sec = section;
+	sec.Trim();
+
+	if (sec.IsEmpty())
+		return TRUE;
+
+	if (!::WritePrivateProfileString(sec, NULL, NULL, iniPath))
+	{
+		outErrMsg.Format(
+			_T("Delete section failed. file=%s section=%s"),
+			iniPath.GetString(),
+			sec.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static BOOL DeleteParameterFromRecipeIni(
+	const CString& recipeIniPath,
+	const CString& paramName,
+	int& outDeletedCount,
+	CString& outErrMsg)
+{
+	CString name = paramName;
+	name.Trim();
+
+	if (name.IsEmpty())
+		return TRUE;
+
+	// 1) [PARAM_NAME] 섹션 전체 삭제
+	if (!DeleteIniSectionWhole(recipeIniPath, name, outErrMsg))
+		return FALSE;
+
+	outDeletedCount++;
+
+	// 2) 모든 섹션 안의 PARAM_NAME= key 삭제
+	int deletedKeyCount = 0;
+	if (!DeleteKeyFromAllSections(recipeIniPath, name, deletedKeyCount, outErrMsg))
+		return FALSE;
+
+	outDeletedCount += deletedKeyCount;
+
+	return TRUE;
+}
+
+static BOOL ApplyEpdcDeleteInfoToParameterAndRecipeIni(
 	const CString& parameterIniPath,
+	const CString& recipeIniPath,
 	const CString& deleteInfoRaw,
 	int& outDeletedCount,
 	CString& outErrMsg)
@@ -251,22 +378,576 @@ static BOOL ApplyEpdcDeleteInfoToParameterIni(
 
 	for (size_t i = 0; i < names.size(); ++i)
 	{
-		CString iniSection = MapEpdcDeleteNameToIniSection(names[i]);
+		CString paramName = MapEpdcDeleteNameToIniSection(names[i]);
+		paramName.Trim();
 
-		// 다른 설비명처럼 현재 장비 Parameter.ini에 없는 섹션이면 건너뜀
-		if (!IniSectionExistsSimple(parameterIniPath, iniSection))
+		if (paramName.IsEmpty())
 			continue;
 
-		if (!ClearParaListValuesInSection(parameterIniPath, iniSection, outErrMsg))
+		// 1) RACKnParameter.ini 에서 [PARAM_NAME] 섹션 전체 삭제
+		if (!DeleteIniSectionWhole(parameterIniPath, paramName, outErrMsg))
 			return FALSE;
 
 		outDeletedCount++;
+
+		// 2) 현재 rack에 매칭된 Recipe\xxx.ini 에서 같은 파라미터 삭제
+		int recipeDeletedCount = 0;
+		if (!DeleteParameterFromRecipeIni(recipeIniPath, paramName, recipeDeletedCount, outErrMsg))
+			return FALSE;
+
+		outDeletedCount += recipeDeletedCount;
+	}
+
+	return TRUE;
+}
+
+static BOOL DeleteParameterFromRackRecipeIni(
+	const CString& rackRecipeIniPath,
+	const CString& paramName,
+	int& outDeletedCount,
+	CString& outErrMsg)
+{
+	CString name = paramName;
+	name.Trim();
+
+	if (name.IsEmpty())
+		return TRUE;
+
+	// 1) RACKn_Recipe.ini의 [MODEL_INFO] 안에서 key 삭제
+	if (!::WritePrivateProfileString(
+		_T("MODEL_INFO"),
+		name,
+		NULL,
+		rackRecipeIniPath))
+	{
+		outErrMsg.Format(
+			_T("Delete recipe key failed. file=%s section=MODEL_INFO key=%s"),
+			rackRecipeIniPath.GetString(),
+			name.GetString()
+		);
+		return FALSE;
+	}
+
+	outDeletedCount++;
+
+	// 2) 혹시 [PARAM_NAME] 섹션 형태로 들어간 경우도 대비해서 섹션 삭제
+	::WritePrivateProfileString(
+		name,
+		NULL,
+		NULL,
+		rackRecipeIniPath
+	);
+
+	return TRUE;
+}
+
+static BOOL ApplyEpdcDeleteInfoToRackFiles(
+	const CString& rackParameterIniPath,
+	const CString& rackRecipeIniPath,
+	const CString& deleteInfoRaw,
+	int& outDeletedCount,
+	CString& outErrMsg)
+{
+	outDeletedCount = 0;
+	outErrMsg.Empty();
+
+	std::vector<CString> names;
+
+	if (!ParseEpdcDeleteInfo(deleteInfoRaw, names))
+	{
+		outErrMsg = _T("ParseEpdcDeleteInfo failed");
+		return FALSE;
+	}
+
+	for (size_t i = 0; i < names.size(); ++i)
+	{
+		CString paramName = MapEpdcDeleteNameToIniSection(names[i]);
+		paramName.Trim();
+
+		if (paramName.IsEmpty())
+			continue;
+
+		// 1) RACKn_Parameter.ini에서 [PARAM_NAME] 섹션 전체 삭제
+		if (!::WritePrivateProfileString(
+			paramName,
+			NULL,
+			NULL,
+			rackParameterIniPath))
+		{
+			outErrMsg.Format(
+				_T("Delete parameter section failed. file=%s section=%s"),
+				rackParameterIniPath.GetString(),
+				paramName.GetString()
+			);
+			return FALSE;
+		}
+
+		outDeletedCount++;
+
+		// 2) RACKn_Recipe.ini에서 [MODEL_INFO] 안의 PARAM_NAME key 삭제
+		int recipeDeletedCount = 0;
+		if (!DeleteParameterFromRackRecipeIni(
+			rackRecipeIniPath,
+			paramName,
+			recipeDeletedCount,
+			outErrMsg))
+		{
+			return FALSE;
+		}
+
+		outDeletedCount += recipeDeletedCount;
+	}
+
+	return TRUE;
+}
+
+// EPSC 파싱용 구조체 추가
+struct RMS_EPSC_SUBITEM
+{
+	CString key;
+	CString value;
+};
+
+struct RMS_EPSC_PARAM
+{
+	CString paramName;
+	std::vector<RMS_EPSC_SUBITEM> subItems;
+};
+
+static CString TrimCopy_RmsEpsc(const CString& src)
+{
+	CString s = src;
+	s.Trim();
+	return s;
+}
+
+static void ParseEpscSubItems(
+	const CString& block,
+	std::vector<RMS_EPSC_SUBITEM>& outSubItems)
+{
+	outSubItems.clear();
+
+	CString text = block;
+	text.Trim();
+
+	int start = 0;
+
+	while (start <= text.GetLength())
+	{
+		int caret = text.Find(_T('^'), start);
+
+		CString token;
+		if (caret >= 0)
+		{
+			token = text.Mid(start, caret - start);
+			start = caret + 1;
+		}
+		else
+		{
+			token = text.Mid(start);
+			start = text.GetLength() + 1;
+		}
+
+		token.Trim();
+		if (token.IsEmpty())
+			continue;
+
+		int sharp = token.Find(_T('#'));
+		if (sharp < 0)
+			continue;
+
+		RMS_EPSC_SUBITEM item;
+		item.key = token.Left(sharp);
+		item.value = token.Mid(sharp + 1);
+
+		item.key.Trim();
+		item.value.Trim();
+
+		if (!item.key.IsEmpty())
+			outSubItems.push_back(item);
+	}
+}
+
+static BOOL ParseEpscSettingInfoForUpsert(
+	const CString& settingInfoRaw,
+	std::vector<RMS_EPSC_PARAM>& outParams,
+	CString& outErrMsg)
+{
+	outParams.clear();
+	outErrMsg.Empty();
+
+	CString text = settingInfoRaw;
+	text.Trim();
+
+	if (text.IsEmpty())
+		return TRUE;
+
+	// 바깥 [] 제거
+	if (text.GetLength() >= 2 &&
+		text[0] == _T('[') &&
+		text[text.GetLength() - 1] == _T(']'))
+	{
+		text = text.Mid(1, text.GetLength() - 2);
+	}
+
+	text.Trim();
+
+	int pos = 0;
+
+	while (pos < text.GetLength())
+	{
+		// 다음 :PARAM:[ 찾기
+		int colon = text.Find(_T(':'), pos);
+		if (colon < 0)
+			break;
+
+		int mark = text.Find(_T(":["), colon + 1);
+		if (mark < 0)
+			break;
+
+		CString paramName = text.Mid(colon + 1, mark - (colon + 1));
+		paramName.Trim();
+
+		int blockStart = mark + 2;
+		int blockEnd = text.Find(_T(']'), blockStart);
+		if (blockEnd < 0)
+		{
+			outErrMsg.Format(_T("SETTING_INFO parse failed. param=%s"), paramName.GetString());
+			return FALSE;
+		}
+
+		CString block = text.Mid(blockStart, blockEnd - blockStart);
+
+		RMS_EPSC_PARAM param;
+		param.paramName = paramName;
+		param.paramName.Trim();
+
+		ParseEpscSubItems(block, param.subItems);
+
+		if (!param.paramName.IsEmpty())
+			outParams.push_back(param);
+
+		pos = blockEnd + 1;
+	}
+
+	return TRUE;
+}
+
+static BOOL IniKeyExistsSimple(
+	const CString& iniPath,
+	const CString& section,
+	const CString& key)
+{
+	TCHAR value[1024] = { 0 };
+	const TCHAR* marker = _T("__RMS_KEY_NOT_FOUND__");
+
+	::GetPrivateProfileString(
+		section,
+		key,
+		marker,
+		value,
+		_countof(value),
+		iniPath
+	);
+
+	return (_tcscmp(value, marker) != 0);
+}
+
+static BOOL EnsureRackRecipeParameterKey(
+	const CString& rackRecipeIniPath,
+	const CString& paramName,
+	CString& outErrMsg)
+{
+	CString name = paramName;
+	name.Trim();
+
+	if (name.IsEmpty())
+		return TRUE;
+
+	// 파일이 없으면 [MODEL_INFO]만 가진 파일로 생성
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		if (!EnsureTextFileExists(rackRecipeIniPath, _T("[MODEL_INFO]\n")))
+		{
+			outErrMsg.Format(_T("Create rack recipe file failed. file=%s"),
+				rackRecipeIniPath.GetString());
+			return FALSE;
+		}
+	}
+
+	// 이미 있으면 그대로 둠
+	if (IniKeyExistsSimple(rackRecipeIniPath, _T("MODEL_INFO"), name))
+		return TRUE;
+
+	// 없으면 PARAM_NAME= 형태로 추가
+	if (!::WritePrivateProfileString(
+		_T("MODEL_INFO"),
+		name,
+		_T(""),
+		rackRecipeIniPath))
+	{
+		outErrMsg.Format(
+			_T("Add recipe parameter failed. file=%s key=%s"),
+			rackRecipeIniPath.GetString(),
+			name.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static BOOL ApplyEpscSettingInfoToRackFiles(
+	const CString& rackParameterIniPath,
+	const CString& rackRecipeIniPath,
+	const CString& settingInfoRaw,
+	int& outAppliedCount,
+	CString& outErrMsg)
+{
+	outAppliedCount = 0;
+	outErrMsg.Empty();
+
+	std::vector<RMS_EPSC_PARAM> params;
+
+	if (!ParseEpscSettingInfoForUpsert(settingInfoRaw, params, outErrMsg))
+		return FALSE;
+
+	// 파일이 없으면 최소 파일 생성
+	if (!FileExistsSimple(rackParameterIniPath))
+	{
+		if (!EnsureTextFileExists(rackParameterIniPath, _T("")))
+		{
+			outErrMsg.Format(_T("Create rack parameter file failed. file=%s"),
+				rackParameterIniPath.GetString());
+			return FALSE;
+		}
+	}
+
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		if (!EnsureTextFileExists(rackRecipeIniPath, _T("[MODEL_INFO]\n")))
+		{
+			outErrMsg.Format(_T("Create rack recipe file failed. file=%s"),
+				rackRecipeIniPath.GetString());
+			return FALSE;
+		}
+	}
+
+	for (size_t i = 0; i < params.size(); ++i)
+	{
+		CString paramName = params[i].paramName;
+		paramName.Trim();
+
+		if (paramName.IsEmpty())
+			continue;
+
+		// 1) RACKn_Recipe.ini에 PARAM_NAME= 없으면 추가
+		if (!EnsureRackRecipeParameterKey(rackRecipeIniPath, paramName, outErrMsg))
+			return FALSE;
+
+		// 2) RACKn_Parameter.ini의 [PARAM_NAME] 아래 소항목 추가/수정
+		for (size_t j = 0; j < params[i].subItems.size(); ++j)
+		{
+			CString key = params[i].subItems[j].key;
+			CString value = params[i].subItems[j].value;
+
+			key.Trim();
+			value.Trim();
+
+			if (key.IsEmpty())
+				continue;
+
+			if (!::WritePrivateProfileString(
+				paramName,
+				key,
+				value,
+				rackParameterIniPath))
+			{
+				outErrMsg.Format(
+					_T("Write parameter failed. file=%s section=%s key=%s value=%s"),
+					rackParameterIniPath.GetString(),
+					paramName.GetString(),
+					key.GetString(),
+					value.GetString()
+				);
+				return FALSE;
+			}
+		}
+
+		outAppliedCount++;
 	}
 
 	return TRUE;
 }
 
 // ===================== [추가 끝] EPDC DELETE_INFO -> Parameter.ini clear helper =====================
+
+/// <summary>
+/// CurModel.ini에서 현재 Recipe 번호를 읽어와서 recipe.ini 경로 만듬
+/// </summary>
+/// <param name="text"></param>
+/// <param name="outRecipeNo"></param>
+/// <returns></returns>
+static BOOL ParseLeadingRecipeNo(const CString& text, int& outRecipeNo)
+{
+	outRecipeNo = 0;
+
+	CString temp = text;
+	temp.Trim();
+
+	if (temp.IsEmpty())
+		return FALSE;
+
+	int dot = temp.ReverseFind(_T('.'));
+	if (dot > 0)
+		temp = temp.Left(dot);
+
+	int i = 0;
+	while (i < temp.GetLength() && _istdigit(temp[i]))
+		i++;
+
+	if (i <= 0)
+		return FALSE;
+
+	outRecipeNo = _ttoi(temp.Left(i));
+	return outRecipeNo > 0;
+}
+
+static BOOL TryReadRecipeNoFromSection(
+	const CString& iniPath,
+	const CString& section,
+	int& outRecipeNo)
+{
+	static const LPCTSTR keys[] =
+	{
+		_T("MODEL_NB"),
+		_T("MODEL_NUMBER"),
+		_T("RECIPE_NO"),
+		_T("MODEL_NO"),
+		_T("CURRENT_RECIPE"),
+		_T("RECIPE"),
+		_T("MODEL"),
+		_T("CUR_MODEL")
+	};
+
+	for (int i = 0; i < _countof(keys); ++i)
+	{
+		TCHAR value[512] = { 0 };
+
+		::GetPrivateProfileString(
+			section,
+			keys[i],
+			_T(""),
+			value,
+			_countof(value),
+			iniPath
+		);
+
+		CString text = value;
+		text.Trim();
+
+		if (text.IsEmpty())
+			continue;
+
+		if (ParseLeadingRecipeNo(text, outRecipeNo))
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+static BOOL GetCurrentRecipeNoByRack(
+	int rackNo,
+	int& outRecipeNo,
+	CString& outErrMsg)
+{
+	outRecipeNo = 0;
+	outErrMsg.Empty();
+
+	if (rackNo < 1 || rackNo > 6)
+	{
+		outErrMsg.Format(_T("Invalid rackNo. rackNo=%d"), rackNo);
+		return FALSE;
+	}
+
+	CString curModelIni;
+	curModelIni.Format(_T(".\\RMS\\RACK%dCurModel.ini"), rackNo);
+
+	if (!FileExistsSimple(curModelIni))
+	{
+		outErrMsg.Format(_T("CurModel file not found. file=%s"), curModelIni.GetString());
+		return FALSE;
+	}
+
+	// 1순위: [MODEL_INFO]에서 MODEL_NB / MODEL_NUMBER 읽기
+	if (TryReadRecipeNoFromSection(curModelIni, _T("MODEL_INFO"), outRecipeNo))
+		return TRUE;
+
+	// 2순위: [CurModel]에서 읽기
+	if (TryReadRecipeNoFromSection(curModelIni, _T("CurModel"), outRecipeNo))
+		return TRUE;
+
+	// 3순위: 혹시 섹션명이 다를 경우 전체 섹션을 순회하며 fallback
+	const DWORD SECTION_BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> sectionBuf(SECTION_BUF_SIZE, 0);
+
+	DWORD sectionLen = ::GetPrivateProfileSectionNames(
+		sectionBuf.data(),
+		(DWORD)sectionBuf.size(),
+		curModelIni
+	);
+
+	if (sectionLen > 0)
+	{
+		const TCHAR* pSection = sectionBuf.data();
+
+		while (*pSection)
+		{
+			CString section = pSection;
+
+			if (TryReadRecipeNoFromSection(curModelIni, section, outRecipeNo))
+				return TRUE;
+
+			pSection += _tcslen(pSection) + 1;
+		}
+	}
+
+	outErrMsg.Format(
+		_T("Current recipe no not found. file=%s, MODEL_NB/MODEL_NUMBER is empty"),
+		curModelIni.GetString()
+	);
+
+	return FALSE;
+}
+
+static BOOL GetCurrentRecipeIniPathByRack(
+	int rackNo,
+	CString& outRecipeIniPath,
+	CString& outErrMsg)
+{
+	outRecipeIniPath.Empty();
+	outErrMsg.Empty();
+
+	int recipeNo = 0;
+
+	if (!GetCurrentRecipeNoByRack(rackNo, recipeNo, outErrMsg))
+		return FALSE;
+
+	outRecipeIniPath.Format(_T(".\\RMS\\Recipe\\%03d.ini"), recipeNo);
+
+	if (!FileExistsSimple(outRecipeIniPath))
+	{
+		outErrMsg.Format(
+			_T("Recipe ini not found. rackNo=%d recipeNo=%03d file=%s"),
+			rackNo,
+			recipeNo,
+			outRecipeIniPath.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
 
 /// <summary>
 /// EPSC PARAMETER.INI을 RACK별로 분리하는 함수
@@ -4150,7 +4831,8 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 	if (pRmsThread == nullptr)
 		return;
 
-	CString machine, unit, system, unit_type, operation_type, command_code, paracount, setting_info, seq_no, mmc_txn_id;
+	CString machine, unit, system, unit_type, operation_type;
+	CString command_code, paracount, setting_info, seq_no, mmc_txn_id;
 
 	machine = ExtractFieldValue(msg, _T("MACHINE="));
 	unit = ExtractFieldValue(msg, _T("UNIT="));
@@ -4160,19 +4842,14 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 	command_code = ExtractFieldValue(msg, _T("COMMAND_CODE="));
 	paracount = ExtractFieldValue(msg, _T("PARACOUNT="));
 
-	// 중요: nested [] 전체 추출
+	// nested [] 전체 추출
 	setting_info = ExtractFieldValueFullBracket(msg, _T("SETTING_INFO="));
 
 	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
 	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
-	// 공통 파싱
-	EpscSettingInfo info;
-	ParseSettingInfo(setting_info, info);
-
 	CString reply;
 
-	// UNIT 끝자리로 Rack 번호 추출
 	int rackNo = 0;
 	if (!GetRackNoFromUnit(unit, rackNo))
 	{
@@ -4202,10 +4879,10 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 		return;
 	}
 
-	CString parameterIniPath;
-	parameterIniPath.Format(_T(".\\RMS\\RACK%dParameter.ini"), rackNo);
+	CString parameterIniPath = GetRmsRackParameterPath(rackNo);
+	CString rackRecipeIniPath = GetRmsRackRecipePath(rackNo);
 
-	if (command_code == _T("I")) // 현재 PARA 정보 전송 (조회)
+	if (command_code == _T("I"))
 	{
 		int paraCount = 0;
 		CString stMsg = BuildEpscSettingInfoFromParameterIni(parameterIniPath, paraCount);
@@ -4228,15 +4905,25 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 		);
 
 		CString log;
-		log.Format(_T("[EPSC] Rack %d Parameter.ini read: %s"), rackNo, parameterIniPath.GetString());
+		log.Format(
+			_T("[EPSC] Rack %d Parameter.ini read: %s"),
+			rackNo,
+			parameterIniPath.GetString()
+		);
 		m_pApp->Gf_writeRMSLog(log);
 	}
-	else if (command_code == _T("S")) // RMS 서버에서 준 PARA 정보로 해당 Rack Parameter.ini 수정
+	else if (command_code == _T("S"))
 	{
 		int appliedCount = 0;
 		CString errMsg;
 
-		BOOL applied = ApplyEpscSettingInfoToParameterIni(parameterIniPath, info, appliedCount, errMsg);
+		BOOL applied = ApplyEpscSettingInfoToRackFiles(
+			parameterIniPath,
+			rackRecipeIniPath,
+			setting_info,
+			appliedCount,
+			errMsg
+		);
 
 		if (applied)
 		{
@@ -4257,10 +4944,13 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			);
 
 			CString log;
-			log.Format(_T("[EPSC] Rack %d Parameter.ini update success. file=%s count=%d"),
+			log.Format(
+				_T("[EPSC] Rack %d update success. parameterFile=%s recipeFile=%s count=%d"),
 				rackNo,
 				parameterIniPath.GetString(),
-				appliedCount);
+				rackRecipeIniPath.GetString(),
+				appliedCount
+			);
 			m_pApp->Gf_writeRMSLog(log);
 		}
 		else
@@ -4284,10 +4974,13 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 			);
 
 			CString log;
-			log.Format(_T("[EPSC] Rack %d Parameter.ini update failed. file=%s err=%s"),
+			log.Format(
+				_T("[EPSC] Rack %d update failed. parameterFile=%s recipeFile=%s err=%s"),
 				rackNo,
 				parameterIniPath.GetString(),
-				errMsg.GetString());
+				rackRecipeIniPath.GetString(),
+				errMsg.GetString()
+			);
 			m_pApp->Gf_writeRMSLog(log);
 		}
 	}
@@ -4324,7 +5017,8 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 	if (pRmsThread == nullptr)
 		return;
 
-	CString addr, eqp, machine, unit, system, unit_type, operation_type, paracount, delete_info, seq_no, mmc_txn_id;
+	CString addr, eqp, machine, unit, system, unit_type, operation_type;
+	CString paracount, delete_info, seq_no, mmc_txn_id;
 
 	addr = ExtractFieldValue(msg, _T("ADDR="));
 	eqp = ExtractFieldValue(msg, _T("EQP="));
@@ -4335,7 +5029,7 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 	operation_type = ExtractFieldValue(msg, _T("OPERATION_TYPE="));
 	paracount = ExtractFieldValue(msg, _T("PARACOUNT="));
 
-	// 중요: DELETE_INFO 전체 추출
+	// DELETE_INFO=[:[MODEL_NB^DIMMING_SEL^PWM_FREQ...]] 전체 추출
 	delete_info = ExtractFieldValueFullBracket_EPDC(msg, _T("DELETE_INFO="));
 
 	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
@@ -4344,7 +5038,9 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 	CString reply;
 
 	// UNIT 끝자리로 Rack 번호 추출
+	// 예: UNIT=W4AMAL04HV0101 -> rackNo=1
 	int rackNo = 0;
+
 	if (!GetRackNoFromUnit(unit, rackNo))
 	{
 		reply.Format(
@@ -4371,13 +5067,83 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 		return;
 	}
 
-	// Rack별 Parameter.ini 경로
-	CString parameterIniPath;
-	parameterIniPath.Format(_T(".\\RMS\\RACK%dParameter.ini"), rackNo);
+	// 변경된 폴더 구조 기준
+	// .\RMS\RACK1\RACK1_Parameter.ini
+	// .\RMS\RACK1\RACK1_Recipe.ini
+	CString rackParameterIniPath = GetRmsRackParameterPath(rackNo);
+	CString rackRecipeIniPath = GetRmsRackRecipePath(rackNo);
+
+	CString errMsg;
+
+	if (!FileExistsSimple(rackParameterIniPath))
+	{
+		errMsg.Format(_T("Rack parameter file not found. file=%s"), rackParameterIniPath.GetString());
+
+		reply.Format(
+			_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=1 ERR_MSG_ENG=%s ERR_MSG_LOC=%s SEQ_NO=%s MMC_TXN_ID=%s"),
+			addr,
+			eqp,
+			machine,
+			unit,
+			system,
+			unit_type,
+			operation_type,
+			errMsg.GetString(),
+			errMsg.GetString(),
+			seq_no,
+			mmc_txn_id
+		);
+
+		m_pApp->Gf_writeRMSLog(reply);
+
+		VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+		if (ok == VARIANT_FALSE)
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send failed"));
+		else
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send ok"));
+
+		return;
+	}
+
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		errMsg.Format(_T("Rack recipe file not found. file=%s"), rackRecipeIniPath.GetString());
+
+		reply.Format(
+			_T("EPDC_R ADDR=%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s ACK=1 ERR_MSG_ENG=%s ERR_MSG_LOC=%s SEQ_NO=%s MMC_TXN_ID=%s"),
+			addr,
+			eqp,
+			machine,
+			unit,
+			system,
+			unit_type,
+			operation_type,
+			errMsg.GetString(),
+			errMsg.GetString(),
+			seq_no,
+			mmc_txn_id
+		);
+
+		m_pApp->Gf_writeRMSLog(reply);
+
+		VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+		if (ok == VARIANT_FALSE)
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send failed"));
+		else
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPDC_R send ok"));
+
+		return;
+	}
 
 	int deletedCount = 0;
-	CString errMsg;
-	BOOL applied = ApplyEpdcDeleteInfoToParameterIni(parameterIniPath, delete_info, deletedCount, errMsg);
+
+	BOOL applied = ApplyEpdcDeleteInfoToRackFiles(
+		rackParameterIniPath,
+		rackRecipeIniPath,
+		delete_info,
+		deletedCount,
+		errMsg
+	);
 
 	if (applied)
 	{
@@ -4395,11 +5161,14 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 		);
 
 		CString log;
-		log.Format(_T("[EPDC] Rack %d Parameter.ini clear success. file=%s deletedCount=%d, DELETE_INFO=%s"),
+		log.Format(
+			_T("[EPDC] Rack %d delete success. parameterFile=%s recipeFile=%s deletedCount=%d DELETE_INFO=%s"),
 			rackNo,
-			parameterIniPath.GetString(),
+			rackParameterIniPath.GetString(),
+			rackRecipeIniPath.GetString(),
 			deletedCount,
-			delete_info.GetString());
+			delete_info.GetString()
+		);
 		m_pApp->Gf_writeRMSLog(log);
 	}
 	else
@@ -4420,14 +5189,18 @@ void CCimNetCommApi::HandleRmsMsg_EPDC(const CString& msg, ICallRMSClass* pRmsTh
 		);
 
 		CString log;
-		log.Format(_T("[EPDC] Rack %d Parameter.ini clear failed. file=%s err=%s, DELETE_INFO=%s"),
+		log.Format(
+			_T("[EPDC] Rack %d delete failed. parameterFile=%s recipeFile=%s err=%s DELETE_INFO=%s"),
 			rackNo,
-			parameterIniPath.GetString(),
+			rackParameterIniPath.GetString(),
+			rackRecipeIniPath.GetString(),
 			errMsg.GetString(),
-			delete_info.GetString());
+			delete_info.GetString()
+		);
 		m_pApp->Gf_writeRMSLog(log);
 	}
 
+	// EPDC_R 응답 전송
 	m_pApp->Gf_writeRMSLog(reply);
 
 	VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
