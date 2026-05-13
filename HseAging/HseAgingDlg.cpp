@@ -739,8 +739,9 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(2, 1000, NULL);
 	SetTimer(3, 3000, NULL);
 	SetTimer(8, 1000, NULL);
+	SetTimer(115, 5 * 60 * 1000, NULL);
 
-	InitRecipeFolderAndFiles(TRUE, TRUE); // Recipe 폴더 생성
+	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
 
 	UpdateAllRackCurModelIni();
 
@@ -1705,6 +1706,15 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 
 			SetTimer(8, 1000, NULL);
 		}
+	}
+
+	if (nIDEvent == 115)
+	{
+		if (m_pApp->m_bIsGmesConnect == FALSE)
+		{
+			return;
+		}
+		m_pApp->Gf_gmesSendHost(HOST_EWOQ, NULL, NULL, NULL);
 	}
 
 	CDialogEx::OnTimer(nIDEvent);

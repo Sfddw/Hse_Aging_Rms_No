@@ -3298,19 +3298,6 @@ BOOL CCimNetCommApi::EWOQ()
 	}
 
 	return RTN_OK;
-	/*if (nRetCode != RTN_OK)
-		return nRetCode;
-
-	CString strMsg;
-	GetFieldData(&strMsg, _T("RTN_CD"));
-	if (strMsg.Compare(_T("0")) != 0)
-		return 3;
-
-	GetFieldData(&strMsg, _T("ERR_CD"));
-	if (strMsg.Compare(_T("0")) != 0)
-		return 3;
-
-	return RTN_OK;*/
 }
 
 BOOL CCimNetCommApi::EWCH()

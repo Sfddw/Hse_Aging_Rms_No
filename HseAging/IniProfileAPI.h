@@ -826,9 +826,22 @@ static BOOL AddModelNbToRecipeIni(const CString& iniPath)
 
 	return TRUE;
 }
+// 파일 존재 확인 (RECIPE 폴더 안의 INI파일이 MODEL 파일과 매칭)
+static BOOL IsFileExists(const CString& filePath)
+{
+	DWORD attr = ::GetFileAttributes(filePath);
+
+	if (attr == INVALID_FILE_ATTRIBUTES)
+		return FALSE;
+
+	if (attr & FILE_ATTRIBUTE_DIRECTORY)
+		return FALSE;
+
+	return TRUE;
+}
 
 // Model -> Recipe 복사할 때 "번호.ini"로 저장
-static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CString& recipeDir, BOOL bOverwrite = TRUE)
+static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CString& recipeDir, BOOL bOverwrite = FALSE)
 {
 	WIN32_FIND_DATA wfd = { 0 };
 	HANDLE hFind = INVALID_HANDLE_VALUE;
@@ -838,7 +851,7 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 
 	hFind = FindFirstFile(pattern, &wfd);
 	if (hFind == INVALID_HANDLE_VALUE)
-		return TRUE; // ini가 없어도 성공 처리
+		return TRUE; // Model 폴더에 ini가 없어도 성공 처리
 
 	do
 	{
@@ -846,26 +859,38 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 			continue;
 
 		CString srcName = wfd.cFileName;
+
 		int no = 0;
 		if (!ExtractLeadingNumberFromFileName(srcName, no))
 			continue;
 
-		CString srcPath, dstPath;
+		CString srcPath;
+		CString dstPath;
+
 		srcPath.Format(_T("%s\\%s"), modelDir.GetString(), srcName);
-		dstPath.Format(_T("%s\\%03d.ini"), recipeDir.GetString(), no); // 001.ini
+		dstPath.Format(_T("%s\\%03d.ini"), recipeDir.GetString(), no);
+
+		// 핵심:
+		// RMS\Recipe\001.ini, 002.ini ... 이 이미 있으면 새로 복사하지 않음
+		if (IsFileExists(dstPath) && bOverwrite == FALSE)
+		{
+			continue;
+		}
 
 		BOOL bFailIfExists = (bOverwrite ? FALSE : TRUE);
 
 		if (!::CopyFile(srcPath, dstPath, bFailIfExists))
 		{
-			if (!bOverwrite && GetLastError() == ERROR_FILE_EXISTS)
+			DWORD err = ::GetLastError();
+
+			if (!bOverwrite && err == ERROR_FILE_EXISTS)
 				continue;
 
 			FindClose(hFind);
 			return FALSE;
 		}
 
-		// 복사된 Recipe ini에 MODEL_NB 추가
+		// 새로 복사된 파일에만 MODEL_NB 추가
 		if (!AddModelNbToRecipeIni(dstPath))
 		{
 			FindClose(hFind);
@@ -891,7 +916,7 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 	const CString& modelDir,
 	const CString& recipeRootDir,
 	int recipeCount = 6,              // 여기서는 rack 개수 개념으로 사용
-	BOOL bCopyIniOverwrite = TRUE,
+	BOOL bCopyIniOverwrite = FALSE,
 	BOOL bBuildModelList = TRUE)
 {
 	if (!EnsureDirectoryExists(recipeRootDir))
@@ -1061,7 +1086,7 @@ static BOOL CopyModelIniToRecipe(LPCTSTR modelDir, LPCTSTR recipeDir, BOOL bOver
 }
 
 // "Recipe 폴더 생성 + ini 복사 + txt 생성” 원샷 초기화
-static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = TRUE, BOOL bBuildModelList = TRUE)
+static BOOL InitRecipeFolderAndFiles(BOOL bCopyIniOverwrite = FALSE, BOOL bBuildModelList = TRUE)
 {
 	CString modelDir = _T(".\\Model");
 	CString recipeRootDir = _T(".\\RMS");
