@@ -739,7 +739,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(2, 1000, NULL);
 	SetTimer(3, 3000, NULL);
 	SetTimer(8, 1000, NULL);
-	SetTimer(115, 5 * 60 * 1000, NULL);
+	//SetTimer(115, 5 * 60 * 1000, NULL);
 
 	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
 

@@ -95,11 +95,327 @@ static CString MapEpdcDeleteNameToIniSection(const CString& paramName) // EPDC
 	return paramName;
 }
 
+// EPPR
+static BOOL ReadModelInfoKeysFromRackRecipeIni(
+	const CString& rackRecipeIniPath,
+	std::vector<CString>& outKeys,
+	CString& outErrMsg)
+{
+	outKeys.clear();
+	outErrMsg.Empty();
+
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		outErrMsg.Format(_T("Rack recipe ini not found. file=%s"), rackRecipeIniPath.GetString());
+		return FALSE;
+	}
+
+	const DWORD BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> buf(BUF_SIZE, 0);
+
+	DWORD read = ::GetPrivateProfileSection(
+		_T("MODEL_INFO"),
+		buf.data(),
+		(DWORD)buf.size(),
+		rackRecipeIniPath
+	);
+
+	if (read == 0)
+	{
+		outErrMsg.Format(_T("MODEL_INFO section not found or empty. file=%s"), rackRecipeIniPath.GetString());
+		return FALSE;
+	}
+
+	const TCHAR* p = buf.data();
+
+	while (*p)
+	{
+		CString line = p;
+
+		int eqPos = line.Find(_T('='));
+		if (eqPos > 0)
+		{
+			CString key = line.Left(eqPos);
+			key.Trim();
+
+			if (!key.IsEmpty())
+				outKeys.push_back(key);
+		}
+
+		p += _tcslen(p) + 1;
+	}
+
+	return TRUE;
+}
+
+/// <summary>
+/// EPPR ini 값 읽는 함수
+/// </summary>
+/// <param name="iniPath"></param>
+/// <param name="key"></param>
+/// <returns></returns>
+static CString ReadModelInfoValue(
+	const CString& iniPath,
+	const CString& key)
+{
+	TCHAR value[512] = { 0 };
+
+	::GetPrivateProfileString(
+		_T("MODEL_INFO"),
+		key,
+		_T(""),
+		value,
+		_countof(value),
+		iniPath
+	);
+
+	CString ret = value;
+	ret.Trim();
+
+	return ret;
+}
+
+// [EPSC] COMMAND_CODE = I 조회 함수
+static BOOL ReadEpscParamNamesFromRackRecipeIni(
+	const CString& rackRecipeIniPath,
+	std::vector<CString>& outParamNames,
+	CString& outErrMsg)
+{
+	outParamNames.clear();
+	outErrMsg.Empty();
+
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		outErrMsg.Format(_T("Rack recipe file not found. file=%s"), rackRecipeIniPath.GetString());
+		return FALSE;
+	}
+
+	const DWORD BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> buf(BUF_SIZE, 0);
+
+	DWORD read = ::GetPrivateProfileSection(
+		_T("MODEL_INFO"),
+		buf.data(),
+		(DWORD)buf.size(),
+		rackRecipeIniPath
+	);
+
+	if (read == 0)
+	{
+		outErrMsg.Format(_T("MODEL_INFO section is empty. file=%s"), rackRecipeIniPath.GetString());
+		return FALSE;
+	}
+
+	const TCHAR* p = buf.data();
+
+	while (*p)
+	{
+		CString line = p;
+
+		int eqPos = line.Find(_T('='));
+		if (eqPos > 0)
+		{
+			CString key = line.Left(eqPos);
+			key.Trim();
+
+			if (!key.IsEmpty())
+				outParamNames.push_back(key);
+		}
+
+		p += _tcslen(p) + 1;
+	}
+
+	return TRUE;
+}
+
+// EPPR recipeMsgSet 생성 함수추가
+static BOOL BuildEpprRecipeMsgSetFromIni(
+	const CString& rackRecipeIniPath,
+	const CString& valueSourceIniPath,
+	CString& outRecipeMsgSet,
+	int& outParamCount,
+	CString& outErrMsg)
+{
+	outRecipeMsgSet.Empty();
+	outParamCount = 0;
+	outErrMsg.Empty();
+
+	if (!FileExistsSimple(valueSourceIniPath))
+	{
+		outErrMsg.Format(_T("Value source ini not found. file=%s"), valueSourceIniPath.GetString());
+		return FALSE;
+	}
+
+	std::vector<CString> keys;
+
+	if (!ReadModelInfoKeysFromRackRecipeIni(rackRecipeIniPath, keys, outErrMsg))
+		return FALSE;
+
+	for (size_t i = 0; i < keys.size(); ++i)
+	{
+		CString key = keys[i];
+		key.Trim();
+
+		if (key.IsEmpty())
+			continue;
+
+		CString value = ReadModelInfoValue(valueSourceIniPath, key);
+
+		CString one;
+
+		if (key.CompareNoCase(_T("MODEL_NB")) == 0)
+		{
+			one.Format(_T("%s$%s;"),
+				key.GetString(),
+				value.GetString());
+		}
+		else
+		{
+			one.Format(_T("%s_MODEL_INFO$%s;"),
+				key.GetString(),
+				value.GetString());
+		}
+
+		outRecipeMsgSet += one;
+		outParamCount++;
+	}
+
+	return TRUE;
+}
+
+// [EPPR] 현재 Recipe 번호 읽는 함수 추가
+static int ReadRecipeNoFromModelInfoIni(const CString& iniPath)
+{
+	CString value;
+
+	value = ReadModelInfoValue(iniPath, _T("MODEL_NB"));
+	int recipeNo = _ttoi(value);
+
+	if (recipeNo > 0)
+		return recipeNo;
+
+	value = ReadModelInfoValue(iniPath, _T("MODEL_NUMBER"));
+	recipeNo = _ttoi(value);
+
+	return recipeNo;
+}
+
 static BOOL IniSectionExistsSimple(const CString& iniPath, const CString& section)
 {
-	TCHAR buf[4096] = { 0 };
-	DWORD n = ::GetPrivateProfileSection(section, buf, _countof(buf), iniPath);
-	return (n > 0);
+	TCHAR buf[4] = { 0 };
+
+	DWORD read = ::GetPrivateProfileSection(
+		section,
+		buf,
+		_countof(buf),
+		iniPath
+	);
+
+	return read > 0;
+}
+
+static CString ReadIniValueSimple(const CString& iniPath, const CString& section, const CString& key)
+{
+	TCHAR buf[512] = { 0 };
+	::GetPrivateProfileString(section, key, _T(""), buf, _countof(buf), iniPath);
+	return CString(buf);
+}
+
+static void AppendEpscSettingItemFromIni(
+	CString& outMsg,
+	const CString& parameterIniPath,
+	const CString& displayName,
+	const CString& iniSection)
+{
+	static const LPCTSTR kRmsFields[] =
+	{
+		_T("PINDEX"),
+		_T("SPECIAL_ITEM"),
+		_T("ADDRESS"),
+		_T("PARA_OFFSET"),
+		_T("CURRENT_ADDRESS"),
+		_T("UNIT_TYPE"),
+		_T("WORD_SIZE"),
+		_T("DECIMAL_PLACE"),
+		_T("SIGN_YN"),
+		_T("SNDPOS"),
+		_T("FILE_PATH"),
+		_T("FILE_NAME"),
+		_T("INTERNAL_PARA_NAME"),
+		_T("DELIMITER"),
+		_T("ROW_NUM"),
+		_T("COL_NUM"),
+		_T("BIT_LENGTH")
+	};
+
+	if (!outMsg.IsEmpty())
+		outMsg += _T(",");
+
+	outMsg.AppendFormat(_T(":%s:["), displayName.GetString());
+
+	for (int i = 0; i < _countof(kRmsFields); ++i)
+	{
+		CString val = ReadIniValueSimple(parameterIniPath, iniSection, kRmsFields[i]);
+
+		outMsg.AppendFormat(_T("%s#%s^"), kRmsFields[i], val.GetString());
+	}
+
+	outMsg += _T("]");
+}
+
+// RACK_Recipe.ini 기준으로 EPSC SETTING_INFO 만드는 함수
+static BOOL BuildEpscSettingInfoFromRackFiles(
+	const CString& rackParameterIniPath,
+	const CString& rackRecipeIniPath,
+	CString& outSettingInfo,
+	int& outParaCount,
+	CString& outErrMsg)
+{
+	outSettingInfo.Empty();
+	outParaCount = 0;
+	outErrMsg.Empty();
+
+	if (!FileExistsSimple(rackParameterIniPath))
+	{
+		outErrMsg.Format(_T("Rack parameter file not found. file=%s"), rackParameterIniPath.GetString());
+		return FALSE;
+	}
+
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		outErrMsg.Format(_T("Rack recipe file not found. file=%s"), rackRecipeIniPath.GetString());
+		return FALSE;
+	}
+
+	std::vector<CString> paramNames;
+
+	if (!ReadEpscParamNamesFromRackRecipeIni(rackRecipeIniPath, paramNames, outErrMsg))
+		return FALSE;
+
+	for (size_t i = 0; i < paramNames.size(); ++i)
+	{
+		CString paramName = paramNames[i];
+		paramName.Trim();
+
+		if (paramName.IsEmpty())
+			continue;
+
+		// RACKn_Recipe.ini에는 있는데 RACKn_Parameter.ini에 섹션이 없으면 응답에서 제외
+		// S 메시지로 정상 추가된 항목이면 두 파일에 모두 존재해야 함
+		if (!IniSectionExistsSimple(rackParameterIniPath, paramName))
+			continue;
+
+		AppendEpscSettingItemFromIni(
+			outSettingInfo,
+			rackParameterIniPath,
+			paramName,  // 표시 이름
+			paramName   // ini section 이름
+		);
+
+		outParaCount++;
+	}
+
+	return TRUE;
 }
 
 static void SplitDeleteNamesByCaret(const CString& src, std::vector<CString>& outNames)
@@ -1423,60 +1739,13 @@ static BOOL ParseSettingInfo(const CString& settingInfoRaw, EpscSettingInfo& out
 
 // ===================== [추가 시작] EPSC_R I용 Parameter.ini -> SETTING_INFO builder =====================
 
-static CString ReadIniValueSimple(const CString& iniPath, const CString& section, const CString& key)
-{
-	TCHAR buf[512] = { 0 };
-	::GetPrivateProfileString(section, key, _T(""), buf, _countof(buf), iniPath);
-	return CString(buf);
-}
+
 
 struct EpscParaMap
 {
 	LPCTSTR displayName;   // EPSC_R에 넣을 파라미터 이름
 	LPCTSTR iniSection;    // Parameter.ini 섹션명
 };
-
-static void AppendEpscSettingItemFromIni(
-	CString& outMsg,
-	const CString& parameterIniPath,
-	const CString& displayName,
-	const CString& iniSection)
-{
-	static const LPCTSTR kRmsFields[] =
-	{
-		_T("PINDEX"),
-		_T("SPECIAL_ITEM"),
-		_T("ADDRESS"),
-		_T("PARA_OFFSET"),
-		_T("CURRENT_ADDRESS"),
-		_T("UNIT_TYPE"),
-		_T("WORD_SIZE"),
-		_T("DECIMAL_PLACE"),
-		_T("SIGN_YN"),
-		_T("SNDPOS"),
-		_T("FILE_PATH"),
-		_T("FILE_NAME"),
-		_T("INTERNAL_PARA_NAME"),
-		_T("DELIMITER"),
-		_T("ROW_NUM"),
-		_T("COL_NUM"),
-		_T("BIT_LENGTH")
-	};
-
-	if (!outMsg.IsEmpty())
-		outMsg += _T(",");
-
-	outMsg.AppendFormat(_T(":%s:["), displayName.GetString());
-
-	for (int i = 0; i < _countof(kRmsFields); ++i)
-	{
-		CString val = ReadIniValueSimple(parameterIniPath, iniSection, kRmsFields[i]);
-
-		outMsg.AppendFormat(_T("%s#%s^"), kRmsFields[i], val.GetString());
-	}
-
-	outMsg += _T("]");
-}
 
 static CString BuildEpscSettingInfoFromParameterIni(const CString& parameterIniPath, int& outParaCount)
 {
@@ -4530,226 +4799,186 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 
 void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsThread, int RackNo)
 {
-	// 0) 안전 체크
 	if (pRmsThread == nullptr)
 		return;
 
-	// 1) MACHINE / UNIT 추출
-	CString machine, unit, recipe, level, recipe_type, recipe_yn, command_code, unit_type, recipever, esd, reply_req, seq_no, mmc_txn_id, model_name, eqp_name;
-	int cur_yn;
+	CString machine, unit, recipe, level, recipe_type, recipe_yn;
+	CString command_code, unit_type, recipever, esd, reply_req;
+	CString seq_no, mmc_txn_id, eqp_name;
 
-	machine						= ExtractFieldValue(msg, _T("MACHINE="));
-	unit						= ExtractFieldValue(msg, _T("UNIT="));
-	recipe						= ExtractFieldValue(msg, _T("RECIPE="));
-	level						= ExtractFieldValue(msg, _T("LEVEL="));
-	recipe_type					= ExtractFieldValue(msg, _T("RECIPETYPE="));
-	recipe_yn					= ExtractFieldValue(msg, _T("CURRENT_RECIPE_YN="));
-	command_code				= ExtractFieldValue(msg, _T("COMMAND_CODE="));
-	unit_type					= ExtractFieldValue(msg, _T("UNIT_TYPE="));
-	recipever					= ExtractFieldValue(msg, _T("RECIPEVER="));
-	esd							= ExtractFieldValue(msg, _T("ESD="));
-	reply_req					= ExtractFieldValue(msg, _T("REPLY_REQ="));
-	seq_no						= ExtractFieldValue(msg, _T("SEQ_NO="));
-	mmc_txn_id					= ExtractFieldValue(msg, _T("MMC_TXN_ID="));
+	machine = ExtractFieldValue(msg, _T("MACHINE="));
+	unit = ExtractFieldValue(msg, _T("UNIT="));
+	recipe = ExtractFieldValue(msg, _T("RECIPE="));
+	level = ExtractFieldValue(msg, _T("LEVEL="));
+	recipe_type = ExtractFieldValue(msg, _T("RECIPETYPE="));
+	recipe_yn = ExtractFieldValue(msg, _T("CURRENT_RECIPE_YN="));
+	command_code = ExtractFieldValue(msg, _T("COMMAND_CODE="));
+	unit_type = ExtractFieldValue(msg, _T("UNIT_TYPE="));
+	recipever = ExtractFieldValue(msg, _T("RECIPEVER="));
+	esd = ExtractFieldValue(msg, _T("ESD="));
+	reply_req = ExtractFieldValue(msg, _T("REPLY_REQ="));
+	seq_no = ExtractFieldValue(msg, _T("SEQ_NO="));
+	mmc_txn_id = ExtractFieldValue(msg, _T("MMC_TXN_ID="));
 
-	BOOL bLoadOk = FALSE;
-	CString sourcePath;
+	int rackNo = 0;
 
-	/*if (recipe_yn == "Y")
+	if (!GetRackNoFromUnit(unit, rackNo))
 	{
-		cur_yn = 6;
+		// 기존 호출부에서 넘겨준 RackNo가 있으면 fallback
+		if (RackNo >= 1 && RackNo <= RMS_RACK_COUNT)
+			rackNo = RackNo;
 	}
-	if (recipe_yn == "N")
+
+	if (rackNo < 1 || rackNo > RMS_RACK_COUNT)
 	{
-		cur_yn = 4;
-	}*/
-	
+		CString reply;
+		reply.Format(
+			_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[::[]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID=%s"),
+			m_strRemoteSubjectRMS,
+			m_strLocalSubjectRMS,
+			m_strEqpRMS,
+			seq_no.GetString(),
+			mmc_txn_id.GetString()
+		);
 
-	int recipeNoInt = _ttoi(recipe);
-	CString RecipeStr = NormalizeRecipeNo3Digit(recipe);   // 추가
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR invalid rack number"));
+		m_pApp->Gf_writeRMSLog(reply);
 
-	CString recipeDir = _T(".\\RMS\\Recipe");
-	CString recipeKey;
-
-	/*if (!FindRecipeIniByNo(recipeDir, RecipeStr, recipeKey))
-	{
-		CString msgErr;
-		msgErr.Format(_T("Recipe ini not found: %s\\%d.ini"), recipeDir.GetString(), recipeNoInt);
-		m_pApp->Gf_writeRMSLog(msgErr);
+		pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
 		return;
-	}*/
+	}
 
-	//CString modelDir = _T(".\\Model");
-	////CString modelDir = _T(".\\Recipe");
-	//if (!FindModelNameByRecipeNo(modelDir, recipeNoInt, model_name))
-	//{
-	//	CString msgErr;
-	//	msgErr.Format(_T("Model file not found for RECIPE=%d\r\nSearch: %s\\%d_*.ini"),
-	//		recipeNoInt, modelDir.GetString(), recipeNoInt);
-	//	m_pApp->Gf_writeRMSLog(msgErr);
-	//	return; // 또는 기본 모델 처리
-	//}
-
-	// 값이 없으면 그냥 종료(로그는 선택)
-	/*if (machine.GetLength() != 10 || unit.GetLength() != 12)
-	{
-		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR parse fail (MACHINE/UNIT)"));
-		return;
-	}*/
-
-	// 2) SEQ_NO 추출
-	auto ExtractTokenValue = [&](LPCTSTR key) -> CString
-		{
-			CString k(key);
-			int pos = msg.Find(k);
-			if (pos < 0) return _T("");
-
-			int start = pos + k.GetLength();
-			int end = msg.Find(_T(" "), start);
-			if (end < 0) end = msg.GetLength();
-
-			return msg.Mid(start, end - start);
-		};
-
-	CString seqNo = ExtractTokenValue(_T("SEQ_NO="));
-
-	
-	lpModelInfo = m_pApp->GetModelInfo();
 	lpSystemInfo = m_pApp->GetSystemInfo();
+	eqp_name = lpSystemInfo->m_sEqpName;
 
-	// ✅ 찾은 모델 로딩
-	//m_pApp->Gf_loadModelData(model_name);
-	//m_pApp->Gf_loadRecipeData(recipeKey);
+	CString rackRecipeIniPath = GetRmsRackRecipePath(rackNo);
+	CString valueSourceIniPath;
+
+	int replyRecipeNo = 0;
 
 	if (recipe_yn.CompareNoCase(_T("Y")) == 0)
 	{
-		cur_yn = 6;
-		bLoadOk = m_pApp->Gf_ReadCurModelIniFile(RackNo);
+		// CURRENT_RECIPE_YN=Y
+		// 값은 RACKn_CurModel.ini에서 읽음
+		valueSourceIniPath = GetRmsRackCurModelPath(rackNo);
+
+		replyRecipeNo = ReadRecipeNoFromModelInfoIni(valueSourceIniPath);
 	}
 	else if (recipe_yn.CompareNoCase(_T("N")) == 0)
 	{
-		cur_yn = 4;
-		m_pApp->Gf_ReadRecipeIniFile(RecipeStr); // 기존 void
-		bLoadOk = TRUE;
+		// CURRENT_RECIPE_YN=N
+		// RECIPE=4 → RMS\Recipe\004.ini에서 값 읽음
+		replyRecipeNo = _ttoi(recipe);
+
+		if (replyRecipeNo <= 0)
+		{
+			CString reply;
+			reply.Format(
+				_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[::[]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID=%s"),
+				m_strRemoteSubjectRMS,
+				m_strLocalSubjectRMS,
+				m_strEqpRMS,
+				seq_no.GetString(),
+				mmc_txn_id.GetString()
+			);
+
+			m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR invalid RECIPE number"));
+			m_pApp->Gf_writeRMSLog(reply);
+
+			pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+			return;
+		}
+
+		valueSourceIniPath = GetSharedRecipePathByNo(replyRecipeNo);
 	}
 	else
 	{
+		CString reply;
+		reply.Format(
+			_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[::[]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID=%s"),
+			m_strRemoteSubjectRMS,
+			m_strLocalSubjectRMS,
+			m_strEqpRMS,
+			seq_no.GetString(),
+			mmc_txn_id.GetString()
+		);
+
+		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR invalid CURRENT_RECIPE_YN"));
+		m_pApp->Gf_writeRMSLog(reply);
+
+		pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
 		return;
 	}
-
-	if (!bLoadOk)
-	{
-		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR source load failed"));
-		return;
-	}
-
-
-	m_pApp->Gf_ReadRecipeIniFile(RecipeStr);
 
 	CString recipeMsgSet;
+	int paramCount = 0;
+	CString errMsg;
 
-	eqp_name = lpSystemInfo->m_sEqpName;
+	BOOL bBuildOk = BuildEpprRecipeMsgSetFromIni(
+		rackRecipeIniPath,
+		valueSourceIniPath,
+		recipeMsgSet,
+		paramCount,
+		errMsg
+	);
 
-	model_name.Format(_T("MODEL_NB$%d;"), cur_yn);					
-	recipeMsgSet += model_name; // MODEL_NUMBER
+	if (!bBuildOk)
+	{
+		CString log;
+		log.Format(
+			_T("[RMS] EPPR build failed. rack=%d rackRecipe=%s valueSource=%s err=%s"),
+			rackNo,
+			rackRecipeIniPath.GetString(),
+			valueSourceIniPath.GetString(),
+			errMsg.GetString()
+		);
+		m_pApp->Gf_writeRMSLog(log);
 
-	model_name.Format(_T("DIMMING_SEL_MODEL_INFO$%d;"), lpModelInfo->m_nDimmingSel);					recipeMsgSet += model_name; // DIMMING SEL
-	model_name.Format(_T("PWM_FREQ_MODEL_INFO$%d;"),  lpModelInfo->m_nPwmFreq);							recipeMsgSet += model_name; // PWM_FREQ
-	model_name.Format(_T("PWM_DUTY_MODEL_INFO$%d;"), lpModelInfo->m_nPwmDuty);							recipeMsgSet += model_name; // PWM_DUTY
-	model_name.Format(_T("VBR_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVbrVolt);							recipeMsgSet += model_name; // VBR_VOLT
-	model_name.Format(_T("CABLE_OPEN_MODEL_INFO$%d;"), lpModelInfo->m_nFuncCableOpen);					recipeMsgSet += model_name; // CABLE_OPEN
-	model_name.Format(_T("POWER_ON_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq1);					recipeMsgSet += model_name; // POWER_ON_SEQ1
-	model_name.Format(_T("POWER_ON_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq2);					recipeMsgSet += model_name; // POWER_ON_SEQ2
-	model_name.Format(_T("POWER_ON_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq3);					recipeMsgSet += model_name; // POWER_ON_SEQ3
-	model_name.Format(_T("POWER_ON_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq4);					recipeMsgSet += model_name; // POWER_ON_SEQ4
+		CString reply;
+		reply.Format(
+			_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[::[]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID=%s"),
+			m_strRemoteSubjectRMS,
+			m_strLocalSubjectRMS,
+			m_strEqpRMS,
+			seq_no.GetString(),
+			mmc_txn_id.GetString()
+		);
 
-	model_name.Format(_T("POWER_ON_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq5);					recipeMsgSet += model_name; // POWER_ON_SEQ5
-	model_name.Format(_T("POWER_ON_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq6);					recipeMsgSet += model_name; // POWER_ON_SEQ6
-	model_name.Format(_T("POWER_ON_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq7);					recipeMsgSet += model_name; // POWER_ON_SEQ7
-	model_name.Format(_T("POWER_ON_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq8);					recipeMsgSet += model_name; // POWER_ON_SEQ8
-	model_name.Format(_T("POWER_ON_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq9);					recipeMsgSet += model_name; // POWER_ON_SEQ9
-	model_name.Format(_T("POWER_ON_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnSeq10);				recipeMsgSet += model_name; // POWER_ON_SEQ10
-	model_name.Format(_T("POWER_ON_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay1);				recipeMsgSet += model_name; // POWER_ON_DELAY1
-	model_name.Format(_T("POWER_ON_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay2);				recipeMsgSet += model_name; // POWER_ON_DELAY2
-	model_name.Format(_T("POWER_ON_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay3);				recipeMsgSet += model_name; // POWER_ON_DELAY3
-	model_name.Format(_T("POWER_ON_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay4);				recipeMsgSet += model_name; // POWER_ON_DELAY4
+		m_pApp->Gf_writeRMSLog(reply);
 
-	model_name.Format(_T("POWER_ON_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay5);				recipeMsgSet += model_name; // POWER_ON_DELAY5
-	model_name.Format(_T("POWER_ON_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay6);				recipeMsgSet += model_name; // POWER_ON_DELAY6
-	model_name.Format(_T("POWER_ON_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay7);				recipeMsgSet += model_name; // POWER_ON_DELAY7
-	model_name.Format(_T("POWER_ON_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay8);				recipeMsgSet += model_name; // POWER_ON_DELAY8
-	model_name.Format(_T("POWER_ON_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOnDelay9);				recipeMsgSet += model_name; // POWER_ON_DELAY9
-	model_name.Format(_T("POWER_OFF_SEQ1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq1);				recipeMsgSet += model_name; // POWER_OFF_SEQ1
-	model_name.Format(_T("POWER_OFF_SEQ2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq2);				recipeMsgSet += model_name; // POWER_OFF_SEQ2
-	model_name.Format(_T("POWER_OFF_SEQ3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq3);				recipeMsgSet += model_name; // POWER_OFF_SEQ3
-	model_name.Format(_T("POWER_OFF_SEQ4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq4);				recipeMsgSet += model_name; // POWER_OFF_SEQ4
-	model_name.Format(_T("POWER_OFF_SEQ5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq5);				recipeMsgSet += model_name; // POWER_OFF_SEQ5
+		pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
+		return;
+	}
 
-	model_name.Format(_T("POWER_OFF_SEQ6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq6);				recipeMsgSet += model_name; // POWER_OFF_SEQ6
-	model_name.Format(_T("POWER_OFF_SEQ7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq7);				recipeMsgSet += model_name; // POWER_OFF_SEQ7
-	model_name.Format(_T("POWER_OFF_SEQ8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq8);				recipeMsgSet += model_name; // POWER_OFF_SEQ8
-	model_name.Format(_T("POWER_OFF_SEQ9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq9);				recipeMsgSet += model_name; // POWER_OFF_SEQ9
-	model_name.Format(_T("POWER_OFF_SEQ10_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffSeq10);				recipeMsgSet += model_name; // POWER_OFF_SEQ10
-	model_name.Format(_T("POWER_OFF_DELAY1_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay1);			recipeMsgSet += model_name; // POWER_OFF_DELAY1
-	model_name.Format(_T("POWER_OFF_DELAY2_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay2);			recipeMsgSet += model_name; // POWER_OFF_DELAY2
-	model_name.Format(_T("POWER_OFF_DELAY3_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay3);			recipeMsgSet += model_name; // POWER_OFF_DELAY3
-	model_name.Format(_T("POWER_OFF_DELAY4_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay4);			recipeMsgSet += model_name; // POWER_OFF_DELAY4
-	model_name.Format(_T("POWER_OFF_DELAY5_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay5);			recipeMsgSet += model_name; // POWER_OFF_DELAY5
-
-	model_name.Format(_T("POWER_OFF_DELAY6_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay6);			recipeMsgSet += model_name; // POWER_OFF_DELAY6
-	model_name.Format(_T("POWER_OFF_DELAY7_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay7);			recipeMsgSet += model_name; // POWER_OFF_DELAY7
-	model_name.Format(_T("POWER_OFF_DELAY8_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay8);			recipeMsgSet += model_name; // POWER_OFF_DELAY8
-	model_name.Format(_T("POWER_OFF_DELAY9_MODEL_INFO$%d;"), lpModelInfo->m_nPowerOffDelay9);			recipeMsgSet += model_name; // POWER_OFF_DELAY9
-	model_name.Format(_T("VCC_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVccVolt);							recipeMsgSet += model_name; // VCC_VOLT
-	model_name.Format(_T("VCC_VOLT_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVccVoltOffset);				recipeMsgSet += model_name; // VCC_VOLT_OFFSET
-	model_name.Format(_T("VCC_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltLow);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_LOW
-	model_name.Format(_T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitVoltHigh);		recipeMsgSet += model_name; // VCC_LIMIT_VOLT_HIGH
-	model_name.Format(_T("VCC_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrLow);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_LOW
-	model_name.Format(_T("VCC_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVccLimitCurrHigh);		recipeMsgSet += model_name; // VCC_LIMIT_CURR_HIGH
-
-	model_name.Format(_T("VBL_VOLT_MODEL_INFO$%f;"), lpModelInfo->m_fVblVolt);							recipeMsgSet += model_name; // VBL_VOLT
-	model_name.Format(_T("VBL_OFFSET_MODEL_INFO$%f;"), lpModelInfo->m_fVblVoltOffset);					recipeMsgSet += model_name; // VBL_VOLT_OFFSET
-	model_name.Format(_T("VBL_LIMIT_VOLT_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltLow);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_LOW
-	model_name.Format(_T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitVoltHigh);		recipeMsgSet += model_name; // VBL_LIMIT_VOLT_HIGH
-	model_name.Format(_T("VBL_LIMIT_CURR_LOW_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrLow);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_LOW
-	model_name.Format(_T("VBL_LIMIT_CURR_HIGH_MODEL_INFO$%f;"), lpModelInfo->m_fVblLimitCurrHigh);		recipeMsgSet += model_name; // VBL_LIMIT_CURR_HIGH
-	model_name.Format(_T("AGING_TIME_HH_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeHH);					recipeMsgSet += model_name; // AGING_TIME_HH
-	model_name.Format(_T("AGING_TIME_MM_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMM);					recipeMsgSet += model_name; // AGING_TIME_MM
-	model_name.Format(_T("AGING_TIME_MINUTE_MODEL_INFO$%d;"), lpModelInfo->m_nAgingTimeMinute);			recipeMsgSet += model_name; // AGING_TIME_MINUTE
-	model_name.Format(_T("AGING_END_WAIT_TIME_MODEL_INFO$%d;"), lpModelInfo->m_nAgingEndWaitTime);		recipeMsgSet += model_name; // AGING_END_WAIT_TIM
-
-	model_name.Format(_T("TEMPERATURE_USE_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureUse);			recipeMsgSet += model_name; // TEMPERATURE_USE
-	model_name.Format(_T("TEMPERATURE_MIN_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMin);			recipeMsgSet += model_name; // TEMPERATURE_MIN
-	model_name.Format(_T("TEMPERATURE_MAX_MODEL_INFO$%d;"), lpModelInfo->m_nOpeTemperatureMax);			recipeMsgSet += model_name; // TEMPERATURE_MAX
-	model_name.Format(_T("DOOR_USE_MODEL_INFO$%d"), lpModelInfo->m_nOpeDoorUse);						recipeMsgSet += model_name; // DOOR_USE
-
-	//model_name.Format(_T("TEMP_ZONE_S1$%f;"), lpInspWorkInfo->m_fTempReadVal[0]);						recipeMsgSet += model_name; // 1ZONE 온도 (S1)
-	//model_name.Format(_T("TEMP_ZONE_S2$%f;"), lpInspWorkInfo->m_fTempReadVal[1]);						recipeMsgSet += model_name; // 1ZONE 온도 (S2)
-	//model_name.Format(_T("TEMP_ZONE_S3$%f;"), lpInspWorkInfo->m_fTempReadVal[2]);						recipeMsgSet += model_name; // 2ZONE 온도 (S3)
-	//model_name.Format(_T("TEMP_ZONE_S4$%f;"), lpInspWorkInfo->m_fTempReadVal[3]);						recipeMsgSet += model_name; // 2ZONE 온도 (S4)
-	//model_name.Format(_T("TEMP_ZONE_S5$%f;"), lpInspWorkInfo->m_fTempReadVal[4]);						recipeMsgSet += model_name; // 3ZONE 온도 (S5)
-	//model_name.Format(_T("TEMP_ZONE_S6$%f;"), lpInspWorkInfo->m_fTempReadVal[5]);						recipeMsgSet += model_name; // 3ZONE 온도 (S6)
-	//model_name.Format(_T("TEMP_ZONE_SET1$%f;"), lpInspWorkInfo->m_fTempReadValST590_2[0]);			recipeMsgSet += model_name; // 1ZONE 메인 컨트롤러 세팅값
-	//model_name.Format(_T("TEMP_ZONE_SET2$%f;"), lpInspWorkInfo->m_fTempReadValST590_2[1]);			recipeMsgSet += model_name; // 2ZONE 메인 컨트롤러 세팅값
-	//model_name.Format(_T("TEMP_ZONE_SET3$%f;"), lpInspWorkInfo->m_fTempReadValST590_2[2]);			recipeMsgSet += model_name; // 3ZONE 메인 컨트롤러 세팅값
+	CString log;
+	log.Format(
+		_T("[RMS] EPPR build success. rack=%d recipeYN=%s recipeNo=%d paramCount=%d keyFile=%s valueFile=%s"),
+		rackNo,
+		recipe_yn.GetString(),
+		replyRecipeNo,
+		paramCount,
+		rackRecipeIniPath.GetString(),
+		valueSourceIniPath.GetString()
+	);
+	m_pApp->Gf_writeRMSLog(log);
 
 	CString reply;
 	reply.Format(
-		_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[%s:%s:[%d]:3:U:%s::[0#[%s]]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID="),
+		_T("EPPR_R ADDR=%s,%s EQP=%s RECIPEINFO=[%s:%s:[%d]:3:U:%s::[0#[%s]]] ESD= ESDINFO=[] SEQ_NO=%s MMC_TXN_ID=%s"),
 		m_strRemoteSubjectRMS,
 		m_strLocalSubjectRMS,
 		m_strEqpRMS,
 		eqp_name.Left(eqp_name.GetLength() - 2),
 		m_strEqpRMS,
-		cur_yn,
-		recipe_yn,
-		recipeMsgSet,
-		seqNo
+		replyRecipeNo,
+		recipe_yn.GetString(),
+		recipeMsgSet.GetString(),
+		seq_no.GetString(),
+		mmc_txn_id.GetString()
 	);
 
 	m_pApp->Gf_writeRMSLog(reply);
 
-	//VARIANT_BOOL ok = pRmsThread->SendTibMessage((_bstr_t)reply);
 	VARIANT_BOOL ok = pRmsThread->SendTibMessageNoWait((_bstr_t)reply);
 	if (ok == VARIANT_FALSE)
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPPR_R send failed"));
@@ -4879,38 +5108,87 @@ void CCimNetCommApi::HandleRmsMsg_EPSC(const CString& msg, ICallRMSClass* pRmsTh
 		return;
 	}
 
+	// 변경된 RMS 폴더 구조 기준
+	// .\RMS\RACK3\RACK3_Parameter.ini
+	// .\RMS\RACK3\RACK3_Recipe.ini
 	CString parameterIniPath = GetRmsRackParameterPath(rackNo);
 	CString rackRecipeIniPath = GetRmsRackRecipePath(rackNo);
 
 	if (command_code == _T("I"))
 	{
 		int paraCount = 0;
-		CString stMsg = BuildEpscSettingInfoFromParameterIni(parameterIniPath, paraCount);
+		CString stMsg;
+		CString errMsg;
 
-		reply.Format(
-			_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[%s] ACK= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
-			m_strRemoteSubjectRMS,
-			m_strLocalSubjectRMS,
-			m_strEqpRMS,
-			machine,
-			unit,
-			system,
-			unit_type,
-			operation_type,
-			command_code,
-			paraCount,
+		// 중요:
+		// 기존 BuildEpscSettingInfoFromParameterIni()는 고정 배열 64개를 기준으로 조회함.
+		// 이제는 RACKn_Recipe.ini에 남아 있는 파라미터만 기준으로 조회해야 함.
+		BOOL buildOk = BuildEpscSettingInfoFromRackFiles(
+			parameterIniPath,
+			rackRecipeIniPath,
 			stMsg,
-			seq_no,
-			mmc_txn_id
+			paraCount,
+			errMsg
 		);
 
-		CString log;
-		log.Format(
-			_T("[EPSC] Rack %d Parameter.ini read: %s"),
-			rackNo,
-			parameterIniPath.GetString()
-		);
-		m_pApp->Gf_writeRMSLog(log);
+		if (buildOk)
+		{
+			reply.Format(
+				_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=%d SETTING_INFO=[%s] ACK=0 ERR_MSG_ENG= ERR_MSG_LOC= SEQ_NO=%s MMC_TXN_ID=%s"),
+				m_strRemoteSubjectRMS,
+				m_strLocalSubjectRMS,
+				m_strEqpRMS,
+				machine,
+				unit,
+				system,
+				unit_type,
+				operation_type,
+				command_code,
+				paraCount,
+				stMsg,
+				seq_no,
+				mmc_txn_id
+			);
+
+			CString log;
+			log.Format(
+				_T("[EPSC] Rack %d read success. parameterFile=%s recipeFile=%s paraCount=%d"),
+				rackNo,
+				parameterIniPath.GetString(),
+				rackRecipeIniPath.GetString(),
+				paraCount
+			);
+			m_pApp->Gf_writeRMSLog(log);
+		}
+		else
+		{
+			reply.Format(
+				_T("EPSC_R ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s SYSTEM=%s UNIT_TYPE=%s OPERATION_TYPE=%s CURRENT_RECIPE_YN= COMMAND_CODE=%s PARACOUNT=0 SETTING_INFO=[] ACK=1 ERR_MSG_ENG=%s ERR_MSG_LOC=%s SEQ_NO=%s MMC_TXN_ID=%s"),
+				m_strRemoteSubjectRMS,
+				m_strLocalSubjectRMS,
+				m_strEqpRMS,
+				machine,
+				unit,
+				system,
+				unit_type,
+				operation_type,
+				command_code,
+				errMsg.GetString(),
+				errMsg.GetString(),
+				seq_no,
+				mmc_txn_id
+			);
+
+			CString log;
+			log.Format(
+				_T("[EPSC] Rack %d read failed. parameterFile=%s recipeFile=%s err=%s"),
+				rackNo,
+				parameterIniPath.GetString(),
+				rackRecipeIniPath.GetString(),
+				errMsg.GetString()
+			);
+			m_pApp->Gf_writeRMSLog(log);
+		}
 	}
 	else if (command_code == _T("S"))
 	{
