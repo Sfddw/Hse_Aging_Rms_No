@@ -3050,6 +3050,10 @@ Send_RETRY:
 			}
 		}
 	}
+	else if (hostCMD == HOST_RMS_EAYT)
+	{
+		nRtnCD = pCimNet->RMS_EAYT();
+	}
 
 	sLog.Format(_T("<HOST_R> %s"), pCimNet->GetHostRecvMessage());
 	Gf_writeMLog(sLog);

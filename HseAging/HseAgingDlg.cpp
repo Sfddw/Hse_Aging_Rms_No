@@ -717,6 +717,10 @@ BOOL CHseAgingDlg::OnInitDialog()
 
 	lpInspWorkInfo->m_nLampColor = 0;
 
+	// RMS EAYT 시간값 초기화
+	m_nLastRmsEaytDate = 0;
+	m_nLastRmsEaytHour = -1;
+
 	// Dialog의 기본 FONT 설정.
 	SendMessageToDescendants(WM_SETFONT, (WPARAM)m_pDefaultFont->GetSafeHandle(), 1, TRUE, FALSE);
 
@@ -739,7 +743,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(2, 1000, NULL);
 	SetTimer(3, 3000, NULL);
 	SetTimer(8, 1000, NULL);
-	//SetTimer(115, 5 * 60 * 1000, NULL);
+	SetTimer(115, 5 * 60 * 1000, NULL); // 5분마다 체크
+	SetTimer(120, 60 * 1000, NULL);   // 1분마다 체크
 
 	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
 
@@ -1708,13 +1713,44 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		}
 	}
 
-	if (nIDEvent == 115)
+	if (nIDEvent == 115) // EWOQ 전송 (5분 주기)
 	{
+		
 		if (m_pApp->m_bIsGmesConnect == FALSE)
 		{
 			return;
 		}
 		m_pApp->Gf_gmesSendHost(HOST_EWOQ, NULL, NULL, NULL);
+	}
+
+	if (nIDEvent == 120) // RMS EAYT 전송: 매일 00:00, 08:00, 16:00
+	{
+		SYSTEMTIME st;
+		::GetLocalTime(&st);   // PC 현재 시간 기준
+
+		// 오늘 날짜를 숫자로 만듦: 20260518
+		int today = st.wYear * 10000 + st.wMonth * 100 + st.wDay;
+
+		// 00시, 08시, 16시 정각 분인지 확인
+		BOOL bTargetTime =
+			(st.wHour == 0 || st.wHour == 8 || st.wHour == 16) &&
+			(st.wMinute == 0);
+
+		if (bTargetTime == FALSE)
+			return;
+
+		// 같은 날짜 + 같은 시간에는 한 번만 전송
+		if (m_nLastRmsEaytDate == today && m_nLastRmsEaytHour == st.wHour)
+			return;
+
+		if (m_pApp->m_blsRmsConnect == FALSE)
+			return;
+
+		m_pApp->Gf_gmesSendHost(HOST_RMS_EAYT, NULL, NULL, NULL);
+
+		// 전송 성공 시점 기록
+		m_nLastRmsEaytDate = today;
+		m_nLastRmsEaytHour = st.wHour;
 	}
 
 	CDialogEx::OnTimer(nIDEvent);
@@ -6509,6 +6545,7 @@ void CHseAgingDlg::OnBnClickedButtonDoor5()
 	//Lf_setDoorOnOff(RACK_5);
 	//Lf_setRecipeMake(1);
 	m_pApp->Gf_gmesSendHost(HOST_EWOQ, NULL, NULL, NULL);
+	
 }
 
 
@@ -6651,6 +6688,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
 		m_pApp->Gf_gmesSendHost(HOST_ERCP, rack, NULL, NULL);
+		
 		
 	}
 	catch (const std::exception& ex)

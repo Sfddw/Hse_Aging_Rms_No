@@ -50,6 +50,7 @@
 #define ECS_MODE_DMOU				0x29
 #define ECS_MODE_ERCP				0x2A
 #define ECS_MODE_RMSO				0x2B
+#define ECS_MODE_RMS_EAYT			0x2C
 
 #define UTC_ZONE_VIETNAM			0x00
 #define UTC_ZONE_CHINA				0x01
@@ -169,6 +170,7 @@ public:
 
 	// ---------------------------------------
 	BOOL ERCP();
+	BOOL RMS_EAYT();
 
 	// ---------------------------------------
 	void SetLocalTest(int nServerType);
@@ -284,7 +286,7 @@ public:
 	ICallRMSClass* rms = nullptr;
 
 	// rack별 연결 상태
-	BOOL m_blsRmsConnect = FALSE;
+	//BOOL m_blsRmsConnect = FALSE;
 
 protected:
 	BOOL	m_bIsGmesLocalTestMode;
@@ -414,6 +416,7 @@ protected:
 	CString m_strERCP;
 	CString m_strUNDO;
 	CString m_strRMSO;
+	CString m_strRMSEAYT;
 
 	CString m_strDefectComCode;
 

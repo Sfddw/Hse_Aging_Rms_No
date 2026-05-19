@@ -2116,7 +2116,7 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 	{
 		if (rms == nullptr)
 		{
-			m_blsRmsConnect = FALSE;
+			m_pApp->m_blsRmsConnect = FALSE;
 			return FALSE;
 		}
 
@@ -2124,7 +2124,7 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 
 		if (resultConnect == VARIANT_TRUE)
 		{
-			m_blsRmsConnect = TRUE;
+			m_pApp->m_blsRmsConnect = TRUE;
 
 			CString sLog;
 			sLog.Format(_T("<RMS> RMS Server Connection Succeeded / %s"),
@@ -2136,7 +2136,7 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 		}
 		else
 		{
-			m_blsRmsConnect = FALSE;
+			m_pApp->m_blsRmsConnect = FALSE;
 
 			CString sLog;
 			sLog.Format(_T("<RMS> RMS Server Connection Fail / %s"),
@@ -2178,7 +2178,7 @@ BOOL CCimNetCommApi::CloseTibRv(int nServerType)
 		VARIANT_BOOL resultDisConnect = rms->Terminate();
 		rms->Release();
 		rms = nullptr;
-		m_blsRmsConnect = FALSE;
+		m_pApp->m_blsRmsConnect = FALSE;
 
 		return (resultDisConnect == VARIANT_TRUE);
 	}
@@ -2516,6 +2516,9 @@ BOOL CCimNetCommApi::MessageSend(int nMode, int rackNo)
 	case ECS_MODE_ERCP:
 		m_strHostSendMessage = m_strERCP;
 		break;
+	case ECS_MODE_RMS_EAYT:
+		m_strHostSendMessage = m_strRMSEAYT;
+		break;
 	default:
 		return RTN_MSG_NOT_SEND;	// 통신 NG
 	}
@@ -2527,7 +2530,7 @@ BOOL CCimNetCommApi::MessageSend(int nMode, int rackNo)
 
 	Sleep(10);
 
-	if (nMode != ECS_MODE_APDR && nMode != ECS_MODE_RMSO && nMode != ECS_MODE_ERCP)
+	if (nMode != ECS_MODE_APDR && nMode != ECS_MODE_RMSO && nMode != ECS_MODE_ERCP && nMode != ECS_MODE_RMS_EAYT)
 	{
 		if (m_pApp->m_bIsGmesConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
@@ -2571,9 +2574,9 @@ BOOL CCimNetCommApi::MessageSend(int nMode, int rackNo)
 
 
 	}
-	else if (nMode == ECS_MODE_RMSO || nMode == ECS_MODE_ERCP)
+	else if (nMode == ECS_MODE_RMSO || nMode == ECS_MODE_ERCP || nMode == ECS_MODE_RMS_EAYT)
 	{
-		if (m_blsRmsConnect == FALSE)
+		if (m_pApp->m_blsRmsConnect == FALSE)
 			return RTN_MSG_NOT_SEND;
 
 		VARIANT_BOOL bRet = rms->SendTibMessage((_bstr_t)m_strHostSendMessage);
@@ -4541,6 +4544,32 @@ BOOL CCimNetCommApi::RMSO()
 	}
 
 	return RTN_OK;	// normal
+}
+
+BOOL CCimNetCommApi::RMS_EAYT()
+{
+	MakeClientTimeString();
+	m_strRMSEAYT.Format(_T("EAYT ADDR=%s EQP=%s MACHINE=%s UNIT= NAME=%s REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		m_strRemoteSubjectRMS,
+		m_strEqpRMS,
+		m_strMachineName,
+		m_strLocalSubjectRMS
+	);
+	BOOL nRetCode = MessageSend(ECS_MODE_RMS_EAYT);
+	if (nRetCode != RTN_OK)
+		return nRetCode;
+
+	CString strMsg;
+	GetFieldData(&strMsg, _T("RTN_CD"));
+	if (strMsg.Compare(_T("0")) != 0)
+		return 3;
+
+	GetFieldData(&strMsg, _T("ERR_CD"));
+	if (strMsg.Compare(_T("0")) != 0)
+		return 3;
+
+	return RTN_OK;
+
 }
 
 struct RMS_RECV_THREAD_PARAM

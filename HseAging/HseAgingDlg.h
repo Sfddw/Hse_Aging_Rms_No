@@ -167,6 +167,9 @@ protected:
 
 	BOOL m_bFwMismatchNotified[MAX_RACK];
 
+	int m_nLastRmsEaytDate;
+	int m_nLastRmsEaytHour;
+
 private:
 	CFont m_Font[FONT_IDX_MAX];
 	CBrush m_Brush[COLOR_IDX_MAX];
