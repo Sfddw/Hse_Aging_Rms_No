@@ -6928,10 +6928,9 @@ BOOL CHseAgingDlg::UpdateRackCurModelIni(int rackNo, int comboCtrlId)
 	if (!GetRecipeNoFromModelText(selectedModel, recipeNo))
 		return FALSE;
 
-	CString srcRecipeIni = GetSharedRecipePathByNo(recipeNo);
+	CString srcRecipeIni = GetRmsRackRecipeFilePath(rackNo, recipeNo);
 	CString rackDir = GetRmsRackDir(rackNo);
 	CString rackCurModelIni = GetRmsRackCurModelPath(rackNo);
-	CString rackRecipeIni = GetRmsRackRecipePath(rackNo);
 
 	if (!EnsureDirectoryExists(rackDir))
 		return FALSE;
@@ -6939,24 +6938,9 @@ BOOL CHseAgingDlg::UpdateRackCurModelIni(int rackNo, int comboCtrlId)
 	if (!FileExistsSimple(srcRecipeIni))
 		return FALSE;
 
-	// 1) 현재 Rack의 CurModel은 실제 value가 있는 Recipe 내용 복사
-	// 예: RMS\Recipe\009.ini -> RMS\RACK1\RACK1_CurModel.ini
+	// 선택된 Recipe 파일을 현재 Rack의 CurModel.ini로 복사
+	// 예: RMS\RACK1\RACK1_Recipe\009.ini -> RMS\RACK1\RACK1_CurModel.ini
 	if (!::CopyFile(srcRecipeIni, rackCurModelIni, FALSE))
-	{
-		DWORD err = ::GetLastError();
-
-		// 필요하면 로그 추가 가능
-		// CString log;
-		// log.Format(_T("[RMS] Copy CurModel failed. rack=%d err=%lu src=%s dst=%s"),
-		// 	rackNo, err, srcRecipeIni.GetString(), rackCurModelIni.GetString());
-		// Gf_writeMLog(log);
-
-		return FALSE;
-	}
-
-	// 2) 현재 Rack의 Recipe는 key만 있고 value는 비운 형태로 생성
-	// 예: RMS\Recipe\009.ini -> RMS\RACK1\RACK1_Recipe.ini
-	if (!BuildEmptyValueRecipeIniFromSource(srcRecipeIni, rackRecipeIni, TRUE))
 	{
 		return FALSE;
 	}

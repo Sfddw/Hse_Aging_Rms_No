@@ -41,6 +41,36 @@ static CString TrimCopy_EPDC(const CString& s)
 	return t;
 }
 
+// EPDC용 삭제 함수 추가/교체
+static BOOL DeleteRackRecipeKey(
+	const CString& rackRecipeIniPath,
+	const CString& paramName,
+	CString& outErrMsg)
+{
+	CString name = paramName;
+	name.Trim();
+
+	if (name.IsEmpty())
+		return TRUE;
+
+	// RACKn_Recipe.ini의 [MODEL_INFO] 안에서 PARAM_NAME= key 삭제
+	if (!::WritePrivateProfileString(
+		_T("MODEL_INFO"),
+		name,
+		NULL,
+		rackRecipeIniPath))
+	{
+		outErrMsg.Format(
+			_T("Delete rack recipe key failed. file=%s section=MODEL_INFO key=%s"),
+			rackRecipeIniPath.GetString(),
+			name.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 // DELETE_INFO 같이 중첩 [] 구조를 통째로 가져오기 위한 전용 함수
 static CString ExtractFieldValueFullBracket_EPDC(const CString& msg, LPCTSTR keyWithEq)
 {
@@ -186,7 +216,8 @@ static BOOL ReadEpscParamNamesFromRackRecipeIni(
 
 	if (!FileExistsSimple(rackRecipeIniPath))
 	{
-		outErrMsg.Format(_T("Rack recipe file not found. file=%s"), rackRecipeIniPath.GetString());
+		outErrMsg.Format(_T("Rack recipe key file not found. file=%s"),
+			rackRecipeIniPath.GetString());
 		return FALSE;
 	}
 
@@ -202,7 +233,8 @@ static BOOL ReadEpscParamNamesFromRackRecipeIni(
 
 	if (read == 0)
 	{
-		outErrMsg.Format(_T("MODEL_INFO section is empty. file=%s"), rackRecipeIniPath.GetString());
+		outErrMsg.Format(_T("MODEL_INFO section is empty. file=%s"),
+			rackRecipeIniPath.GetString());
 		return FALSE;
 	}
 
@@ -377,13 +409,15 @@ static BOOL BuildEpscSettingInfoFromRackFiles(
 
 	if (!FileExistsSimple(rackParameterIniPath))
 	{
-		outErrMsg.Format(_T("Rack parameter file not found. file=%s"), rackParameterIniPath.GetString());
+		outErrMsg.Format(_T("Rack parameter file not found. file=%s"),
+			rackParameterIniPath.GetString());
 		return FALSE;
 	}
 
 	if (!FileExistsSimple(rackRecipeIniPath))
 	{
-		outErrMsg.Format(_T("Rack recipe file not found. file=%s"), rackRecipeIniPath.GetString());
+		outErrMsg.Format(_T("Rack recipe key file not found. file=%s"),
+			rackRecipeIniPath.GetString());
 		return FALSE;
 	}
 
@@ -400,16 +434,15 @@ static BOOL BuildEpscSettingInfoFromRackFiles(
 		if (paramName.IsEmpty())
 			continue;
 
-		// RACKn_Recipe.ini에는 있는데 RACKn_Parameter.ini에 섹션이 없으면 응답에서 제외
-		// S 메시지로 정상 추가된 항목이면 두 파일에 모두 존재해야 함
+		// RACKn_Recipe.ini에는 있는데 RACKn_Parameter.ini에 섹션이 없으면 제외
 		if (!IniSectionExistsSimple(rackParameterIniPath, paramName))
 			continue;
 
 		AppendEpscSettingItemFromIni(
 			outSettingInfo,
 			rackParameterIniPath,
-			paramName,  // 표시 이름
-			paramName   // ini section 이름
+			paramName,
+			paramName
 		);
 
 		outParaCount++;
@@ -784,6 +817,7 @@ static BOOL ApplyEpdcDeleteInfoToRackFiles(
 			continue;
 
 		// 1) RACKn_Parameter.ini에서 [PARAM_NAME] 섹션 전체 삭제
+		// 예: [DIMMING_SEL] 전체 삭제
 		if (!::WritePrivateProfileString(
 			paramName,
 			NULL,
@@ -800,18 +834,17 @@ static BOOL ApplyEpdcDeleteInfoToRackFiles(
 
 		outDeletedCount++;
 
-		// 2) RACKn_Recipe.ini에서 [MODEL_INFO] 안의 PARAM_NAME key 삭제
-		int recipeDeletedCount = 0;
-		if (!DeleteParameterFromRackRecipeIni(
+		// 2) RACKn_Recipe.ini의 [MODEL_INFO]에서 PARAM_NAME= key 삭제
+		// 예: DIMMING_SEL= 삭제
+		if (!DeleteRackRecipeKey(
 			rackRecipeIniPath,
 			paramName,
-			recipeDeletedCount,
 			outErrMsg))
 		{
 			return FALSE;
 		}
 
-		outDeletedCount += recipeDeletedCount;
+		outDeletedCount++;
 	}
 
 	return TRUE;
@@ -980,22 +1013,19 @@ static BOOL EnsureRackRecipeParameterKey(
 	if (name.IsEmpty())
 		return TRUE;
 
-	// 파일이 없으면 [MODEL_INFO]만 가진 파일로 생성
 	if (!FileExistsSimple(rackRecipeIniPath))
 	{
 		if (!EnsureTextFileExists(rackRecipeIniPath, _T("[MODEL_INFO]\n")))
 		{
-			outErrMsg.Format(_T("Create rack recipe file failed. file=%s"),
+			outErrMsg.Format(_T("Create rack recipe key file failed. file=%s"),
 				rackRecipeIniPath.GetString());
 			return FALSE;
 		}
 	}
 
-	// 이미 있으면 그대로 둠
 	if (IniKeyExistsSimple(rackRecipeIniPath, _T("MODEL_INFO"), name))
 		return TRUE;
 
-	// 없으면 PARAM_NAME= 형태로 추가
 	if (!::WritePrivateProfileString(
 		_T("MODEL_INFO"),
 		name,
@@ -1003,7 +1033,7 @@ static BOOL EnsureRackRecipeParameterKey(
 		rackRecipeIniPath))
 	{
 		outErrMsg.Format(
-			_T("Add recipe parameter failed. file=%s key=%s"),
+			_T("Add rack recipe key failed. file=%s key=%s"),
 			rackRecipeIniPath.GetString(),
 			name.GetString()
 		);
@@ -1028,7 +1058,6 @@ static BOOL ApplyEpscSettingInfoToRackFiles(
 	if (!ParseEpscSettingInfoForUpsert(settingInfoRaw, params, outErrMsg))
 		return FALSE;
 
-	// 파일이 없으면 최소 파일 생성
 	if (!FileExistsSimple(rackParameterIniPath))
 	{
 		if (!EnsureTextFileExists(rackParameterIniPath, _T("")))
@@ -1043,7 +1072,7 @@ static BOOL ApplyEpscSettingInfoToRackFiles(
 	{
 		if (!EnsureTextFileExists(rackRecipeIniPath, _T("[MODEL_INFO]\n")))
 		{
-			outErrMsg.Format(_T("Create rack recipe file failed. file=%s"),
+			outErrMsg.Format(_T("Create rack recipe key file failed. file=%s"),
 				rackRecipeIniPath.GetString());
 			return FALSE;
 		}
@@ -1057,11 +1086,11 @@ static BOOL ApplyEpscSettingInfoToRackFiles(
 		if (paramName.IsEmpty())
 			continue;
 
-		// 1) RACKn_Recipe.ini에 PARAM_NAME= 없으면 추가
+		// 1) RACKn_Recipe.ini의 [MODEL_INFO]에 PARAM_NAME= 추가
 		if (!EnsureRackRecipeParameterKey(rackRecipeIniPath, paramName, outErrMsg))
 			return FALSE;
 
-		// 2) RACKn_Parameter.ini의 [PARAM_NAME] 아래 소항목 추가/수정
+		// 2) RACKn_Parameter.ini의 [PARAM_NAME] 섹션에 하위 key/value 추가 또는 수정
 		for (size_t j = 0; j < params[i].subItems.size(); ++j)
 		{
 			CString key = params[i].subItems[j].key;
@@ -4880,7 +4909,11 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	lpSystemInfo = m_pApp->GetSystemInfo();
 	eqp_name = lpSystemInfo->m_sEqpName;
 
+	// 파라미터 목록 기준 파일
+	// 예: .\RMS\RACK5\RACK5_Recipe.ini
 	CString rackRecipeIniPath = GetRmsRackRecipePath(rackNo);
+
+	// 값을 읽을 source 파일
 	CString valueSourceIniPath;
 
 	int replyRecipeNo = 0;
@@ -4888,15 +4921,29 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	if (recipe_yn.CompareNoCase(_T("Y")) == 0)
 	{
 		// CURRENT_RECIPE_YN=Y
-		// 값은 RACKn_CurModel.ini에서 읽음
+		// 값은 현재 Rack의 CurModel.ini에서 읽음
+		// 예: .\RMS\RACK5\RACK5_CurModel.ini
 		valueSourceIniPath = GetRmsRackCurModelPath(rackNo);
 
 		replyRecipeNo = ReadRecipeNoFromModelInfoIni(valueSourceIniPath);
+
+		if (replyRecipeNo <= 0)
+		{
+			CString log;
+			log.Format(
+				_T("[RMS] EPPR current recipe number not found. rack=%d curModel=%s"),
+				rackNo,
+				valueSourceIniPath.GetString()
+			);
+			m_pApp->Gf_writeRMSLog(log);
+
+			replyRecipeNo = 0;
+		}
 	}
 	else if (recipe_yn.CompareNoCase(_T("N")) == 0)
 	{
 		// CURRENT_RECIPE_YN=N
-		// RECIPE=4 → RMS\Recipe\004.ini에서 값 읽음
+		// RECIPE=4 → .\RMS\RACK5\RACK5_Recipe\004.ini에서 값 읽음
 		replyRecipeNo = _ttoi(recipe);
 
 		if (replyRecipeNo <= 0)
@@ -4918,7 +4965,7 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 			return;
 		}
 
-		valueSourceIniPath = GetSharedRecipePathByNo(replyRecipeNo);
+		valueSourceIniPath = GetRmsRackRecipeFilePath(rackNo, replyRecipeNo);
 	}
 	else
 	{
@@ -4943,6 +4990,9 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	int paramCount = 0;
 	CString errMsg;
 
+	// 핵심:
+	// rackRecipeIniPath의 [MODEL_INFO] key 목록만 기준으로 삼고,
+	// valueSourceIniPath에서 같은 key의 value를 읽어서 recipeMsgSet 생성
 	BOOL bBuildOk = BuildEpprRecipeMsgSetFromIni(
 		rackRecipeIniPath,
 		valueSourceIniPath,
@@ -4955,7 +5005,7 @@ void CCimNetCommApi::HandleRmsMsg_EPPR(const CString& msg, ICallRMSClass* pRmsTh
 	{
 		CString log;
 		log.Format(
-			_T("[RMS] EPPR build failed. rack=%d rackRecipe=%s valueSource=%s err=%s"),
+			_T("[RMS] EPPR build failed. rack=%d rackRecipeKeyFile=%s valueSource=%s err=%s"),
 			rackNo,
 			rackRecipeIniPath.GetString(),
 			valueSourceIniPath.GetString(),
