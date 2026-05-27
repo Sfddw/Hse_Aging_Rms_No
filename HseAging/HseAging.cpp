@@ -168,6 +168,63 @@ BOOL CHseAgingApp::InitInstance()
 	return FALSE;
 }
 
+/// ## W/O 리스트 담는 함수
+static CString ExtractBracketFieldValue(const CString& msg, LPCTSTR fieldName)
+{
+	CString key;
+	key.Format(_T("%s=["), fieldName);
+
+	int start = msg.Find(key);
+	if (start < 0)
+		return _T("");
+
+	start += key.GetLength();
+
+	int end = msg.Find(_T("]"), start);
+	if (end < 0)
+		return _T("");
+
+	return msg.Mid(start, end - start);
+}
+
+static void SplitStringKeepEmpty(const CString& text, TCHAR delimiter, CStringArray& outArray)
+{
+	outArray.RemoveAll();
+
+	int start = 0;
+
+	while (start <= text.GetLength())
+	{
+		int pos = text.Find(delimiter, start);
+
+		if (pos < 0)
+		{
+			CString token = text.Mid(start);
+			token.Trim();
+			outArray.Add(token);
+			break;
+		}
+
+		CString token = text.Mid(start, pos - start);
+		token.Trim();
+		outArray.Add(token);
+
+		start = pos + 1;
+	}
+}
+
+static CString GetBeforeDash(const CString& text)
+{
+	CString result = text;
+	result.Trim();
+
+	int dash = result.Find(_T('-'));
+	if (dash >= 0)
+		result = result.Left(dash);
+
+	result.Trim();
+	return result;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1630,130 +1687,6 @@ void CHseAgingApp::Gf_loadModelData(CString modelName)
 }
 
 /// <summary>
-/// recipe make 버튼 눌렀을 시 rack1 ~ rack6에 선택된 모델 정보들 데이터화
-/// </summary>
-/// <param name="modelName"></param>
-/// <param name="rack"></param>
-void CHseAgingApp::Gf_loadRecipeIniData(CString modelName, int rack)
-{
-	CString sdata;
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Model Num
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("MODEl_NUMBER"), &lpModelInfo->r_nModelNumber[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Timing Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_MAIN_CLOCK"), &lpModelInfo->r_fTimingMainClock[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_TOTAL"), &lpModelInfo->r_nTimingHorTotal[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_ACTIVE"), &lpModelInfo->r_nTimingHorActive[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_WIDTH"), &lpModelInfo->r_nTimingHorWidth[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_BACKPORCH"), &lpModelInfo->r_nTimingHorBP[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_HOR_FRONTPORCH"), &lpModelInfo->r_nTimingHorFP[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_TOTAL"), &lpModelInfo->r_nTimingVerTotal[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_ACTIVE"), &lpModelInfo->r_nTimingVerActive[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_WIDTH"), &lpModelInfo->r_nTimingVerWidth[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_BACKPORCH"), &lpModelInfo->r_nTimingVerBP[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TIMING_VER_FRONTPORCH"), &lpModelInfo->r_nTimingVerFP[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// LCM Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("LCM_SIGNAL_TYPE"), &lpModelInfo->r_nLcmSignalType[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("LCM_PIXEL_TYPE"), &lpModelInfo->r_nLcmPixelType[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("LCM_ODD_EVEN"), &lpModelInfo->r_nLcmOddEven[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("LCM_SIGNAL_BIT"), &lpModelInfo->r_nLcmSignalBit[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("LCM_BIT_SWAP"), &lpModelInfo->r_nLcmBitSwap[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("LCM_LVDS_RS_SEL"), &lpModelInfo->r_nLcmLvdsRsSel[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Inverter & PWM Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("DIMMING_SEL"), &lpModelInfo->r_nDimmingSel[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("PWM_FREQ"), &lpModelInfo->r_nPwmFreq[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("PWM_DUTY"), &lpModelInfo->r_nPwmDuty[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBR_VOLT"), &lpModelInfo->r_fVbrVolt[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Function Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("CABLE_OPEN"), &lpModelInfo->r_nFuncCableOpen[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Power Sequence Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ1"), &lpModelInfo->r_nPowerOnSeq1[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ2"), &lpModelInfo->r_nPowerOnSeq2[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ3"), &lpModelInfo->r_nPowerOnSeq3[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ4"), &lpModelInfo->r_nPowerOnSeq4[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ5"), &lpModelInfo->r_nPowerOnSeq5[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ6"), &lpModelInfo->r_nPowerOnSeq6[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ7"), &lpModelInfo->r_nPowerOnSeq7[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ8"), &lpModelInfo->r_nPowerOnSeq8[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ9"), &lpModelInfo->r_nPowerOnSeq9[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ10"), &lpModelInfo->r_nPowerOnSeq10[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_SEQ11"), &lpModelInfo->r_nPowerOnSeq11[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY1"), &lpModelInfo->r_nPowerOnDelay1[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY2"), &lpModelInfo->r_nPowerOnDelay2[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY3"), &lpModelInfo->r_nPowerOnDelay3[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY4"), &lpModelInfo->r_nPowerOnDelay4[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY5"), &lpModelInfo->r_nPowerOnDelay5[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY6"), &lpModelInfo->r_nPowerOnDelay6[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY7"), &lpModelInfo->r_nPowerOnDelay7[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY8"), &lpModelInfo->r_nPowerOnDelay8[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY9"), &lpModelInfo->r_nPowerOnDelay9[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_ON_DELAY10"), &lpModelInfo->r_nPowerOnDelay10[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ1"), &lpModelInfo->r_nPowerOffSeq1[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ2"), &lpModelInfo->r_nPowerOffSeq2[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ3"), &lpModelInfo->r_nPowerOffSeq3[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ4"), &lpModelInfo->r_nPowerOffSeq4[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ5"), &lpModelInfo->r_nPowerOffSeq5[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ6"), &lpModelInfo->r_nPowerOffSeq6[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ7"), &lpModelInfo->r_nPowerOffSeq7[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ8"), &lpModelInfo->r_nPowerOffSeq8[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ9"), &lpModelInfo->r_nPowerOffSeq9[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ10"), &lpModelInfo->r_nPowerOffSeq10[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_SEQ11"), &lpModelInfo->r_nPowerOffSeq11[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY1"), &lpModelInfo->r_nPowerOffDelay1[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY2"), &lpModelInfo->r_nPowerOffDelay2[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY3"), &lpModelInfo->r_nPowerOffDelay3[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY4"), &lpModelInfo->r_nPowerOffDelay4[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY5"), &lpModelInfo->r_nPowerOffDelay5[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY6"), &lpModelInfo->r_nPowerOffDelay6[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY7"), &lpModelInfo->r_nPowerOffDelay7[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY8"), &lpModelInfo->r_nPowerOffDelay8[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY9"), &lpModelInfo->r_nPowerOffDelay9[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY10"), &lpModelInfo->r_nPowerOffDelay10[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("POWER_OFF_DELAY"), &lpModelInfo->r_nPowerOffDelay[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Power Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VCC_VOLT"), &lpModelInfo->r_fVccVolt[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VCC_VOLT_OFFSET"), &lpModelInfo->r_fVccVoltOffset[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_VOLT_LOW"), &lpModelInfo->r_fVccLimitVoltLow[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_VOLT_HIGH"), &lpModelInfo->r_fVccLimitVoltHigh[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_CURR_LOW"), &lpModelInfo->r_fVccLimitCurrLow[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VCC_LIMIT_CURR_HIGH"), &lpModelInfo->r_fVccLimitCurrHigh[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBL_VOLT"), &lpModelInfo->r_fVblVolt[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBL_VOLT_OFFSET"), &lpModelInfo->r_fVblVoltOffset[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_VOLT_LOW"), &lpModelInfo->r_fVblLimitVoltLow[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_VOLT_HIGH"), &lpModelInfo->r_fVblLimitVoltHigh[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_LOW"), &lpModelInfo->r_fVblLimitCurrLow[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("VBL_LIMIT_CURR_HIGH"), &lpModelInfo->r_fVblLimitCurrHigh[rack]);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Aging Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("AGING_TIME_HH"), &lpModelInfo->r_nAgingTimeHH[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("AGING_TIME_MM"), &lpModelInfo->r_nAgingTimeMM[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &lpModelInfo->r_nAgingTimeMinute[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("AGING_END_WAIT_TIME"), &sdata);
-	if (sdata.GetLength() == 0)		lpModelInfo->r_nAgingEndWaitTime[rack] = 5;
-	else							lpModelInfo->r_nAgingEndWaitTime[rack] = _ttoi(sdata);
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Operation Set
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TEMPERATURE_USE"), &lpModelInfo->r_nOpeTemperatureUse[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TEMPERATURE_MIN"), &lpModelInfo->r_nOpeTemperatureMin[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("TEMPERATURE_MAX"), &lpModelInfo->r_nOpeTemperatureMax[rack]);
-	Read_ModelFile(modelName, _T("MODEL_INFO"), _T("DOOR_USE"), &lpModelInfo->r_nOpeDoorUse[rack]);
-}
-
-/// <summary>
 /// 데이터화 된 정보들 ini 파일로 쓰기
 /// </summary>
 /// <param name="recipeFileName"></param>
@@ -2929,6 +2862,37 @@ Send_RETRY:
 	else if (hostCMD == HOST_EWOQ)
 	{
 		nRtnCD = pCimNet->EWOQ();
+
+		CString EWOQ_R;
+		EWOQ_R.Format(_T("%s"), pCimNet->GetHostRecvMessage());
+
+		ParseEwoqPlanInfoToLists(EWOQ_R);
+
+		// 확인용 로그
+		for (int i = 0; i < Wo_BaseModel_List.GetCount(); i++)
+		{
+			CString log;
+			log.Format(
+				_T("[EWOQ] idx=%d BaseModel=%s Model=%s"),
+				i,
+				Wo_BaseModel_List.GetAt(i).GetString(),
+				(i < Wo_Model_List.GetCount()) ? Wo_Model_List.GetAt(i).GetString() : _T("")
+			);
+
+			//m_pApp->Gf_writeMLog(log);
+		}
+
+		for (int i = 0; i < Wo_TopModel_List.GetCount(); i++)
+		{
+			CString log;
+			log.Format(
+				_T("[EWOQ] idx=%d TopModel=%s"),
+				i,
+				Wo_TopModel_List.GetAt(i).GetString()
+			);
+
+			//m_pApp->Gf_writeMLog(log);
+		}
 	}
 	else if (hostCMD == HOST_EICR)
 	{
@@ -3118,4 +3082,95 @@ BOOL CHseAgingApp::Gf_initTempRecorder()
 	return bRet;
 }
 
+/// EWOQ 메시지 받아서 W/O 리스트로 담기
+void CHseAgingApp::ParseEwoqPlanInfoToLists(const CString& ewoqMsg)
+{
+	Wo_BaseModel_List.RemoveAll();
+	Wo_Model_List.RemoveAll();
+	Wo_TopModel_List.RemoveAll();
+
+	CString planInfo = ExtractBracketFieldValue(ewoqMsg, _T("PLAN_INFO"));
+	CString topModelInfo = ExtractBracketFieldValue(ewoqMsg, _T("TOP_MODEL_INFO"));
+
+	// -----------------------------
+	// 1) PLAN_INFO 파싱
+	// -----------------------------
+	CStringArray planItems;
+	SplitStringKeepEmpty(planInfo, _T(','), planItems);
+
+	for (int i = 0; i < planItems.GetCount(); i++)
+	{
+		CString item = planItems.GetAt(i);
+		item.Trim();
+
+		if (item.IsEmpty())
+			continue;
+
+		CStringArray fields;
+		SplitStringKeepEmpty(item, _T(':'), fields);
+
+		// 예:
+		// [0] 262CM000T-FA02
+		// [1] COMPLETE
+		// [2] LP160WU3-SPH2-KH1-S
+		// ...
+		// [9] 6060L-8070B
+
+		if (fields.GetCount() >= 3)
+		{
+			CString baseModel = fields.GetAt(2);
+			baseModel.Trim();
+
+			Wo_BaseModel_List.Add(baseModel);
+		}
+		else
+		{
+			Wo_BaseModel_List.Add(_T(""));
+		}
+
+		if (fields.GetCount() >= 1)
+		{
+			CString model = fields.GetAt(fields.GetCount() - 1);
+			model.Trim();
+
+			Wo_Model_List.Add(model);
+		}
+		else
+		{
+			Wo_Model_List.Add(_T(""));
+		}
+	}
+
+	// -----------------------------
+	// 2) TOP_MODEL_INFO 파싱
+	// -----------------------------
+	CStringArray topItems;
+	SplitStringKeepEmpty(topModelInfo, _T(','), topItems);
+
+	for (int i = 0; i < topItems.GetCount(); i++)
+	{
+		CString item = topItems.GetAt(i);
+		item.Trim();
+
+		if (item.IsEmpty())
+			continue;
+
+		CStringArray fields;
+		SplitStringKeepEmpty(item, _T(':'), fields);
+
+		// 예:
+		// [0] 262CM000T-FA02
+		// [1] LP160WU3-SPH2-KH1-S
+
+		if (fields.GetCount() >= 1)
+		{
+			CString topModel = GetBeforeDash(fields.GetAt(0));
+			Wo_TopModel_List.Add(topModel);
+		}
+		else
+		{
+			Wo_TopModel_List.Add(_T(""));
+		}
+	}
+}
 

@@ -601,6 +601,7 @@
 #define IDC_EDT_MI_VER_TOTAL            1453
 #define IDC_STT_MA_VBL_S2_CH14          1454
 #define IDC_EDT_MI_VER_ACTIVE           1454
+#define IDC_LST_MA_MLOG_RACK7           1454
 #define IDC_STT_MA_VBL_S2_CH15          1455
 #define IDC_EDT_MI_VER_WIDTH            1455
 #define IDC_STT_MA_VBL_S2_CH16          1456
@@ -1708,6 +1709,7 @@
 #define IDC_MBC_PI_PID_CLEAR            2162
 #define IDC_LIST2                       2163
 #define IDC_LST_PI_MES_MESSAGE          2163
+#define IDC_LST_MA_WOLOG                2163
 #define IDC_STT_PI_RIGHT_SIDE           2164
 #define IDC_MBC_PI_MES_DSPM             2165
 #define IDC_MBC_PI_CH_ALL_SELECT        2165
@@ -2082,7 +2084,6 @@
 #define IDC_MBC_PI_LCM_OFF              2441
 #define IDC_GRP_PI_LCM_TEST             2442
 #define IDC_DUMMY_FOCUS                 2443
-#define IDC_EDIT1                       2444
 #define IDC_CONNECT_STATE               2444
 
 // Next default values for new objects
@@ -2091,7 +2092,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        191
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2445
+#define _APS_NEXT_CONTROL_VALUE         2446
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -743,7 +743,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(2, 1000, NULL);
 	SetTimer(3, 3000, NULL);
 	SetTimer(8, 1000, NULL);
-	SetTimer(115, 5 * 60 * 1000, NULL); // 5분마다 체크
+	//SetTimer(115, 5 * 60 * 1000, NULL); // 5분마다 체크
+	SetTimer(115, 60 * 60 * 1000, NULL); // 1시간마다 체크
 	SetTimer(120, 60 * 1000, NULL);   // 1분마다 체크
 
 	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
@@ -6595,106 +6596,234 @@ void CHseAgingDlg::Lf_AgingProgressLog()
 	}
 }
 
-void CHseAgingDlg::Lf_rmsErcpSet(int rack)
+// ERCP 파라미터 매핑 구조체
+struct ERCP_PARAM_MAP
 {
-	CString ErcpDataSet, setPW, ErcpMessageSet;
-	CString rackKeys[] = {
-	_T("RACK1_BCR_ID"),
-	_T("RACK2_BCR_ID"),
-	_T("RACK3_BCR_ID"),
-	_T("RACK4_BCR_ID"),
-	_T("RACK5_BCR_ID"),
-	_T("RACK6_BCR_ID")
+	LPCTSTR sendName;   // RMS로 보낼 파라미터명
+	LPCTSTR iniKey;     // Model ini에서 읽을 key
+	BOOL bUseEqpPrefix; // TRUE면 EQP_SUFFIX_PARAM_MODEL_INFO 형태
+};
+
+// Model ini 값 읽기
+static CString ReadModelInfoValueForErcp(const CString& modelName, LPCTSTR iniKey)
+{
+	CString modelPath;
+	modelPath.Format(_T(".\\Model\\%s.ini"), modelName.GetString());
+
+	TCHAR value[512] = { 0 };
+
+	::GetPrivateProfileString(
+		_T("MODEL_INFO"),
+		iniKey,
+		_T(""),
+		value,
+		_countof(value),
+		modelPath
+	);
+
+	CString ret = value;
+	ret.Trim();
+
+	return ret;
+}
+
+// ERCP 메시지 세트 생성 함수
+static BOOL BuildErcpMessageSetFromModelIni(
+	const CString& modelName,
+	const CString& eqpSuffix,
+	CString& outErcpMessageSet)
+{
+	outErcpMessageSet.Empty();
+
+	static const ERCP_PARAM_MAP kErcpParams[] =
+	{
+		// sendName,                 iniKey,                   bUseEqpPrefix
+
+		// 기존 코드 방식 유지: MODEL_NB는 prefix 없이 MODEL_NB#value^ 형태
+		// 만약 RMS 엑셀에서 MODEL_NB_MODEL_INFO 형태를 요구하면 아래 sendName을 MODEL_NB_MODEL_INFO로 바꾸고 bUseEqpPrefix를 TRUE로 바꾸면 됨.
+		{ _T("MODEL_NB"),            _T("MODEL_NB"),            FALSE },
+
+		{ _T("DIMMING_SEL_MODEL_INFO"),        _T("DIMMING_SEL"),        TRUE },
+		{ _T("PWM_FREQ_MODEL_INFO"),           _T("PWM_FREQ"),           TRUE },
+		{ _T("PWM_DUTY_MODEL_INFO"),           _T("PWM_DUTY"),           TRUE },
+		{ _T("VBR_VOLT_MODEL_INFO"),           _T("VBR_VOLT"),           TRUE },
+		{ _T("CABLE_OPEN_MODEL_INFO"),         _T("CABLE_OPEN"),         TRUE },
+
+		{ _T("POWER_ON_SEQ1_MODEL_INFO"),      _T("POWER_ON_SEQ1"),      TRUE },
+		{ _T("POWER_ON_SEQ2_MODEL_INFO"),      _T("POWER_ON_SEQ2"),      TRUE },
+		{ _T("POWER_ON_SEQ3_MODEL_INFO"),      _T("POWER_ON_SEQ3"),      TRUE },
+		{ _T("POWER_ON_SEQ4_MODEL_INFO"),      _T("POWER_ON_SEQ4"),      TRUE },
+		{ _T("POWER_ON_SEQ5_MODEL_INFO"),      _T("POWER_ON_SEQ5"),      TRUE },
+		{ _T("POWER_ON_SEQ6_MODEL_INFO"),      _T("POWER_ON_SEQ6"),      TRUE },
+		{ _T("POWER_ON_SEQ7_MODEL_INFO"),      _T("POWER_ON_SEQ7"),      TRUE },
+		{ _T("POWER_ON_SEQ8_MODEL_INFO"),      _T("POWER_ON_SEQ8"),      TRUE },
+		{ _T("POWER_ON_SEQ9_MODEL_INFO"),      _T("POWER_ON_SEQ9"),      TRUE },
+		{ _T("POWER_ON_SEQ10_MODEL_INFO"),     _T("POWER_ON_SEQ10"),     TRUE },
+
+		{ _T("POWER_ON_DELAY1_MODEL_INFO"),    _T("POWER_ON_DELAY1"),    TRUE },
+		{ _T("POWER_ON_DELAY2_MODEL_INFO"),    _T("POWER_ON_DELAY2"),    TRUE },
+		{ _T("POWER_ON_DELAY3_MODEL_INFO"),    _T("POWER_ON_DELAY3"),    TRUE },
+		{ _T("POWER_ON_DELAY4_MODEL_INFO"),    _T("POWER_ON_DELAY4"),    TRUE },
+		{ _T("POWER_ON_DELAY5_MODEL_INFO"),    _T("POWER_ON_DELAY5"),    TRUE },
+		{ _T("POWER_ON_DELAY6_MODEL_INFO"),    _T("POWER_ON_DELAY6"),    TRUE },
+		{ _T("POWER_ON_DELAY7_MODEL_INFO"),    _T("POWER_ON_DELAY7"),    TRUE },
+		{ _T("POWER_ON_DELAY8_MODEL_INFO"),    _T("POWER_ON_DELAY8"),    TRUE },
+		{ _T("POWER_ON_DELAY9_MODEL_INFO"),    _T("POWER_ON_DELAY9"),    TRUE },
+
+		{ _T("POWER_OFF_SEQ1_MODEL_INFO"),     _T("POWER_OFF_SEQ1"),     TRUE },
+		{ _T("POWER_OFF_SEQ2_MODEL_INFO"),     _T("POWER_OFF_SEQ2"),     TRUE },
+		{ _T("POWER_OFF_SEQ3_MODEL_INFO"),     _T("POWER_OFF_SEQ3"),     TRUE },
+		{ _T("POWER_OFF_SEQ4_MODEL_INFO"),     _T("POWER_OFF_SEQ4"),     TRUE },
+		{ _T("POWER_OFF_SEQ5_MODEL_INFO"),     _T("POWER_OFF_SEQ5"),     TRUE },
+		{ _T("POWER_OFF_SEQ6_MODEL_INFO"),     _T("POWER_OFF_SEQ6"),     TRUE },
+		{ _T("POWER_OFF_SEQ7_MODEL_INFO"),     _T("POWER_OFF_SEQ7"),     TRUE },
+		{ _T("POWER_OFF_SEQ8_MODEL_INFO"),     _T("POWER_OFF_SEQ8"),     TRUE },
+		{ _T("POWER_OFF_SEQ9_MODEL_INFO"),     _T("POWER_OFF_SEQ9"),     TRUE },
+		{ _T("POWER_OFF_SEQ10_MODEL_INFO"),    _T("POWER_OFF_SEQ10"),    TRUE },
+
+		{ _T("POWER_OFF_DELAY1_MODEL_INFO"),   _T("POWER_OFF_DELAY1"),   TRUE },
+		{ _T("POWER_OFF_DELAY2_MODEL_INFO"),   _T("POWER_OFF_DELAY2"),   TRUE },
+		{ _T("POWER_OFF_DELAY3_MODEL_INFO"),   _T("POWER_OFF_DELAY3"),   TRUE },
+		{ _T("POWER_OFF_DELAY4_MODEL_INFO"),   _T("POWER_OFF_DELAY4"),   TRUE },
+		{ _T("POWER_OFF_DELAY5_MODEL_INFO"),   _T("POWER_OFF_DELAY5"),   TRUE },
+		{ _T("POWER_OFF_DELAY6_MODEL_INFO"),   _T("POWER_OFF_DELAY6"),   TRUE },
+		{ _T("POWER_OFF_DELAY7_MODEL_INFO"),   _T("POWER_OFF_DELAY7"),   TRUE },
+		{ _T("POWER_OFF_DELAY8_MODEL_INFO"),   _T("POWER_OFF_DELAY8"),   TRUE },
+		{ _T("POWER_OFF_DELAY9_MODEL_INFO"),   _T("POWER_OFF_DELAY9"),   TRUE },
+
+		{ _T("VCC_VOLT_MODEL_INFO"),           _T("VCC_VOLT"),           TRUE },
+		{ _T("VCC_VOLT_OFFSET_MODEL_INFO"),    _T("VCC_VOLT_OFFSET"),    TRUE },
+		{ _T("VCC_LIMIT_VOLT_LOW_MODEL_INFO"), _T("VCC_LIMIT_VOLT_LOW"), TRUE },
+		{ _T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO"),_T("VCC_LIMIT_VOLT_HIGH"),TRUE },
+		{ _T("VCC_LIMIT_CURR_LOW_MODEL_INFO"), _T("VCC_LIMIT_CURR_LOW"), TRUE },
+		{ _T("VCC_LIMIT_CURR_HIGH_MODEL_INFO"),_T("VCC_LIMIT_CURR_HIGH"),TRUE },
+
+		{ _T("VBL_VOLT_MODEL_INFO"),           _T("VBL_VOLT"),           TRUE },
+
+		// 기존 하드코딩 코드에서는 송신명이 VBL_OFFSET_MODEL_INFO였고,
+		// ini key는 VBL_VOLT_OFFSET임.
+		{ _T("VBL_OFFSET_MODEL_INFO"),         _T("VBL_VOLT_OFFSET"),    TRUE },
+
+		{ _T("VBL_LIMIT_VOLT_LOW_MODEL_INFO"), _T("VBL_LIMIT_VOLT_LOW"), TRUE },
+		{ _T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO"),_T("VBL_LIMIT_VOLT_HIGH"),TRUE },
+		{ _T("VBL_LIMIT_CURR_LOW_MODEL_INFO"), _T("VBL_LIMIT_CURR_LOW"), TRUE },
+		{ _T("VBL_LIMIT_CURR_HIGH_MODEL_INFO"),_T("VBL_LIMIT_CURR_HIGH"),TRUE },
+
+		{ _T("AGING_TIME_HH_MODEL_INFO"),      _T("AGING_TIME_HH"),      TRUE },
+		{ _T("AGING_TIME_MM_MODEL_INFO"),      _T("AGING_TIME_MM"),      TRUE },
+		{ _T("AGING_TIME_MINUTE_MODEL_INFO"),  _T("AGING_TIME_MINUTE"),  TRUE },
+		{ _T("AGING_END_WAIT_TIME_MODEL_INFO"),_T("AGING_END_WAIT_TIME"),TRUE },
+
+		{ _T("TEMPERATURE_USE_MODEL_INFO"),    _T("TEMPERATURE_USE"),    TRUE },
+		{ _T("TEMPERATURE_MIN_MODEL_INFO"),    _T("TEMPERATURE_MIN"),    TRUE },
+		{ _T("TEMPERATURE_MAX_MODEL_INFO"),    _T("TEMPERATURE_MAX"),    TRUE },
+		{ _T("DOOR_USE_MODEL_INFO"),           _T("DOOR_USE"),           TRUE }
 	};
 
+	for (int i = 0; i < _countof(kErcpParams); i++)
+	{
+		CString value = ReadModelInfoValueForErcp(modelName, kErcpParams[i].iniKey);
 
-	try {
-		ErcpDataSet.Format(_T("MODEL_NB#%d^"), lpModelInfo->m_nModelNumber);																	ErcpMessageSet += ErcpDataSet; // Model Number(Model NB)																								ErcpMessageSet += ErcpDataSet; // MODEL_NUMBER
-		ErcpDataSet.Format(_T("%s_DIMMING_SEL_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nDimmingSel);					ErcpMessageSet += ErcpDataSet; // DIMMING SEL
-		ErcpDataSet.Format(_T("%s_PWM_FREQ_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPwmFreq);						ErcpMessageSet += ErcpDataSet; // PWM_FREQ
-		ErcpDataSet.Format(_T("%s_PWM_DUTY_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPwmDuty);						ErcpMessageSet += ErcpDataSet; // PWM_DUTY
-		ErcpDataSet.Format(_T("%s_VBR_VOLT_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVbrVolt);						ErcpMessageSet += ErcpDataSet; // VBR_VOLT
-		ErcpDataSet.Format(_T("%s_CABLE_OPEN_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nFuncCableOpen);				ErcpMessageSet += ErcpDataSet; // CABLE_OPEN
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ1_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq1);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ1
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ2_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq2);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ2
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ3_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq3);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ3
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ4_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq4);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ4
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ5_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq5);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ5
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ6_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq6);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ6
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ7_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq7);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ7
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ8_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq8);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ8
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ9_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq9);				ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ9
-		ErcpDataSet.Format(_T("%s_POWER_ON_SEQ10_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnSeq10);			ErcpMessageSet += ErcpDataSet; // POWER_ON_SEQ10
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY1_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay1);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY1
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY2_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay2);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY2
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY3_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay3);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY3
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY4_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay4);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY4
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY5_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay5);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY5
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY6_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay6);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY6
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY7_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay7);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY7
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY8_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay8);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY8
-		ErcpDataSet.Format(_T("%s_POWER_ON_DELAY9_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOnDelay9);			ErcpMessageSet += ErcpDataSet; // POWER_ON_DELAY9
+		// MODEL_NB가 Model ini에 없고 MODEL_NUMBER만 있는 경우 대비
+		if (value.IsEmpty() && _tcscmp(kErcpParams[i].iniKey, _T("MODEL_NB")) == 0)
+		{
+			value = ReadModelInfoValueForErcp(modelName, _T("MODEL_NUMBER"));
+		}
 
+		// 값이 아예 없으면 보내지 않음
+		if (value.IsEmpty())
+			continue;
 
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ1_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq1);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ1
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ2_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq2);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ2
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ3_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq3);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ3
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ4_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq4);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ4
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ5_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq5);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ5
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ6_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq6);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ6
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ7_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq7);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ7
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ8_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq8);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ8
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ9_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq9);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ9
-		ErcpDataSet.Format(_T("%s_POWER_OFF_SEQ10_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffSeq10);			ErcpMessageSet += ErcpDataSet; // POWER_OFF_SEQ10
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY1_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay1);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY1
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY2_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay2);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY2
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY3_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay3);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY3
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY4_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay4);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY4
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY5_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay5);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY5
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY6_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay6);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY6
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY7_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay7);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY7
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY8_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay8);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY8
-		ErcpDataSet.Format(_T("%s_POWER_OFF_DELAY9_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nPowerOffDelay9);		ErcpMessageSet += ErcpDataSet; // POWER_OFF_DELAY9
-		ErcpDataSet.Format(_T("%s_VCC_VOLT_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccVolt);						ErcpMessageSet += ErcpDataSet; // VCC_VOLT
-		ErcpDataSet.Format(_T("%s_VCC_VOLT_OFFSET_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccVoltOffset);			ErcpMessageSet += ErcpDataSet; // VCC_VOLT_OFFSET
-		ErcpDataSet.Format(_T("%s_VCC_LIMIT_VOLT_LOW_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitVoltLow);		ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_VOLT_LOW
-		ErcpDataSet.Format(_T("%s_VCC_LIMIT_VOLT_HIGH_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitVoltHigh);	ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_VOLT_HIGH
-		ErcpDataSet.Format(_T("%s_VCC_LIMIT_CURR_LOW_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitCurrLow);		ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_CURR_LOW
-		ErcpDataSet.Format(_T("%s_VCC_LIMIT_CURR_HIGH_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVccLimitCurrHigh);	ErcpMessageSet += ErcpDataSet; // VCC_LIMIT_CURR_HIGH
-		ErcpDataSet.Format(_T("%s_VBL_VOLT_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblVolt);						ErcpMessageSet += ErcpDataSet; // VBL_VOLT
-		ErcpDataSet.Format(_T("%s_VBL_OFFSET_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblVoltOffset);				ErcpMessageSet += ErcpDataSet; // VBL_VOLT_OFFSET
-		ErcpDataSet.Format(_T("%s_VBL_LIMIT_VOLT_LOW_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitVoltLow);		ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_VOLT_LOW
-		ErcpDataSet.Format(_T("%s_VBL_LIMIT_VOLT_HIGH_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitVoltHigh);	ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_VOLT_HIGH
-		ErcpDataSet.Format(_T("%s_VBL_LIMIT_CURR_LOW_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitCurrLow);		ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_CURR_LOW
-		ErcpDataSet.Format(_T("%s_VBL_LIMIT_CURR_HIGH_MODEL_INFO#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_fVblLimitCurrHigh);	ErcpMessageSet += ErcpDataSet; // VBL_LIMIT_CURR_HIGH
-		ErcpDataSet.Format(_T("%s_AGING_TIME_HH_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingTimeHH);				ErcpMessageSet += ErcpDataSet; // AGING_TIME_HH
-		ErcpDataSet.Format(_T("%s_AGING_TIME_MM_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingTimeMM);				ErcpMessageSet += ErcpDataSet; // AGING_TIME_MM
-		ErcpDataSet.Format(_T("%s_AGING_TIME_MINUTE_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingTimeMinute);		ErcpMessageSet += ErcpDataSet; // AGING_TIME_MINUTE
-		ErcpDataSet.Format(_T("%s_AGING_END_WAIT_TIME_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nAgingEndWaitTime);	ErcpMessageSet += ErcpDataSet; // AGING_END_WAIT_TIM
-		ErcpDataSet.Format(_T("%s_TEMPERATURE_USE_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureUse);		ErcpMessageSet += ErcpDataSet; // TEMPERATURE_USE
-		ErcpDataSet.Format(_T("%s_TEMPERATURE_MIN_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureMin);		ErcpMessageSet += ErcpDataSet; // TEMPERATURE_MIN
-		ErcpDataSet.Format(_T("%s_TEMPERATURE_MAX_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeTemperatureMax);		ErcpMessageSet += ErcpDataSet; // TEMPERATURE_MAX
-		ErcpDataSet.Format(_T("%s_DOOR_USE_MODEL_INFO#%d^"), lpSystemInfo->m_sEqpName.Right(6), lpModelInfo->m_nOpeDoorUse);					ErcpMessageSet += ErcpDataSet; // DOOR_USE
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S1#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[0]);					ErcpMessageSet += ErcpDataSet; // 1ZONE 온도 (S1)
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S2#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[1]);					ErcpMessageSet += ErcpDataSet; // 1ZONE 온도 (S2)
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S3#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[2]);					ErcpMessageSet += ErcpDataSet; // 2ZONE 온도 (S3)
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S4#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[3]);					ErcpMessageSet += ErcpDataSet; // 2ZONE 온도 (S4)
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S5#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[4]);					ErcpMessageSet += ErcpDataSet; // 3ZONE 온도 (S5)
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_S6#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadVal[5]);					ErcpMessageSet += ErcpDataSet; // 3ZONE 온도 (S6)
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET1#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[0]);			ErcpMessageSet += ErcpDataSet; // 1ZONE 메인 컨트롤러 세팅값
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET2#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[1]);			ErcpMessageSet += ErcpDataSet; // 2ZONE 메인 컨트롤러 세팅값
-		//ErcpDataSet.Format(_T("%s_TEMP_ZONE_SET3#%f^"), lpSystemInfo->m_sEqpName.Right(6), lpInspWorkInfo->m_fTempReadValST590_2[2]);			ErcpMessageSet += ErcpDataSet; // 3ZONE 메인 컨트롤러 세팅값
+		CString one;
+
+		if (kErcpParams[i].bUseEqpPrefix)
+		{
+			one.Format(
+				_T("%s_%s#%s^"),
+				eqpSuffix.GetString(),
+				kErcpParams[i].sendName,
+				value.GetString()
+			);
+		}
+		else
+		{
+			one.Format(
+				_T("%s#%s^"),
+				kErcpParams[i].sendName,
+				value.GetString()
+			);
+		}
+
+		outErcpMessageSet += one;
+	}
+
+	return !outErcpMessageSet.IsEmpty();
+}
+
+void CHseAgingDlg::Lf_rmsErcpSet(int rack)
+{
+	CString ErcpMessageSet;
+
+	try
+	{
+		m_pApp->pCimNet->m_strUnitName.Format(_T("%02d"), rack+1);
+		// rack index는 0~5로 들어오는 구조
+		if (rack < 0 || rack >= 7)
+		{
+			AfxMessageBox(_T("Invalid rack number."), MB_ICONERROR);
+			return;
+		}
+
+		CString sModelName;
+		m_pCmbMaModel[rack]->GetWindowText(sModelName);
+		sModelName.Trim();
+
+		if (sModelName.IsEmpty())
+		{
+			AfxMessageBox(_T("Model name is empty."), MB_ICONERROR);
+			return;
+		}
+
+		CString modelPath;
+		modelPath.Format(_T(".\\Model\\%s.ini"), sModelName.GetString());
+
+		if (!FileExistsSimple(modelPath))
+		{
+			CString err;
+			err.Format(_T("Model ini file not found.\n%s"), modelPath.GetString());
+			AfxMessageBox(err, MB_ICONERROR);
+			return;
+		}
+
+		CString eqpSuffix = lpSystemInfo->m_sEqpName.Right(6);
+
+		if (!BuildErcpMessageSetFromModelIni(
+			sModelName,
+			eqpSuffix,
+			ErcpMessageSet))
+		{
+			CString err;
+			err.Format(_T("Failed to build ERCP message set from model ini.\nModel=%s"),
+				sModelName.GetString());
+			AfxMessageBox(err, MB_ICONERROR);
+			return;
+		}
 
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
+		CString log;
+		log.Format(_T("[ERCP] Rack=%d Model=%s ERCP_INFO=%s"),
+			rack + 1,
+			sModelName.GetString(),
+			ErcpMessageSet.GetString());
+		m_pApp->Gf_writeRMSLog(log);
+
 		m_pApp->Gf_gmesSendHost(HOST_ERCP, rack, NULL, NULL);
-		
-		
 	}
 	catch (const std::exception& ex)
 	{
 		CString errmsg;
-		errmsg.Format(_T("ERCP MESSAGE SEND ERROR"), ex.what());
+		errmsg.Format(_T("ERCP MESSAGE SEND ERROR : %S"), ex.what());
 		AfxMessageBox(errmsg, MB_ICONERROR);
 	}
 }

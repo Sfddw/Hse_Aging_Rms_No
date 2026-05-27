@@ -150,6 +150,13 @@ public:
 	int m_nDownloadCountUp;
 	int m_nDownloadReadyAckCount;
 
+	// W/O 모델 리스트
+	CStringArray Wo_BaseModel_List;
+	CStringArray Wo_Model_List;
+	CStringArray Wo_TopModel_List;
+
+	void ParseEwoqPlanInfoToLists(const CString& ewoqMsg);
+
 
 protected:
 	LPMODELINFO				lpModelInfo;

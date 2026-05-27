@@ -181,6 +181,10 @@ public:
 	void SetEasHostInterface();
 	void SetRmsHostInterface();
 
+	// ---------------------------------------
+	CString m_strUnitName; // Unit Name
+	// ---------------------------------------
+
 	// RMS 채널 추가
 	void BuildRmsLocalSubjects(int chamberNo);
 	BOOL SendRmsMessageByRack(int rackNo, const CString& msg, CString& outRecvMsg);
