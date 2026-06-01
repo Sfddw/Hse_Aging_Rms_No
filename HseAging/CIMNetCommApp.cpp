@@ -3357,20 +3357,36 @@ BOOL CCimNetCommApi::ERCP()
 
 	CString modelname = lpInspWorkInfo->Ercp_Model_Name;
 	int recipe = lpInspWorkInfo->Ercp_Recipe;
+	
+	CString strUnitName = m_strUnitName;
+	strUnitName.Trim();
+
+	int rackNo = _ttoi(strUnitName);   // "01" -> 1, "02" -> 2
+	int rackIndex = rackNo - 1;        // 1 -> 0, 2 -> 1
 
 	BOOL nRetCode = MessageSend(ECS_MODE_ERCP);
 	if (nRetCode != RTN_OK)
+	{
+		m_Ercp_Msg_Yn[rackIndex] = FALSE;
 		return nRetCode;
+	}
 
 	CString strMsg;
 	GetFieldData(&strMsg, _T("RTN_CD"));
 	if (strMsg.Compare(_T("0")) != 0)
+	{
+		m_Ercp_Msg_Yn[rackIndex] = FALSE;
 		return 3;
+	}
 
 	GetFieldData(&strMsg, _T("ERR_CD"));
 	if (strMsg.Compare(_T("0")) != 0)
+	{
+		m_Ercp_Msg_Yn[rackIndex] = FALSE;
 		return 3;
+	}
 
+	m_Ercp_Msg_Yn[rackIndex] = TRUE;
 	return RTN_OK;
 }
 //////////////////////////////////////////////////////////////////////////////

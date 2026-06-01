@@ -280,6 +280,9 @@ public:
 
 	CString r_strmodelName;
 
+	// --------------- ERCP 메시지 OK / NG 여부
+	BOOL	m_Ercp_Msg_Yn[MAX_RACK];
+
     // --------------- RMS 6채널 멤버 추가
 	// RMS rack 수
 	static const int RMS_RACK_COUNT = 6;

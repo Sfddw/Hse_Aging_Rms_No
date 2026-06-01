@@ -4486,7 +4486,7 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 	}
 
 	// Button Enable
-	m_pBtnAgingStart[rack]->EnableWindow(TRUE);
+	//m_pBtnAgingStart[rack]->EnableWindow(TRUE);
 	m_pBtnAgingFusing[rack]->EnableWindow(TRUE);
 	m_pChkChSelect[rack]->EnableWindow(TRUE);
 }
@@ -4587,6 +4587,9 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 	m_nAgnOutFlag[rack] = FALSE;
 
 	m_pApp->Gf_sumInitSummaryInfo(rack); // summary.ini 초기화
+
+	//m_pRackAgingStart[rack].EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
+	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
 }
 
