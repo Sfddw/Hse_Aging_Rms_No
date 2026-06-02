@@ -74,6 +74,79 @@ static BOOL FileExistsSimple(const CString& filePath)
 }
 
 /// <summary>
+/// RACK1~6.Parameter.ini 파일에 MODEL_NB 생성
+/// </summary>
+/// <param name="iniPath"></param>
+/// <param name="section"></param>
+/// <param name="key"></param>
+/// <returns></returns>
+static BOOL IniKeyExistsSimple_ByPath(
+	const CString& iniPath,
+	const CString& section,
+	const CString& key)
+{
+	TCHAR value[1024] = { 0 };
+	const TCHAR* marker = _T("__KEY_NOT_FOUND__");
+
+	::GetPrivateProfileString(
+		section,
+		key,
+		marker,
+		value,
+		_countof(value),
+		iniPath
+	);
+
+	return (_tcscmp(value, marker) != 0);
+}
+static BOOL EnsureModelNbParameterSection(const CString& parameterIniPath)
+{
+	static const LPCTSTR rmsParaList[] =
+	{
+		_T("PINDEX"),
+		_T("SPECIAL_ITEM"),
+		_T("ADDRESS"),
+		_T("PARA_OFFSET"),
+		_T("CURRENT_ADDRESS"),
+		_T("UNIT_TYPE"),
+		_T("WORD_SIZE"),
+		_T("DECIMAL_PLACE"),
+		_T("SIGN_YN"),
+		_T("SNDPOS"),
+		_T("FILE_PATH"),
+		_T("FILE_NAME"),
+		_T("INTERNAL_PARA_NAME"),
+		_T("DELIMITER"),
+		_T("ROW_NUM"),
+		_T("COL_NUM"),
+		_T("BIT_LENGTH")
+	};
+
+	CString section = _T("MODEL_NB");
+
+	for (int i = 0; i < _countof(rmsParaList); i++)
+	{
+		CString key = rmsParaList[i];
+
+		// 이미 key가 있으면 값 유지
+		// 없을 때만 빈 값으로 생성
+		if (IniKeyExistsSimple_ByPath(parameterIniPath, section, key))
+			continue;
+
+		if (!::WritePrivateProfileString(
+			section,
+			key,
+			_T(""),
+			parameterIniPath))
+		{
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+/// <summary>
 /// Recipe 폴더의 recipe.ini 구조 그대로 RACK1Recipe.ini으로 Copy
 /// </summary>
 /// <param name="srcIniPath"></param>
@@ -190,6 +263,30 @@ static BOOL FindAnyModelIniFile(const CString& modelDir, CString& outModelIniPat
 
 	::FindClose(hFind);
 	return FALSE;
+}
+
+/// <summary>
+/// RACK1~6.Recipe.ini에 MODEL_NB만 생성
+/// </summary>
+/// <param name="rackRecipeIniPath"></param>
+/// <returns></returns>
+static BOOL CreateRackRecipeModelNbOnlyIfNotExists(const CString& rackRecipeIniPath)
+{
+	// 이미 있으면 내용이 어떻든 그대로 사용
+	// EPSC/EPDC로 수정된 내용을 프로그램 재시작 때 덮어쓰지 않기 위함
+	if (FileExistsSimple(rackRecipeIniPath))
+		return TRUE;
+
+	CStdioFile file;
+	if (!file.Open(rackRecipeIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+		return FALSE;
+
+	file.WriteString(_T("[MODEL_INFO]\n"));
+	file.WriteString(_T("MODEL_NB=\n"));
+
+	file.Close();
+
+	return TRUE;
 }
 
 // Rack_Recipe.ini 생성 함수 추가 - 파일이 이미 있으면 작업 x
@@ -541,19 +638,40 @@ static CString BuildDefaultParameterIniContent()
 	return content;
 }
 
+//static BOOL CreateDefaultParameterIniIfNotExists(const CString& parameterIniPath)
+//{
+//	if (FileExistsSimple(parameterIniPath))
+//		return TRUE; // 이미 있으면 그대로 사용
+//
+//	CString content = BuildDefaultParameterIniContent();
+//
+//	CStdioFile file;
+//	if (!file.Open(parameterIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+//		return FALSE;
+//
+//	file.WriteString(content);
+//	file.Close();
+//
+//	return TRUE;
+//}
+
+// RACK1 폴더의 RACK1_Parameter.ini 빈 파일로 생성
 static BOOL CreateDefaultParameterIniIfNotExists(const CString& parameterIniPath)
 {
-	if (FileExistsSimple(parameterIniPath))
-		return TRUE; // 이미 있으면 그대로 사용
+	// 파일이 없으면 먼저 빈 파일 생성
+	if (!FileExistsSimple(parameterIniPath))
+	{
+		CStdioFile file;
+		if (!file.Open(parameterIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+			return FALSE;
 
-	CString content = BuildDefaultParameterIniContent();
+		file.Close();
+	}
 
-	CStdioFile file;
-	if (!file.Open(parameterIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+	// 파일이 새로 만들어졌든, 이미 있었든
+	// MODEL_NB 섹션/하위 key는 반드시 보장
+	if (!EnsureModelNbParameterSection(parameterIniPath))
 		return FALSE;
-
-	file.WriteString(content);
-	file.Close();
 
 	return TRUE;
 }
@@ -1199,9 +1317,7 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 			return FALSE;
 
 		// RMS\RACKn\RACKn_Recipe.ini 생성
-		// 중요:
-		// 파일이 없을 때만 Model 폴더의 아무 ini 파일에서 key만 가져와 생성
-		// 파일이 이미 있으면 내용이 달라도 덮어쓰지 않음
+		// 초기 기본값은 MODEL_NB만 생성
 		CString rackRecipeIni;
 		rackRecipeIni.Format(
 			_T("%s\\RACK%d_Recipe.ini"),
@@ -1209,7 +1325,7 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 			i
 		);
 
-		if (!CreateRackRecipeKeyIniIfNotExists(modelDir, rackRecipeIni))
+		if (!CreateRackRecipeModelNbOnlyIfNotExists(rackRecipeIni))
 			return FALSE;
 	}
 

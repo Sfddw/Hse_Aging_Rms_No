@@ -395,6 +395,36 @@ static void AppendEpscSettingItemFromIni(
 	outMsg += _T("]");
 }
 
+/// <summary>
+/// EPSC 메시지에 MODEL_INFO 네임 추가
+/// </summary>
+/// <param name="msg"></param>
+/// <param name="pRmsThread"></param>
+static CString MakeEpscDisplayParamName(const CString& paramName)
+{
+	CString name = paramName;
+	name.Trim();
+
+	if (name.IsEmpty())
+		return name;
+
+	// MODEL_NB는 RMS 규칙상 그대로 보냄
+	if (name.CompareNoCase(_T("MODEL_NB")) == 0)
+		return _T("MODEL_NB");
+
+	// 이미 _MODEL_INFO가 붙어 있으면 중복으로 붙이지 않음
+	CString upper = name;
+	upper.MakeUpper();
+
+	if (upper.Right(11) == _T("_MODEL_INFO"))
+		return name;
+
+	CString displayName;
+	displayName.Format(_T("%s_MODEL_INFO"), name.GetString());
+
+	return displayName;
+}
+
 // RACK_Recipe.ini 기준으로 EPSC SETTING_INFO 만드는 함수
 static BOOL BuildEpscSettingInfoFromRackFiles(
 	const CString& rackParameterIniPath,
@@ -438,11 +468,13 @@ static BOOL BuildEpscSettingInfoFromRackFiles(
 		if (!IniSectionExistsSimple(rackParameterIniPath, paramName))
 			continue;
 
+		CString displayName = MakeEpscDisplayParamName(paramName);
+
 		AppendEpscSettingItemFromIni(
 			outSettingInfo,
 			rackParameterIniPath,
-			paramName,
-			paramName
+			displayName, // 메시지에 표시될 파라미터명
+			paramName     // 실제 ini section 이름
 		);
 
 		outParaCount++;
