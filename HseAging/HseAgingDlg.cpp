@@ -1673,27 +1673,27 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		{
 			if(i == 0)
 			{ 
-				lpinspworkinfo->m_ftempreadval[i] = 45 + lpinspworkinfo->temptest;
+				lpInspWorkInfo->m_fTempReadVal[i] = 45 + lpInspWorkInfo->TempTest;
 			}
 			if (i == 1)
 			{
-				lpinspworkinfo->m_ftempreadval[i] = 46 + lpinspworkinfo->temptest;
+				lpInspWorkInfo->m_fTempReadVal[i] = 46 + lpInspWorkInfo->TempTest;
 			}
 			if (i == 2)
 			{
-				lpinspworkinfo->m_ftempreadval[i] = 47 + lpinspworkinfo->temptest;
+				lpInspWorkInfo->m_fTempReadVal[i] = 47 + lpInspWorkInfo->TempTest;
 			}
 			if (i == 3)
 			{
-				lpinspworkinfo->m_ftempreadval[i] = 48 + lpinspworkinfo->temptest;
+				lpInspWorkInfo->m_fTempReadVal[i] = 48 + lpInspWorkInfo->TempTest;
 			}
 			if (i == 4)
 			{
-				lpinspworkinfo->m_ftempreadval[i] = 49 + lpinspworkinfo->temptest;
+				lpInspWorkInfo->m_fTempReadVal[i] = 49 + lpInspWorkInfo->TempTest;
 			}
 			if (i == 5)
 			{
-				lpinspworkinfo->m_ftempreadval[i] = 50 + lpinspworkinfo->temptest;
+				lpInspWorkInfo->m_fTempReadVal[i] = 50 + lpInspWorkInfo->TempTest;
 			}
 		}*/
 
