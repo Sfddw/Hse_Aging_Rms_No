@@ -189,26 +189,13 @@ static CString NormalizeRmsParamNameForIni(const CString& rawName)
 	CString name = rawName;
 	name.Trim();
 
-	if (name.IsEmpty())
-		return name;
-
-	// 혹시 앞에 ':' 같은 문자가 붙어 들어오는 경우 방어
 	while (!name.IsEmpty() && name[0] == _T(':'))
-		name = name.Mid(1);
-
-	name.Trim();
-
-	CString upper = name;
-	upper.MakeUpper();
-
-	const CString suffix = _T("_MODEL_INFO");
-
-	if (upper.Right(suffix.GetLength()) == suffix)
 	{
-		name = name.Left(name.GetLength() - suffix.GetLength());
+		name = name.Mid(1);
 		name.Trim();
 	}
 
+	// _MODEL_INFO 제거 금지
 	return name;
 }
 
@@ -222,25 +209,13 @@ static CString MakeEpscDisplayParamName(const CString& iniParamName)
 	CString name = iniParamName;
 	name.Trim();
 
-	if (name.IsEmpty())
-		return name;
+	// 변환하지 않고 그대로 보냄
+	// MODEL_NB               -> MODEL_NB
+	// DIMMING_SEL            -> DIMMING_SEL
+	// DIMMING_SEL_MODEL_INFO -> DIMMING_SEL_MODEL_INFO
+	// AAA                    -> AAA
 
-	// MODEL_NB는 고정 항목이라 그대로 보냄
-	if (name.CompareNoCase(_T("MODEL_NB")) == 0)
-		return _T("MODEL_NB");
-
-	CString upper = name;
-	upper.MakeUpper();
-
-	const CString suffix = _T("_MODEL_INFO");
-
-	if (upper.Right(suffix.GetLength()) == suffix)
-		return name;
-
-	CString displayName;
-	displayName.Format(_T("%s_MODEL_INFO"), name.GetString());
-
-	return displayName;
+	return name;
 }
 
 /// <summary>
@@ -360,18 +335,9 @@ static BOOL BuildEpprRecipeMsgSetFromIni(
 
 		CString one;
 
-		if (key.CompareNoCase(_T("MODEL_NB")) == 0)
-		{
-			one.Format(_T("%s$%s;"),
-				key.GetString(),
-				value.GetString());
-		}
-		else
-		{
-			one.Format(_T("%s_MODEL_INFO$%s;"),
-				key.GetString(),
-				value.GetString());
-		}
+		one.Format(_T("%s$%s;"),
+			key.GetString(),
+			value.GetString());
 
 		outRecipeMsgSet += one;
 		outParamCount++;
@@ -496,21 +462,23 @@ static BOOL BuildEpscSettingInfoFromRackFiles(
 		CString paramName = paramNames[i];
 		paramName.Trim();
 
+		while (!paramName.IsEmpty() && paramName[0] == _T(':'))
+		{
+			paramName = paramName.Mid(1);
+			paramName.Trim();
+		}
+
 		if (paramName.IsEmpty())
 			continue;
 
-		// RACKn_Recipe.ini에는 있는데 RACKn_Parameter.ini에 섹션이 없으면 제외
 		if (!IniSectionExistsSimple(rackParameterIniPath, paramName))
 			continue;
-
-		CString iniParamName = NormalizeRmsParamNameForIni(paramName);
-		CString displayName = MakeEpscDisplayParamName(iniParamName);
 
 		AppendEpscSettingItemFromIni(
 			outSettingInfo,
 			rackParameterIniPath,
-			displayName,    // RMS로 보낼 이름: DIMMING_SEL_MODEL_INFO
-			iniParamName    // 실제 INI 섹션 이름: DIMMING_SEL
+			paramName,  // 메시지에 보낼 이름 그대로
+			paramName   // INI section 이름 그대로
 		);
 
 		outParaCount++;
@@ -878,15 +846,19 @@ static BOOL ApplyEpdcDeleteInfoToRackFiles(
 
 	for (size_t i = 0; i < names.size(); ++i)
 	{
-		CString paramName = MapEpdcDeleteNameToIniSection(names[i]);
-		paramName = NormalizeRmsParamNameForIni(paramName);
+		CString paramName = names[i];
 		paramName.Trim();
+
+		while (!paramName.IsEmpty() && paramName[0] == _T(':'))
+		{
+			paramName = paramName.Mid(1);
+			paramName.Trim();
+		}
 
 		if (paramName.IsEmpty())
 			continue;
 
-		// 1) RACKn_Parameter.ini에서 [PARAM_NAME] 섹션 전체 삭제
-		// 예: [DIMMING_SEL] 전체 삭제
+		// RACKn_Parameter.ini에서 받은 이름 그대로 section 삭제
 		if (!::WritePrivateProfileString(
 			paramName,
 			NULL,
@@ -903,8 +875,7 @@ static BOOL ApplyEpdcDeleteInfoToRackFiles(
 
 		outDeletedCount++;
 
-		// 2) RACKn_Recipe.ini의 [MODEL_INFO]에서 PARAM_NAME= key 삭제
-		// 예: DIMMING_SEL= 삭제
+		// RACKn_Recipe.ini의 [MODEL_INFO]에서 받은 이름 그대로 key 삭제
 		if (!DeleteRackRecipeKey(
 			rackRecipeIniPath,
 			paramName,
@@ -1153,25 +1124,42 @@ static BOOL ApplyEpscSettingInfoToRackFiles(
 
 	for (size_t i = 0; i < params.size(); ++i)
 	{
-		// EPSC에서는 SETTING_INFO의 파라미터명을 사용한다.
-		// 예:
-		// DIMMING_SEL_MODEL_INFO -> DIMMING_SEL
-		// MODEL_NB              -> MODEL_NB
-		CString paramName = NormalizeRmsParamNameForIni(params[i].paramName);
+		// 중요:
+		// RMS에서 받은 파라미터명을 그대로 사용
+		CString paramName = params[i].paramName;
 		paramName.Trim();
+
+		// 앞에 ':'가 혹시 붙어 있으면 제거
+		while (!paramName.IsEmpty() && paramName[0] == _T(':'))
+		{
+			paramName = paramName.Mid(1);
+			paramName.Trim();
+		}
 
 		if (paramName.IsEmpty())
 			continue;
 
-		// 1) RACKn_Recipe.ini의 [MODEL_INFO]에 PARAM_NAME= 추가
-		// 내부 파일에는 _MODEL_INFO 없이 저장
-		// 예: DIMMING_SEL=
+		// 디버그 확인용
+		// 이 로그에서 raw와 save가 같아야 정상
+		TRACE(_T("[EPSC-S] rawParam=%s, saveParam=%s\n"),
+			params[i].paramName.GetString(),
+			paramName.GetString());
+
+		// 1) RACKn_Recipe.ini의 [MODEL_INFO]에 받은 이름 그대로 추가
+		// 예:
+		// DIMMING_SEL=
+		// DIMMING_SEL_MODEL_INFO=
+		// DIMMING_SQQQ=
+		// DIMING_SQEQET_##!=
 		if (!EnsureRackRecipeParameterKey(rackRecipeIniPath, paramName, outErrMsg))
 			return FALSE;
 
-		// 2) RACKn_Parameter.ini의 [PARAM_NAME] 섹션에 하위 key/value 추가 또는 수정
-		// 내부 파일에는 _MODEL_INFO 없이 저장
-		// 예: [DIMMING_SEL]
+		// 2) RACKn_Parameter.ini에도 받은 이름 그대로 섹션 생성/수정
+		// 예:
+		// [DIMMING_SEL]
+		// [DIMMING_SEL_MODEL_INFO]
+		// [DIMMING_SQQQ]
+		// [DIMING_SQEQET_##!]
 		for (size_t j = 0; j < params[i].subItems.size(); ++j)
 		{
 			CString key = params[i].subItems[j].key;
