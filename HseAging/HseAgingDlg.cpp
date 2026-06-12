@@ -4555,7 +4555,8 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 		sRecipeNo = sModelName;              // '_' 없으면 전체 사용
 
 	lpInspWorkInfo->Ercp_Recipe = _ttoi(sRecipeNo);
-	Lf_rmsErcpSet(rack);
+
+	//Lf_rmsErcpSet(rack);					// ERCP MSG SET
 
 	// 모델정보에서 AGING 시간 정보를 LOAD하여 UI에 표시한다.
 	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &nValue);
@@ -4588,8 +4589,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	m_pApp->Gf_sumInitSummaryInfo(rack); // summary.ini 초기화
 
-	//m_pRackAgingStart[rack].EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
-	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
+	//m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
 }
 
