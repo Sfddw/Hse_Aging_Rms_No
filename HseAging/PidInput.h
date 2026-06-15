@@ -92,6 +92,14 @@ private:
 	CBrush m_Brush[COLOR_IDX_MAX];
 	CFont* m_pDefaultFont;
 
+	/// <summary>
+	///  스캔 처리중 문자 무시
+	/// </summary>
+	BOOL    m_bPidScanBusy;
+	CString m_strLastScanPid;
+	DWORD   m_dwLastScanTick;
+	DWORD   m_dwInputBlockUntilTick;
+
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 
