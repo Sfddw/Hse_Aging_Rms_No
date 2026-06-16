@@ -168,6 +168,36 @@ BOOL CHseAgingApp::InitInstance()
 	return FALSE;
 }
 
+/// <summary>
+/// 채널 표시 번호 계산 함수 (Rack, Layer, Ch에 맞게)
+/// </summary>
+/// <param name="layer"></param>
+/// <param name="ch"></param>
+/// <returns></returns>
+static int GetDisplayChannelNo(int layer, int ch)
+{
+	// layer : 0 ~ 4
+	// ch    : 0 ~ 15
+	//
+	// ch 0~7   : LEFT SIDE
+	// ch 8~15  : RIGHT SIDE
+
+	if (layer < 0 || layer >= MAX_LAYER)
+		return ch + 1;
+
+	if (ch < 0 || ch >= 16)
+		return ch + 1;
+
+	// LEFT SIDE : CH01 ~ CH40
+	if (ch < 8)
+	{
+		return (layer * 8) + ch + 1;
+	}
+
+	// RIGHT SIDE : CH41 ~ CH80
+	return 40 + (layer * 8) + (ch - 8) + 1;
+}
+
 /// ## W/O 리스트 담는 함수
 static CString ExtractBracketFieldValue(const CString& msg, LPCTSTR fieldName)
 {
@@ -2820,6 +2850,8 @@ BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 	int nRtnCD;
 	CString sLog, sdata = _T("");
 	char Luc_PF = 0;
+	CHseAgingDlg* pMain = (CHseAgingDlg*)AfxGetMainWnd();
+	int displayChNo = GetDisplayChannelNo(layer, ch);
 
 	if (m_pApp->m_bUserIdAdmin == TRUE)
 	{
@@ -2906,6 +2938,17 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartLayer = layer;
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
 			nRtnCD = pCimNet->AGN_IN();
+
+			if (nRtnCD == 0)
+			{
+				sdata.Format(_T("[MES] CH%02d AGN_IN OK"), displayChNo);
+				pMain->Lf_writeRackMLog(rack, sdata);
+			}
+			else
+			{
+				sdata.Format(_T("[MES] CH%02d AGN_IN NG"), displayChNo);
+				pMain->Lf_writeRackMLog(rack, sdata);
+			}
 		}
 		else
 		{
@@ -2926,6 +2969,19 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartLayer = layer;
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
 			nRtnCD = pCimNet->AGN_OUT();
+
+			
+
+			if (nRtnCD == 0)
+			{
+				sdata.Format(_T("[MES] CH%02d AGN_OUT OK"), displayChNo);
+				pMain->Lf_writeRackMLog(rack, sdata);
+			}
+			else
+			{
+				sdata.Format(_T("[MES] CH%02d AGN_OUT NG"), displayChNo);
+				pMain->Lf_writeRackMLog(rack, sdata);
+			}
 		}
 		else
 		{
@@ -2957,6 +3013,16 @@ Send_RETRY:
 		lpInspWorkInfo->m_AgnInStartLayer = layer;
 		lpInspWorkInfo->m_AgnInStartChannel = ch;
 		nRtnCD = pCimNet->APDR();
+		if (nRtnCD == 0)
+		{
+			sdata.Format(_T("[EAS] CH%02d APDR OK"), displayChNo);
+			pMain->Lf_writeRackMLog(rack, sdata);
+		}
+		else
+		{
+			sdata.Format(_T("[EAS] CH%02d APDR NG"), displayChNo);
+			pMain->Lf_writeRackMLog(rack, sdata);
+		}
 	}
 	else if (hostCMD == HOST_AGN_INSP)
 	{
