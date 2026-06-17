@@ -4833,6 +4833,11 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 						lpSystemInfo->m_Aging_Count++;
 						lpSystemInfo->m_Aging_Month_Count++;
 						m_pApp->Gf_gmesSendHost(HOST_APDR, rack, layer, ch);
+
+						
+
+						
+
 						///////////////////////////////////////////////////////////////////////////////////////////////
 						///////////////////////////////////////////////////////////////////////////////////////////////
 					}
@@ -4841,6 +4846,15 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 				m_pApp->Gf_sumInitSummaryInfo(rack);
 
 				sLog.Format(_T("<MESSAGE> AGING END [RACK %d]"), rack + 1);
+
+				m_pApp->Gf_writeMLog(sLog);
+
+				idDlg.OnBnClickedMbcPiPidClear_Aging_End(rack);
+
+				sLog.Format(_T("<MESSAGE> [RACK %d] PID Clear (Aging End)"), rack + 1);
+
+				sdata.Format(_T("RACK%d PID Clear"), rack+1);
+				Lf_writeRackMLog(rack, sdata);
 
 				m_pApp->Gf_writeMLog(sLog);
 

@@ -87,6 +87,8 @@ protected:
 
 	void Lf_CableOpenCheck(int rack); // Cable Open
 
+	BOOL ClearPidDataByRack(int rack, BOOL bUpdateUI);
+
 private:
 	CFont m_Font[FONT_IDX_MAX];
 	CBrush m_Brush[COLOR_IDX_MAX];
@@ -106,6 +108,7 @@ private:
 
 
 public:
+	void OnBnClickedMbcPiPidClear_Aging_End(int rack);
 	virtual BOOL OnInitDialog();
 	afx_msg void OnDestroy();
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
@@ -219,4 +222,5 @@ public:
 	afx_msg void OnBnClickedMbcPiChAllClear();
 	afx_msg void OnBnClickedMbcPiLcmOn();
 	afx_msg void OnBnClickedMbcPiLcmOff();
+
 };

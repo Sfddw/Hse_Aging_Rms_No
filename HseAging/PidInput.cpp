@@ -1438,11 +1438,62 @@ void CPidInput::OnBnClickedBtnPiMesAgnout()
 	Lf_setExecuteMesAGNOUT();
 }
 
+BOOL CPidInput::ClearPidDataByRack(int rack, BOOL bUpdateUI)
+{
+	if (rack < 0 || rack >= MAX_RACK)
+		return FALSE;
+
+	LPINSPWORKINFO pInspWorkInfo = m_pApp->GetInspWorkInfo();
+	if (pInspWorkInfo == nullptr)
+		return FALSE;
+
+	CString sSection;
+	CString sKey;
+
+	sSection.Format(_T("MES_PID_RACK%d"), rack + 1);
+
+	for (int layer = 0; layer < MAX_LAYER; layer++)
+	{
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+		{
+			pInspWorkInfo->m_sMesPanelID[rack][layer][ch].Empty();
+
+			// PID Save
+			sKey.Format(
+				_T("RACK%d_LAYER%d_CH%d"),
+				rack + 1,
+				layer + 1,
+				ch + 1
+			);
+
+			Write_MesPIDInfo(sSection, sKey, _T(""));
+
+			// 화면이 실제로 떠 있을 때만 UI Edit Control 초기화
+			if (bUpdateUI == TRUE)
+			{
+				if (m_pedtPannelID[layer][ch] != nullptr &&
+					::IsWindow(m_pedtPannelID[layer][ch]->GetSafeHwnd()))
+				{
+					m_pedtPannelID[layer][ch]->SetWindowText(_T(""));
+				}
+			}
+		}
+	}
+
+	if (bUpdateUI == TRUE)
+	{
+		if (m_pedtPannelID[0][0] != nullptr &&
+			::IsWindow(m_pedtPannelID[0][0]->GetSafeHwnd()))
+		{
+			m_pedtPannelID[0][0]->SetFocus();
+		}
+	}
+
+	return TRUE;
+}
+
 void CPidInput::OnBnClickedMbcPiPidClear()
 {
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	CString sLog, sdata = _T("");
-
 	m_pApp->Gf_writeMLog(_T("<PID> 'PID ALL Clear' Button Click."));
 
 	CMessageQuestion msg_dlg;
@@ -1452,23 +1503,13 @@ void CPidInput::OnBnClickedMbcPiPidClear()
 
 	if (msg_dlg.DoModal() == IDOK)
 	{
-		CString sSection, sKey, sValue;
-		sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
-
-		for (int layer = 0; layer < MAX_LAYER; layer++)
-		{
-			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
-			{
-				lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch].Empty();
-				m_pedtPannelID[layer][ch]->SetWindowText(_T(""));
-
-				// PID Save
-				sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
-				Write_MesPIDInfo(sSection, sKey, _T(""));
-			}
-		}
-		m_pedtPannelID[0][0]->SetFocus();
+		ClearPidDataByRack(m_nSelRack, TRUE);
 	}
+}
+
+void CPidInput::OnBnClickedMbcPiPidClear_Aging_End(int Rack)
+{
+	ClearPidDataByRack(Rack, TRUE);
 }
 
 void CPidInput::OnBnClickedMbcPiChAllSelect()
