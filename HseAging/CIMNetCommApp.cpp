@@ -4873,11 +4873,11 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 	if (posUnit >= 0)
 	{
 		int start = posUnit + (int)_tcslen(_T("UNIT="));
-		unit = msg.Mid(start, 12); // UNIT 12글자 고정
+		unit = msg.Mid(start, 14); // UNIT 12글자 고정
 	}
 
 	// 값이 없으면 그냥 종료(로그는 선택)
-	if (machine.GetLength() != 10 || unit.GetLength() != 12)
+	if (machine.GetLength() != 10 || unit.GetLength() != 14)
 	{
 		m_pApp->Gf_writeRMSLog(_T("[RMS] EPLR parse fail (MACHINE/UNIT)"));
 		return;
@@ -4906,7 +4906,7 @@ void CCimNetCommApi::HandleRmsMsg_EPLR(const CString& msg, ICallRMSClass* pRmsTh
 	for (int i = 1; i <= 100; i++)
 	{
 		/*oneItem.Format(_T("W4AMAL04HV:W4AMAL04HV01:[%03d]:3:U:"), i);*/
-		oneItem.Format(_T("W4AMAL04HV:W4AMAL04HV01:[%d]:3:U:"), i);
+		oneItem.Format(_T("%s:%s:[%d]:3:U:"),unit.Left(10), unit.Left(12), i);
 
 		// 첫 항목이 아니면 앞에 콤마 추가
 		if (!recipeMsgSet_Test.IsEmpty())

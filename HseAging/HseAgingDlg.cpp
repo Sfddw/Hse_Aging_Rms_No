@@ -749,7 +749,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 
 	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
 
-	UpdateAllRackCurModelIni();
+	//UpdateAllRackCurModelIni();
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -4588,6 +4588,8 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 	m_nAgnOutFlag[rack] = FALSE;
 
 	m_pApp->Gf_sumInitSummaryInfo(rack); // summary.ini 초기화
+
+	UpdateAllRackCurModelIni();
 
 	//m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
