@@ -49,6 +49,186 @@ static void EnsureIniFileExists(const CString& path)
 	::WritePrivateProfileString(_T("DUMMY"), _T("DUMMY"), _T("0"), path);
 }
 
+// Model 파일명 앞 숫자 추출
+// 예:
+// 1_LP160WU3-SPB2-KH1-A -> 1
+// 003_LP140WU4-SPH2-KH1-H -> 3
+static BOOL MI_ExtractLeadingModelNo(const CString& modelName, int& outNo)
+{
+	outNo = 0;
+
+	CString text = modelName;
+	text.Trim();
+
+	if (text.IsEmpty())
+		return FALSE;
+
+	if (text.Right(4).CompareNoCase(_T(".ini")) == 0)
+		text = text.Left(text.GetLength() - 4);
+
+	int i = 0;
+	while (i < text.GetLength() && _istdigit(text[i]))
+		i++;
+
+	if (i <= 0)
+		return FALSE;
+
+	outNo = _ttoi(text.Left(i));
+	return (outNo > 0);
+}
+
+static BOOL MI_FileExists(const CString& path)
+{
+	DWORD attr = ::GetFileAttributes(path);
+	if (attr == INVALID_FILE_ATTRIBUTES)
+		return FALSE;
+
+	return ((attr & FILE_ATTRIBUTE_DIRECTORY) == 0);
+}
+
+static BOOL MI_EnsureDirectoryExists(const CString& dirPath)
+{
+	DWORD attr = ::GetFileAttributes(dirPath);
+
+	if (attr != INVALID_FILE_ATTRIBUTES)
+	{
+		if (attr & FILE_ATTRIBUTE_DIRECTORY)
+			return TRUE;
+
+		return FALSE;
+	}
+
+	if (::CreateDirectory(dirPath, nullptr))
+		return TRUE;
+
+	return (::GetLastError() == ERROR_ALREADY_EXISTS);
+}
+
+// 저장된 Model ini를 RMS\RACK1~6\RACKn_Recipe\00n.ini 로 동기화
+static BOOL MI_SyncSavedModelToAllRackRecipeFolders(
+	const CString& modelNameNoExt,
+	CString& outErrMsg)
+{
+	outErrMsg.Empty();
+
+	CString modelName = modelNameNoExt;
+	modelName.Trim();
+
+	if (modelName.IsEmpty())
+	{
+		outErrMsg = _T("Model name is empty.");
+		return FALSE;
+	}
+
+	if (modelName.Right(4).CompareNoCase(_T(".ini")) == 0)
+		modelName = modelName.Left(modelName.GetLength() - 4);
+
+	int recipeNo = 0;
+	if (!MI_ExtractLeadingModelNo(modelName, recipeNo))
+	{
+		outErrMsg.Format(_T("Invalid model number. model=%s"), modelName.GetString());
+		return FALSE;
+	}
+
+	CString srcModelPath;
+	srcModelPath.Format(_T(".\\Model\\%s.ini"), modelName.GetString());
+
+	if (!MI_FileExists(srcModelPath))
+	{
+		outErrMsg.Format(_T("Model file not found. file=%s"), srcModelPath.GetString());
+		return FALSE;
+	}
+
+	CString rmsRoot = _T(".\\RMS");
+
+	if (!MI_EnsureDirectoryExists(rmsRoot))
+	{
+		outErrMsg.Format(_T("Create RMS folder failed. folder=%s"), rmsRoot.GetString());
+		return FALSE;
+	}
+
+	for (int rack = 1; rack <= MAX_RACK; rack++)
+	{
+		CString rackDir;
+		rackDir.Format(_T("%s\\RACK%d"), rmsRoot.GetString(), rack);
+
+		if (!MI_EnsureDirectoryExists(rackDir))
+		{
+			outErrMsg.Format(_T("Create rack folder failed. folder=%s"), rackDir.GetString());
+			return FALSE;
+		}
+
+		CString rackRecipeDir;
+		rackRecipeDir.Format(
+			_T("%s\\RACK%d_Recipe"),
+			rackDir.GetString(),
+			rack
+		);
+
+		if (!MI_EnsureDirectoryExists(rackRecipeDir))
+		{
+			outErrMsg.Format(_T("Create rack recipe folder failed. folder=%s"), rackRecipeDir.GetString());
+			return FALSE;
+		}
+
+		CString dstRecipePath;
+		dstRecipePath.Format(
+			_T("%s\\%03d.ini"),
+			rackRecipeDir.GetString(),
+			recipeNo
+		);
+
+		// FALSE = 이미 있어도 덮어쓰기
+		if (!::CopyFile(srcModelPath, dstRecipePath, FALSE))
+		{
+			DWORD err = ::GetLastError();
+
+			outErrMsg.Format(
+				_T("Copy recipe failed. src=%s dst=%s err=%lu"),
+				srcModelPath.GetString(),
+				dstRecipePath.GetString(),
+				err
+			);
+			return FALSE;
+		}
+
+		// MODEL_NB도 MODEL_NUMBER와 동일하게 보정
+		TCHAR szModelNumber[256] = { 0 };
+
+		DWORD dwRead = ::GetPrivateProfileString(
+			_T("MODEL_INFO"),
+			_T("MODEL_NUMBER"),
+			_T(""),
+			szModelNumber,
+			_countof(szModelNumber),
+			dstRecipePath
+		);
+
+		if (dwRead > 0)
+		{
+			::WritePrivateProfileString(
+				_T("MODEL_INFO"),
+				_T("MODEL_NB"),
+				szModelNumber,
+				dstRecipePath
+			);
+		}
+	}
+
+	// RMS\ModelList.ini도 갱신
+	// RACK1_Recipe 폴더 기준으로 생성
+	CString rack1RecipeDir;
+	rack1RecipeDir.Format(_T(".\\RMS\\RACK1\\RACK1_Recipe"));
+
+	BuildModelListIniFromRecipeAndModel(
+		_T(".\\Model"),
+		rack1RecipeDir,
+		_T(".\\RMS")
+	);
+
+	return TRUE;
+}
+
 //////////////////////////
 //////////////////////////
 
@@ -307,6 +487,29 @@ void CModelInfo::OnBnClickedBtnMiSave()
 	if (msg_dlg.DoModal() == IDOK)
 	{
 		Lf_saveModelData();
+
+		CString savedModelName;
+		GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(savedModelName);
+		savedModelName.Trim();
+		savedModelName.MakeUpper();
+
+		CString errMsg;
+		if (!MI_SyncSavedModelToAllRackRecipeFolders(savedModelName, errMsg))
+		{
+			CString msg;
+			msg.Format(_T("Model Save OK, but RMS Recipe Sync failed.\r\n\r\n%s"),
+				errMsg.GetString());
+
+			m_pApp->Gf_ShowMessageBox(msg);
+		}
+		else
+		{
+			CString log;
+			log.Format(_T("<MODEL> RMS Recipe Sync OK. model=%s"),
+				savedModelName.GetString());
+
+			m_pApp->Gf_writeMLog(log);
+		}
 	}
 
 	// Model 삭제 후 Cursor 이동할 위치를 계산한다.

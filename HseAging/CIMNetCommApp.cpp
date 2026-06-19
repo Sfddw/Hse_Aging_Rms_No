@@ -3401,24 +3401,38 @@ BOOL CCimNetCommApi::ERCP()
 	MakeClientTimeString();
 
 	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
 	CString localSubject = m_strLocalSubjectRMS;
-	CString unitName;
-	unitName.Format(_T("%s01"), m_strMachineName.GetString());
+
+	// 현재 PC 날짜 기준 VALIDATIONINFO 생성
+	SYSTEMTIME st;
+	::GetLocalTime(&st);
+
+	CString strValidationInfo;
+	strValidationInfo.Format(
+		_T("%04d%02d%02d:PROD:1"),
+		st.wYear,
+		st.wMonth,
+		st.wDay
+	);
 
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 
 	m_strERCP.Format(
-		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[20260211:PROD:3,20260213:PROD:1,20260214:PROD:4,20260223:PROD:11,20260224:PROD:6,20260225:PROD:16,20260226:PROD:10] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+
 		m_strRemoteSubjectRMS,
 		localSubject,
 		m_strEqpRMS,
-		//m_strMachineName.Left(m_strMachineName.GetLength() - 2),
+
 		m_strMachineName,
 		m_strMachineName + m_strUnitName,
-		/*m_strMachineName,
-		unitName,*/
+
 		lpInspWorkInfo->Ercp_Model_Name,
 		lpInspWorkInfo->Ercp_Recipe,
+
+		strValidationInfo,   // 여기 추가
+
 		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
 		m_strMachineName,
 		m_strERCPInfo
@@ -3426,12 +3440,12 @@ BOOL CCimNetCommApi::ERCP()
 
 	CString modelname = lpInspWorkInfo->Ercp_Model_Name;
 	int recipe = lpInspWorkInfo->Ercp_Recipe;
-	
+
 	CString strUnitName = m_strUnitName;
 	strUnitName.Trim();
 
-	int rackNo = _ttoi(strUnitName);   // "01" -> 1, "02" -> 2
-	int rackIndex = rackNo - 1;        // 1 -> 0, 2 -> 1
+	int rackNo = _ttoi(strUnitName);
+	int rackIndex = rackNo - 1;
 
 	BOOL nRetCode = MessageSend(ECS_MODE_ERCP);
 	if (nRetCode != RTN_OK)

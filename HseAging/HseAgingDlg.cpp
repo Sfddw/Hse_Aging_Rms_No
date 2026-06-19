@@ -4556,7 +4556,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	lpInspWorkInfo->Ercp_Recipe = _ttoi(sRecipeNo);
 
-	//Lf_rmsErcpSet(rack);					// ERCP MSG SET
+	Lf_rmsErcpSet(rack);					// ERCP MSG SET
 
 	// 모델정보에서 AGING 시간 정보를 LOAD하여 UI에 표시한다.
 	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &nValue);
