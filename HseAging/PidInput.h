@@ -89,6 +89,8 @@ protected:
 
 	BOOL ClearPidDataByRack(int rack, BOOL bUpdateUI);
 
+	BOOL ProcessScannedPid(const CString& scannedPid);
+
 private:
 	CFont m_Font[FONT_IDX_MAX];
 	CBrush m_Brush[COLOR_IDX_MAX];

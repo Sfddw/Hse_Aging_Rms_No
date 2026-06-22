@@ -9,6 +9,7 @@
 #include "MessageQuestion.h"
 #include "HseAgingDlg.h"
 #include "CableOpen.h"
+#include "PidInputBox.h"
 
 
 // CPidInput 대화 상자
@@ -3254,35 +3255,62 @@ BOOL CPidInput::HandlePIDScan()
 
 		CString rackId = rackBarcode.Left(6);    // RACK01
 		CString chTag = rackBarcode.Mid(6, 2);   // CH
-		CString chId = rackBarcode.Right(2);     // 03
+		CString chId = rackBarcode.Right(2);     // 33
 
 		if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 &&
 			chTag.CompareNoCase(_T("CH")) == 0)
 		{
-			int Pid_Layer = ((_ttoi(chId) - 1) % 40) / 8 + 1;
-			int Pid_Ch = ((_ttoi(chId) - 1) % 8) + 1;
+			int chNo = _ttoi(chId);
 
-			if (_ttoi(chId) > 40)
+			if (chNo < 1 || chNo > MAX_CHANNEL)
+			{
+				m_pApp->Gf_ShowMessageBox(_T("RACK BARCODE CH RANGE ERROR"));
+				return TRUE;
+			}
+
+			int Pid_Layer = ((chNo - 1) % 40) / 8 + 1;
+			int Pid_Ch = ((chNo - 1) % 8) + 1;
+
+			if (chNo > 40)
 				Pid_Ch += 8;
 
-			// 여기서 Rack 전환 + 해당 CH PID Edit로 포커스 이동
+			// 기존 함수 호출
+			// Rack 화면 전환, 선택 채널 표시, 포커스 이동 등이 필요하면 유지
 			Lf_checkBcrRackChIDInput(rackId, chId);
 
+			// 현재 선택 정보 저장
 			lpInspWorkInfo->m_RackID = rackId.Right(2);
 			lpInspWorkInfo->m_ChID = chId.Right(2);
 
 			lpInspWorkInfo->m_LayerID.Format(_T("%d"), Pid_Layer);
 			lpInspWorkInfo->m_Layer_ChID.Format(_T("%d"), Pid_Ch);
 
-			// 중요:
-			// RACK BCR 스캔 후에는 Dummy Focus로 보내면 안 됨.
-			// Lf_checkBcrRackChIDInput()에서 잡아준 PID 입력칸 포커스를 유지해야 함.
+			// 새 PID 입력 Dialog Open
+			CPidInputBox pidBox;
+			pidBox.m_strTitle.Format(_T("%s PID INPUT"), rackBarcode.GetString());
+
+			if (pidBox.DoModal() == IDOK)
+			{
+				CString pid = pidBox.m_strPid;
+				pid.Trim();
+
+				if (pid.GetLength() == PID_LENGTH)
+				{
+					ProcessScannedPid(pid);
+				}
+			}
+
+			// Dialog 닫힌 후에는 메인 PID 화면으로 다시 포커스
+			if (CWnd* pDummy = GetDlgItem(IDC_DUMMY_FOCUS))
+				pDummy->SetFocus();
+			else
+				this->SetFocus();
+
 			return TRUE;
 		}
 		else
 		{
-			sdata.Format(_T("RACK BARCODE RESCAN"));
-			m_pApp->Gf_ShowMessageBox(sdata);
+			m_pApp->Gf_ShowMessageBox(_T("RACK BARCODE RESCAN"));
 			return TRUE;
 		}
 	}
@@ -3324,12 +3352,127 @@ void CPidInput::AppendScannedKey(MSG* pMsg)
 		pEditControl = reinterpret_cast<CEdit*>(pFocusedWnd);
 
 	// PID 14자리가 완성되었을 때 현재 포커스 칸에 표시
-	if (m_nMainKeyInData.GetLength() == PID_LENGTH)
+	/*if (m_nMainKeyInData.GetLength() == PID_LENGTH)
 	{
 		if (pEditControl != nullptr &&
 			pFocusedWnd->GetDlgCtrlID() != IDC_DUMMY_FOCUS)
 		{
 			pEditControl->SetWindowText(m_nMainKeyInData);
 		}
+	}*/
+}
+
+
+BOOL CPidInput::ProcessScannedPid(const CString& scannedPid)
+{
+	CString sdata;
+	CString pid = scannedPid;
+	pid.Trim();
+
+	if (pid.GetLength() != PID_LENGTH)
+		return FALSE;
+
+	if (m_bPidScanBusy == TRUE)
+		return TRUE;
+
+	DWORD nowTick = ::GetTickCount();
+	if (pid == m_strLastScanPid &&
+		(nowTick - m_dwLastScanTick) < 1000)
+	{
+		return TRUE;
 	}
+
+	m_strLastScanPid = pid;
+	m_dwLastScanTick = nowTick;
+
+	m_bPidScanBusy = TRUE;
+
+	bool P_Chk = false;
+	CHseAgingDlg* pDlg = (CHseAgingDlg*)AfxGetMainWnd();
+
+	int BeforeRackNum = _ttoi(lpInspWorkInfo->m_StopRackID);
+	int NowRackNum = (_ttoi(lpInspWorkInfo->m_RackID)) - 1;
+
+	if (_ttoi(lpInspWorkInfo->m_StopRackID) != RESET_RACK_PID &&
+		BeforeRackNum != NowRackNum)
+	{
+		pDlg->Lf_setAgingSTOP_PID(_ttoi(lpInspWorkInfo->m_StopRackID));
+	}
+
+	if (m_pApp->m_bIsGmesConnect == FALSE)
+	{
+		Lf_addMessage(_T("MES not connected"));
+		m_bPidScanBusy = FALSE;
+		return TRUE;
+	}
+
+	lpInspWorkInfo->m_nPid = pid;
+
+	P_Chk = m_pApp->Gf_gmesSendHost(
+		HOST_PCHK,
+		_ttoi(lpInspWorkInfo->m_RackID),
+		_ttoi(lpInspWorkInfo->m_LayerID),
+		_ttoi(lpInspWorkInfo->m_Layer_ChID)
+	);
+
+	if (P_Chk == TRUE)
+	{
+		// 현재 선택된 위치의 Edit Control에 PID 표시
+		int layer = _ttoi(lpInspWorkInfo->m_LayerID) - 1;
+		int layerCh = _ttoi(lpInspWorkInfo->m_Layer_ChID) - 1;
+
+		// 오른쪽 CH는 layerCh가 9~16으로 들어올 수 있으므로 0-base 보정
+		// 기존 구조에서 m_pedtPannelID[layer][ch]는 ch 0~15 기준
+		if (layer >= 0 && layer < MAX_LAYER &&
+			layerCh >= 0 && layerCh < MAX_LAYER_CHANNEL)
+		{
+			m_pedtPannelID[layer][layerCh]->SetWindowText(pid);
+		}
+
+		OnBnClickedBtnPiSaveExitSelect(
+			_ttoi(lpInspWorkInfo->m_RackID),
+			_ttoi(lpInspWorkInfo->m_ChID)
+		);
+
+		sdata.Format(_T("PCHK OK [%s]"), pid.GetString());
+		Lf_addMessage(sdata);
+
+		int RackID = _ttoi(lpInspWorkInfo->m_RackID);
+		RackID -= 1;
+
+		Lf_CableOpenCheck(RackID);
+	}
+	else
+	{
+		m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
+
+		sdata.Format(
+			_T("%s [CODE = %d]"),
+			lpInspWorkInfo->m_AgingErrorMsg,
+			MES_MSG_ERROR
+		);
+
+		m_pApp->Gf_ShowMessageBox(sdata);
+
+		lpInspWorkInfo->m_nDioOutputData =
+			lpInspWorkInfo->m_nDioOutputData & ~DIO_OUT_BUZZER;
+
+		m_pApp->pCommand->Gf_dio_setDIOWriteOutput(
+			lpInspWorkInfo->m_nDioOutputData,
+			lpInspWorkInfo->m_nDioOutputMode
+		);
+
+		sdata.Format(
+			_T("PCHK ERROR [%s] [CODE = %d]"),
+			pid.GetString(),
+			MES_MSG_ERROR
+		);
+
+		Lf_addMessage(sdata);
+	}
+
+	m_bPidScanBusy = FALSE;
+	m_dwInputBlockUntilTick = ::GetTickCount() + 150;
+
+	return TRUE;
 }

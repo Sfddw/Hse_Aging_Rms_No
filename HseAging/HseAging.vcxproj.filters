@@ -96,6 +96,9 @@
     <ClInclude Include="ErcpTest.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="PidInputBox.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="HseAging.cpp">
@@ -156,6 +159,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="ErcpTest.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="PidInputBox.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

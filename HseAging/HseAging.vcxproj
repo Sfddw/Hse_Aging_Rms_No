@@ -201,6 +201,7 @@
     <ClInclude Include="Password.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PidInput.h" />
+    <ClInclude Include="PidInputBox.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Rs232Port.h" />
     <ClInclude Include="Struct.h" />
@@ -232,6 +233,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PidInput.cpp" />
+    <ClCompile Include="PidInputBox.cpp" />
     <ClCompile Include="Rs232Port.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Temp2xxx.cpp" />

@@ -53,6 +53,7 @@
 #define IDD_PASSWORD                    185
 #define IDI_ICON_BUZZ_OFF               188
 #define IDD_ERCP_TEST                   189
+#define IDD_PID_BOX                     191
 #define IDC_BTN_MA_MODEL                1000
 #define IDC_BTN_MA_USER                 1001
 #define IDC_BTN_MA_SYSTEM               1002
@@ -601,7 +602,6 @@
 #define IDC_EDT_MI_VER_TOTAL            1453
 #define IDC_STT_MA_VBL_S2_CH14          1454
 #define IDC_EDT_MI_VER_ACTIVE           1454
-#define IDC_LST_MA_MLOG_RACK7           1454
 #define IDC_STT_MA_VBL_S2_CH15          1455
 #define IDC_EDT_MI_VER_WIDTH            1455
 #define IDC_STT_MA_VBL_S2_CH16          1456
@@ -2085,14 +2085,16 @@
 #define IDC_GRP_PI_LCM_TEST             2442
 #define IDC_DUMMY_FOCUS                 2443
 #define IDC_CONNECT_STATE               2444
+#define IDC_PID_INPUT_BOX               2446
+#define IDC_STT_PID_BOX_TITLE           2447
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        191
+#define _APS_NEXT_RESOURCE_VALUE        193
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         2446
+#define _APS_NEXT_CONTROL_VALUE         2449
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
