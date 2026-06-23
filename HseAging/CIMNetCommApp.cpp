@@ -3395,7 +3395,45 @@ CString CCimNetCommApi::GetPF()
 	return m_strPF;
 }
 
-//////////////////////////////////////////////////////////////////////////////s
+
+/// <summary>
+/// 모델명 앞의 숫자_ prefix 제거
+/// 예:
+/// 1_LP140WU4-SPH2-KH1-S  -> LP140WU4-SPH2-KH1-S
+/// 6_LP160WU3-SPB4-KH1-A  -> LP160WU3-SPB4-KH1-A
+/// 99_LP160WU6-SPD1-9H1-S -> LP160WU6-SPD1-9H1-S
+/// </summary>
+static CString RemoveModelNoPrefix(const CString& modelName)
+{
+	CString result = modelName;
+	result.Trim();
+
+	int underBarPos = result.Find(_T('_'));
+
+	// 언더바가 없으면 그대로 사용
+	if (underBarPos <= 0)
+		return result;
+
+	CString prefix = result.Left(underBarPos);
+	prefix.Trim();
+
+	// 언더바 앞이 전부 숫자인 경우만 제거
+	for (int i = 0; i < prefix.GetLength(); i++)
+	{
+		if (!_istdigit(prefix[i]))
+		{
+			return result;
+		}
+	}
+
+	// 숫자_ 뒤쪽 모델명만 반환
+	result = result.Mid(underBarPos + 1);
+	result.Trim();
+
+	return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
 BOOL CCimNetCommApi::ERCP()
 {
 	MakeClientTimeString();
@@ -3462,10 +3500,13 @@ BOOL CCimNetCommApi::ERCP()
 		);
 	}
 
+	CString ercpBaseModelName;
+	ercpBaseModelName = RemoveModelNoPrefix(lpInspWorkInfo->Ercp_Model_Name);
+
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 
 	m_strERCP.Format(
-		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL= BASEMODEL=%s WODR= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
 
 		m_strRemoteSubjectRMS, // ADDR (1)
 		localSubject,		   // ADDR (2)
@@ -3474,7 +3515,8 @@ BOOL CCimNetCommApi::ERCP()
 		m_strMachineName,      // MACHINE
 		unitFullName,          // UNIT
 
-		lpInspWorkInfo->Ercp_Model_Name, // MODEL
+		//lpInspWorkInfo->Ercp_Model_Name, // MODEL
+		ercpBaseModelName,               // BASEMODEL
 		lpInspWorkInfo->Ercp_Recipe,     // RECIPE
 
 		strValidationInfo, // VALIDATION
