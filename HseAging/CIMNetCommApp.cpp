@@ -3404,48 +3404,90 @@ BOOL CCimNetCommApi::ERCP()
 
 	CString localSubject = m_strLocalSubjectRMS;
 
-	// 현재 PC 날짜 기준 VALIDATIONINFO 생성
-	SYSTEMTIME st;
-	::GetLocalTime(&st);
-
-	CString strValidationInfo;
-	strValidationInfo.Format(
-		_T("%04d%02d%02d:PROD:1"),
-		st.wYear,
-		st.wMonth,
-		st.wDay
+	// UNIT 이름 생성
+	// 예: W4AMAL04HV0101
+	CString unitFullName;
+	unitFullName.Format(
+		_T("%s%s"),
+		m_strMachineName.GetString(),
+		m_strUnitName.GetString()
 	);
+
+	// UNIT명 맨 뒤 2자리로 Rack 번호 추출
+	int rackIndex = -1;
+
+	if (!GetRackIndexFromErcpUnitName(unitFullName, rackIndex))
+	{
+		CString log;
+		log.Format(
+			_T("[ERCP] Invalid UNIT rack number. UNIT=%s"),
+			unitFullName.GetString()
+		);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return RTN_MSG_NOT_SEND;
+	}
+
+	// Validation.ini에서 해당 Rack의 ValidationInfo 생성
+	CString strValidationInfo;
+	CString validationErr;
+
+	if (!BuildValidationInfoStringByRack(
+		rackIndex,
+		strValidationInfo,
+		validationErr))
+	{
+		CString log;
+		log.Format(
+			_T("[ERCP] BuildValidationInfoStringByRack failed. Rack=%d Err=%s"),
+			rackIndex + 1,
+			validationErr.GetString()
+		);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return RTN_MSG_NOT_SEND;
+	}
+
+	// 만약 아직 Validation.ini에 값이 없으면 빈 값 방지용 fallback
+	// 정상 흐름에서는 Lf_rmsErcpSet()에서 먼저 Count를 올리므로 여기로 거의 안 들어옴
+	if (strValidationInfo.IsEmpty())
+	{
+		CTime time = CTime::GetCurrentTime();
+
+		strValidationInfo.Format(
+			_T("%04d%02d%02d:PROD:1"),
+			time.GetYear(),
+			time.GetMonth(),
+			time.GetDay()
+		);
+	}
 
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 
 	m_strERCP.Format(
-		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[1]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
 
-		m_strRemoteSubjectRMS,
-		localSubject,
-		m_strEqpRMS,
+		m_strRemoteSubjectRMS, // ADDR (1)
+		localSubject,		   // ADDR (2)
+		m_strEqpRMS,           // EQP
 
+		m_strMachineName,      // MACHINE
+		unitFullName,          // UNIT
+
+		lpInspWorkInfo->Ercp_Model_Name, // MODEL
+		lpInspWorkInfo->Ercp_Recipe,     // RECIPE
+
+		strValidationInfo, // VALIDATION
+
+		m_strMachineName.Left(m_strMachineName.GetLength() - 2), // UNIT_INFO 첫 번째 %s
+		lpInspWorkInfo->Ercp_Recipe,							 // UNIT_INFO 두 번째 %d
 		m_strMachineName,
-		m_strMachineName + m_strUnitName,
-
-		lpInspWorkInfo->Ercp_Model_Name,
-		lpInspWorkInfo->Ercp_Recipe,
-
-		strValidationInfo,   // 여기 추가
-
-		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
-		m_strMachineName,
+		
 		m_strERCPInfo
 	);
 
 	CString modelname = lpInspWorkInfo->Ercp_Model_Name;
 	int recipe = lpInspWorkInfo->Ercp_Recipe;
-
-	CString strUnitName = m_strUnitName;
-	strUnitName.Trim();
-
-	int rackNo = _ttoi(strUnitName);
-	int rackIndex = rackNo - 1;
 
 	BOOL nRetCode = MessageSend(ECS_MODE_ERCP);
 	if (nRetCode != RTN_OK)
@@ -3455,6 +3497,7 @@ BOOL CCimNetCommApi::ERCP()
 	}
 
 	CString strMsg;
+
 	GetFieldData(&strMsg, _T("RTN_CD"));
 	if (strMsg.Compare(_T("0")) != 0)
 	{

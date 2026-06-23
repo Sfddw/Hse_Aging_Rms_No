@@ -343,10 +343,20 @@ void CHseAgingApp::Lf_InitGlobalVariable()
 
 void CHseAgingApp::Lf_initCreateFolder()
 {
-	if (PathFileExists(_T("./Model")) != TRUE)	CreateDirectory(_T("./Model"), NULL);
-	if (PathFileExists(_T("./Config")) != TRUE)	CreateDirectory(_T("./Config"), NULL);
-	if (PathFileExists(_T("./Logs")) != TRUE)	CreateDirectory(_T("./Logs"), NULL);
-	if (PathFileExists(_T("./Logs/MLog")) != TRUE)	CreateDirectory(_T("./Logs/MLog"), NULL);
+	if (PathFileExists(_T("./Model")) != TRUE)
+		CreateDirectory(_T("./Model"), NULL);
+
+	if (PathFileExists(_T("./Config")) != TRUE)
+		CreateDirectory(_T("./Config"), NULL);
+
+	if (PathFileExists(_T("./Logs")) != TRUE)
+		CreateDirectory(_T("./Logs"), NULL);
+
+	if (PathFileExists(_T("./Logs/MLog")) != TRUE)
+		CreateDirectory(_T("./Logs/MLog"), NULL);
+
+	// Config\Validation.ini 기본 생성
+	CreateValidationIniIfNotExists();
 }
 
 
@@ -2899,6 +2909,13 @@ Send_RETRY:
 		EWOQ_R.Format(_T("%s"), pCimNet->GetHostRecvMessage());
 
 		ParseEwoqPlanInfoToLists(EWOQ_R);
+
+		// 메인화면 W/O ListBox 업데이트
+		CHseAgingDlg* pMain = (CHseAgingDlg*)AfxGetMainWnd();
+		if (pMain != nullptr && ::IsWindow(pMain->GetSafeHwnd()))
+		{
+			pMain->Lf_UpdateWoLogList();
+		}
 
 		// 확인용 로그
 		for (int i = 0; i < Wo_BaseModel_List.GetCount(); i++)

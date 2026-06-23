@@ -544,6 +544,8 @@ void CHseAgingDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_STT_TEMP_SENSOR5_T, m_sttTempSensor5T);
 	DDX_Control(pDX, IDC_STT_TEMP_SENSOR6_T, m_sttTempSensor6T);
 	DDX_Control(pDX, IDC_STT_CONNECT_INFO, m_sttConnectInfo);
+
+	DDX_Control(pDX, IDC_LST_MA_WOLOG, m_lstMaWoLog);
 }
 
 BEGIN_MESSAGE_MAP(CHseAgingDlg, CDialogEx)
@@ -743,8 +745,8 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(2, 1000, NULL);
 	SetTimer(3, 3000, NULL);
 	SetTimer(8, 1000, NULL);
-	//SetTimer(115, 5 * 60 * 1000, NULL); // 5분마다 체크
-	SetTimer(115, 60 * 60 * 1000, NULL); // 1시간마다 체크
+	//SetTimer(115, 30 * 1 * 1000, NULL); // 5분마다 체크
+	//SetTimer(115, 60 * 60 * 1000, NULL); // 1시간마다 체크
 	SetTimer(120, 60 * 1000, NULL);   // 1분마다 체크
 
 	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
@@ -4699,6 +4701,54 @@ void CHseAgingDlg::Lf_writeRackMLog(int rack, CString sLog)
 	m_pLstMLog[rack]->SetCurSel(m_pLstMLog[rack]->AddString(message));
 }
 
+void CHseAgingDlg::Lf_UpdateWoLogList()
+{
+	if (!::IsWindow(m_lstMaWoLog.GetSafeHwnd()))
+		return;
+
+	m_lstMaWoLog.ResetContent();
+
+	for (int i = 0; i < m_pApp->Wo_BaseModel_List.GetCount(); i++)
+	{
+		CString baseModel = m_pApp->Wo_BaseModel_List.GetAt(i);
+		CString model;
+
+		if (i < m_pApp->Wo_Model_List.GetCount())
+			model = m_pApp->Wo_Model_List.GetAt(i);
+
+		baseModel.Trim();
+		model.Trim();
+
+		if (baseModel.IsEmpty())
+			continue;
+
+		CString line;
+
+		if (!model.IsEmpty())
+		{
+			line.Format(
+				_T("%02d. %s / %s"),
+				i + 1,
+				baseModel.GetString(),
+				model.GetString()
+			);
+		}
+		else
+		{
+			line.Format(
+				_T("%02d. %s"),
+				i + 1,
+				baseModel.GetString()
+			);
+		}
+
+		m_lstMaWoLog.AddString(line);
+	}
+
+	if (m_lstMaWoLog.GetCount() > 0)
+		m_lstMaWoLog.SetCurSel(0);
+}
+
 void CHseAgingDlg::Lf_getMeasurePower()
 {
 	m_pApp->pCommand->Gf_getPowerMeasureAllGroup();
@@ -6827,6 +6877,38 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 			AfxMessageBox(err, MB_ICONERROR);
 			return;
 		}
+
+		// ============================================================
+		// Validation.ini Count 증가
+		// ERCP 메시지 보내기 전에 해당 Rack / 오늘 날짜 Count +1
+		// ============================================================
+		CString validationToday;
+		CString validationErr;
+		int validationCount = 0;
+
+		if (!IncreaseValidationCountByRack(
+			rack,
+			validationToday,
+			validationCount,
+			validationErr))
+		{
+			CString err;
+			err.Format(
+				_T("Validation count update failed.\n%s"),
+				validationErr.GetString()
+			);
+			AfxMessageBox(err, MB_ICONERROR);
+			return;
+		}
+
+		CString validationLog;
+		validationLog.Format(
+			_T("[ERCP] Validation Count Update. Rack=%d Date=%s Count=%d"),
+			rack + 1,
+			validationToday.GetString(),
+			validationCount
+		);
+		m_pApp->Gf_writeRMSLog(validationLog);
 
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 

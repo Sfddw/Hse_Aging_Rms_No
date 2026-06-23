@@ -74,6 +74,303 @@ static BOOL FileExistsSimple(const CString& filePath)
 }
 
 /// <summary>
+/// Config\Validation.ini 기본 생성
+/// 최초 생성 시 RACK1~RACK6 VALIDATION_INFO 섹션만 생성
+/// </summary>
+static BOOL CreateValidationIniIfNotExists()
+{
+	CString validationIniPath = _T(".\\Config\\Validation.ini");
+
+	// 이미 파일이 있으면 기존 내용 유지
+	if (FileExistsSimple(validationIniPath))
+		return TRUE;
+
+	// Config 폴더 없으면 생성
+	if (::GetFileAttributes(_T(".\\Config")) == INVALID_FILE_ATTRIBUTES)
+	{
+		if (!::CreateDirectory(_T(".\\Config"), NULL))
+		{
+			if (::GetLastError() != ERROR_ALREADY_EXISTS)
+				return FALSE;
+		}
+	}
+
+	CStdioFile file;
+	if (!file.Open(validationIniPath, CFile::modeCreate | CFile::modeWrite | CFile::typeText))
+		return FALSE;
+
+	for (int rack = 1; rack <= MAX_RACK; rack++)
+	{
+		CString section;
+		section.Format(_T("[RACK%d_VALIDATION_INFO]\n\n"), rack);
+		file.WriteString(section);
+	}
+
+	file.Close();
+
+	return TRUE;
+}
+
+/// <summary>
+/// UNIT명에서 Rack 번호 추출
+/// 예:
+/// W4AMAL04HV0101 -> 1
+/// W4AMAL04HV0102 -> 2
+/// W4AMAL04HV0106 -> 6
+/// </summary>
+static BOOL GetRackIndexFromErcpUnitName(
+	const CString& unitName,
+	int& outRackIndex)
+{
+	outRackIndex = -1;
+
+	CString text = unitName;
+	text.Trim();
+
+	if (text.GetLength() < 2)
+		return FALSE;
+
+	CString rackText = text.Right(2);   // "01", "02", ...
+	int rackNo = _ttoi(rackText);
+
+	if (rackNo < 1 || rackNo > MAX_RACK)
+		return FALSE;
+
+	outRackIndex = rackNo - 1;
+	return TRUE;
+}
+
+/// <summary>
+/// Config\Validation.ini의 해당 Rack 섹션을 읽어서
+/// ERCP VALIDATIONINFO용 문자열 생성
+///
+/// INI:
+/// [RACK1_VALIDATION_INFO]
+/// 20260619=5
+/// 20260622=3
+///
+/// 결과:
+/// 20260619:PROD:5,20260622:PROD:3
+/// </summary>
+static BOOL BuildValidationInfoStringByRack(
+	int rackIndex,
+	CString& outValidationInfo,
+	CString& outErrMsg)
+{
+	outValidationInfo.Empty();
+	outErrMsg.Empty();
+
+	if (rackIndex < 0 || rackIndex >= MAX_RACK)
+	{
+		outErrMsg.Format(_T("Invalid rack index. rackIndex=%d"), rackIndex);
+		return FALSE;
+	}
+
+	if (!CreateValidationIniIfNotExists())
+	{
+		outErrMsg = _T("CreateValidationIniIfNotExists failed.");
+		return FALSE;
+	}
+
+	CString validationIniPath = _T(".\\Config\\Validation.ini");
+
+	CString section;
+	section.Format(_T("RACK%d_VALIDATION_INFO"), rackIndex + 1);
+
+	const DWORD BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> sectionBuf(BUF_SIZE, 0);
+
+	DWORD len = ::GetPrivateProfileSection(
+		section,
+		sectionBuf.data(),
+		(DWORD)sectionBuf.size(),
+		validationIniPath
+	);
+
+	if (len == 0)
+	{
+		// 섹션에 값이 아직 없는 상태
+		// 에러로 처리하지 않고 빈 문자열 반환
+		return TRUE;
+	}
+
+	std::vector<CString> items;
+
+	const TCHAR* pLine = sectionBuf.data();
+
+	while (*pLine)
+	{
+		CString line = pLine;
+		line.Trim();
+
+		int eqPos = line.Find(_T('='));
+
+		if (eqPos > 0)
+		{
+			CString dateKey = line.Left(eqPos);
+			CString countValue = line.Mid(eqPos + 1);
+
+			dateKey.Trim();
+			countValue.Trim();
+
+			int count = _ttoi(countValue);
+
+			// 날짜 key가 8자리이고 count가 1 이상인 값만 사용
+			if (dateKey.GetLength() == 8 && count > 0)
+			{
+				BOOL isDateNumber = TRUE;
+
+				for (int i = 0; i < dateKey.GetLength(); i++)
+				{
+					if (!_istdigit(dateKey[i]))
+					{
+						isDateNumber = FALSE;
+						break;
+					}
+				}
+
+				if (isDateNumber)
+				{
+					CString item;
+					item.Format(
+						_T("%s:PROD:%d"),
+						dateKey.GetString(),
+						count
+					);
+
+					items.push_back(item);
+				}
+			}
+		}
+
+		pLine += _tcslen(pLine) + 1;
+	}
+
+	// 날짜 오름차순 정렬
+	for (size_t i = 0; i < items.size(); i++)
+	{
+		for (size_t j = i + 1; j < items.size(); j++)
+		{
+			if (items[i].Compare(items[j]) > 0)
+			{
+				CString temp = items[i];
+				items[i] = items[j];
+				items[j] = temp;
+			}
+		}
+	}
+
+	for (size_t i = 0; i < items.size(); i++)
+	{
+		if (!outValidationInfo.IsEmpty())
+			outValidationInfo += _T(",");
+
+		outValidationInfo += items[i];
+	}
+
+	return TRUE;
+}
+
+/// <summary>
+/// 오늘 날짜 문자열 생성
+/// 예: 20260622
+/// </summary>
+static CString GetTodayValidationDateString()
+{
+	CTime time = CTime::GetCurrentTime();
+
+	CString today;
+	today.Format(
+		_T("%04d%02d%02d"),
+		time.GetYear(),
+		time.GetMonth(),
+		time.GetDay()
+	);
+
+	return today;
+}
+
+/// <summary>
+/// Rack 번호로 Validation.ini Section명 생성
+/// rackIndex : 0~5
+/// 결과 예: RACK1_VALIDATION_INFO
+/// </summary>
+static CString GetValidationSectionNameByRackIndex(int rackIndex)
+{
+	CString section;
+	section.Format(_T("RACK%d_VALIDATION_INFO"), rackIndex + 1);
+	return section;
+}
+
+/// <summary>
+/// Config\Validation.ini에서 해당 Rack의 오늘 날짜 Count를 1 증가
+/// 없으면 0부터 시작해서 1로 저장
+/// </summary>
+static BOOL IncreaseValidationCountByRack(
+	int rackIndex,
+	CString& outToday,
+	int& outNewCount,
+	CString& outErrMsg)
+{
+	outToday.Empty();
+	outNewCount = 0;
+	outErrMsg.Empty();
+
+	if (rackIndex < 0 || rackIndex >= MAX_RACK)
+	{
+		outErrMsg.Format(_T("Invalid rack index. rackIndex=%d"), rackIndex);
+		return FALSE;
+	}
+
+	CString validationIniPath = _T(".\\Config\\Validation.ini");
+
+	// Config 폴더 및 Validation.ini 기본틀 보장
+	if (!CreateValidationIniIfNotExists())
+	{
+		outErrMsg = _T("CreateValidationIniIfNotExists failed.");
+		return FALSE;
+	}
+
+	outToday = GetTodayValidationDateString();
+
+	CString section = GetValidationSectionNameByRackIndex(rackIndex);
+
+	// key가 없으면 -1 반환
+	int oldCount = ::GetPrivateProfileInt(
+		section,
+		outToday,
+		-1,
+		validationIniPath
+	);
+
+	// 없으면 0부터 시작
+	if (oldCount < 0)
+		oldCount = 0;
+
+	outNewCount = oldCount + 1;
+
+	CString newCountText;
+	newCountText.Format(_T("%d"), outNewCount);
+
+	if (!::WritePrivateProfileString(
+		section,
+		outToday,
+		newCountText,
+		validationIniPath))
+	{
+		outErrMsg.Format(
+			_T("Write Validation.ini failed. section=%s key=%s value=%s"),
+			section.GetString(),
+			outToday.GetString(),
+			newCountText.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/// <summary>
 /// RACK1~6.Parameter.ini 파일에 MODEL_NB 생성
 /// </summary>
 /// <param name="iniPath"></param>
@@ -1650,3 +1947,4 @@ static void Read_IniFileByPath(const CString& filePath, LPCWSTR lpSection, LPCWS
 	::GetPrivateProfileString(lpSection, lpKey, 0, wszData, sizeof(wszData) / 2, filePath);
 	*pRetValue = wszData;
 }
+

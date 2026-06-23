@@ -53,6 +53,8 @@ public:
 
 	CCimNetCommApi* pCimNet;
 
+	void Lf_UpdateWoLogList();
+
 protected:
 	void Lf_InitLocalValue();
 	void Lf_InitFontset();
@@ -271,4 +273,6 @@ public:
 	afx_msg void OnBnClickedButtonDoor5();
 	afx_msg void OnBnClickedButtonDoor6();
 	afx_msg void OnBnClickedPause1();
+
+	CListBox m_lstMaWoLog;
 };
