@@ -3506,7 +3506,7 @@ BOOL CCimNetCommApi::ERCP()
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 
 	m_strERCP.Format(
-		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL= BASEMODEL=%s WODR= CATEGORY= RECIPE=%d RECIPEVER= OPER= NW_CD=314000 NW_DESCRIPTION=[Cleaning(Production)] CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U:1:3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL= BASEMODEL=%s WODR= CATEGORY=PROD RECIPE=%d RECIPEVER= OPER= NW_CD= NW_DESCRIPTION= CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U::3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
 
 		m_strRemoteSubjectRMS, // ADDR (1)
 		localSubject,		   // ADDR (2)
@@ -3523,7 +3523,8 @@ BOOL CCimNetCommApi::ERCP()
 
 		m_strMachineName.Left(m_strMachineName.GetLength() - 2), // UNIT_INFO 첫 번째 %s
 		lpInspWorkInfo->Ercp_Recipe,							 // UNIT_INFO 두 번째 %d
-		m_strMachineName,
+		//m_strMachineName,
+		unitFullName,
 		
 		m_strERCPInfo
 	);

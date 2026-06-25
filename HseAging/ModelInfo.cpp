@@ -320,6 +320,9 @@ BOOL CModelInfo::OnInitDialog()
 
 	Lf_InitComboModelList();
 
+	// PM 로그인 시 Model Information SAVE 비활성화
+	Lf_ApplyModelEditPermission();
+
 	return TRUE;  // return TRUE unless you set the focus to a control
 				  // 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
 }
@@ -478,6 +481,14 @@ void CModelInfo::OnBnClickedMbtMiModelDelete()
 void CModelInfo::OnBnClickedBtnMiSave()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+
+	if (Lf_IsPmLoginMode())
+	{
+		m_pApp->Gf_ShowMessageBox(_T("PM login mode cannot save model information."));
+		m_pApp->Gf_writeMLog(_T("<MODEL> PM login mode. Model SAVE blocked."));
+		return;
+	}
+
 	CMessageQuestion msg_dlg;
 
 	if (Lf_checkAgingTempInfoChange() == FALSE)
@@ -685,6 +696,37 @@ void CModelInfo::Lf_InitDialogDesign()
 	m_mbtMiModelDelete.EnableWindowsTheming(FALSE);
 	m_mbtMiModelDelete.SetFaceColor(COLOR_RED128);
 	m_mbtMiModelDelete.SetTextColor(COLOR_WHITE);
+}
+
+/// <summary>
+/// MES 로그인 아닐 때 SAVE 버튼 비활성화
+/// </summary>
+/// <returns></returns>
+BOOL CModelInfo::Lf_IsPmLoginMode()
+{
+	CString userId = m_pApp->m_sUserID;
+	userId.Trim();
+
+	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+
+	return (
+		userId.CompareNoCase(_T("PM")) == 0 &&
+		lpInspWorkInfo->m_nConnectInfo[CONNECT_MES] == FALSE
+		);
+}
+
+void CModelInfo::Lf_ApplyModelEditPermission()
+{
+	BOOL bPmLogin = Lf_IsPmLoginMode();
+
+	// PM 로그인일 때 SAVE 버튼 비활성화
+	m_btnMiSave.EnableWindow(!bPmLogin);
+	m_mbtMiModelDelete.EnableWindow(!bPmLogin);
+
+	if (bPmLogin)
+	{
+		m_pApp->Gf_writeMLog(_T("<MODEL> PM login mode. Model SAVE disabled."));
+	}
 }
 
 void CModelInfo::Lf_InitComboModelList(int setSel)

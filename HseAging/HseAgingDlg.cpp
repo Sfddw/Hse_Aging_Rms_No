@@ -18,6 +18,7 @@
 #include "Password.h"
 #include "ErcpTest.h"
 #include <exception>
+#include <vector>
 
 #pragma comment(lib, "UxTheme.lib")
 #pragma comment(lib, "setupapi.lib")
@@ -4593,7 +4594,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	UpdateAllRackCurModelIni();
 
-	//m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
+	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
 }
 
@@ -6696,137 +6697,456 @@ static CString ReadModelInfoValueForErcp(const CString& modelName, LPCTSTR iniKe
 	return ret;
 }
 
-// ERCP 메시지 세트 생성 함수
-static BOOL BuildErcpMessageSetFromModelIni(
+//// ERCP 메시지 세트 생성 함수
+//static BOOL BuildErcpMessageSetFromModelIni(
+//	const CString& modelName,
+//	const CString& eqpSuffix,
+//	CString& outErcpMessageSet)
+//{
+//	outErcpMessageSet.Empty();
+//
+//	static const ERCP_PARAM_MAP kErcpParams[] =
+//	{
+//		// sendName,                 iniKey,                   bUseEqpPrefix
+//
+//		// 기존 코드 방식 유지: MODEL_NB는 prefix 없이 MODEL_NB#value^ 형태
+//		// 만약 RMS 엑셀에서 MODEL_NB_MODEL_INFO 형태를 요구하면 아래 sendName을 MODEL_NB_MODEL_INFO로 바꾸고 bUseEqpPrefix를 TRUE로 바꾸면 됨.
+//		{ _T("MODEL_NB"),            _T("MODEL_NB"),            FALSE },
+//
+//		{ _T("DIMMING_SEL"),        _T("DIMMING_SEL"),        TRUE },
+//		{ _T("PWM_FREQ"),           _T("PWM_FREQ"),           TRUE },
+//		{ _T("PWM_DUTY"),           _T("PWM_DUTY"),           TRUE },
+//		{ _T("VBR_VOLT"),           _T("VBR_VOLT"),           TRUE },
+//		{ _T("CABLE_OPEN"),         _T("CABLE_OPEN"),         TRUE },
+//
+//		{ _T("POWER_ON_SEQ1"),      _T("POWER_ON_SEQ1"),      TRUE },
+//		{ _T("POWER_ON_SEQ2"),      _T("POWER_ON_SEQ2"),      TRUE },
+//		{ _T("POWER_ON_SEQ3"),      _T("POWER_ON_SEQ3"),      TRUE },
+//		{ _T("POWER_ON_SEQ4"),      _T("POWER_ON_SEQ4"),      TRUE },
+//		{ _T("POWER_ON_SEQ5"),      _T("POWER_ON_SEQ5"),      TRUE },
+//		{ _T("POWER_ON_SEQ6"),      _T("POWER_ON_SEQ6"),      TRUE },
+//		{ _T("POWER_ON_SEQ7"),      _T("POWER_ON_SEQ7"),      TRUE },
+//		{ _T("POWER_ON_SEQ8"),      _T("POWER_ON_SEQ8"),      TRUE },
+//		{ _T("POWER_ON_SEQ9"),      _T("POWER_ON_SEQ9"),      TRUE },
+//		{ _T("POWER_ON_SEQ10"),     _T("POWER_ON_SEQ10"),     TRUE },
+//
+//		{ _T("POWER_ON_DELAY1"),    _T("POWER_ON_DELAY1"),    TRUE },
+//		{ _T("POWER_ON_DELAY2"),    _T("POWER_ON_DELAY2"),    TRUE },
+//		{ _T("POWER_ON_DELAY3"),    _T("POWER_ON_DELAY3"),    TRUE },
+//		{ _T("POWER_ON_DELAY4"),    _T("POWER_ON_DELAY4"),    TRUE },
+//		{ _T("POWER_ON_DELAY5"),    _T("POWER_ON_DELAY5"),    TRUE },
+//		{ _T("POWER_ON_DELAY6"),    _T("POWER_ON_DELAY6"),    TRUE },
+//		{ _T("POWER_ON_DELAY7"),    _T("POWER_ON_DELAY7"),    TRUE },
+//		{ _T("POWER_ON_DELAY8"),    _T("POWER_ON_DELAY8"),    TRUE },
+//		{ _T("POWER_ON_DELAY9"),    _T("POWER_ON_DELAY9"),    TRUE },
+//
+//		{ _T("POWER_OFF_SEQ1"),     _T("POWER_OFF_SEQ1"),     TRUE },
+//		{ _T("POWER_OFF_SEQ2"),     _T("POWER_OFF_SEQ2"),     TRUE },
+//		{ _T("POWER_OFF_SEQ3"),     _T("POWER_OFF_SEQ3"),     TRUE },
+//		{ _T("POWER_OFF_SEQ4"),     _T("POWER_OFF_SEQ4"),     TRUE },
+//		{ _T("POWER_OFF_SEQ5"),     _T("POWER_OFF_SEQ5"),     TRUE },
+//		{ _T("POWER_OFF_SEQ6"),     _T("POWER_OFF_SEQ6"),     TRUE },
+//		{ _T("POWER_OFF_SEQ7"),     _T("POWER_OFF_SEQ7"),     TRUE },
+//		{ _T("POWER_OFF_SEQ8"),     _T("POWER_OFF_SEQ8"),     TRUE },
+//		{ _T("POWER_OFF_SEQ9"),     _T("POWER_OFF_SEQ9"),     TRUE },
+//		{ _T("POWER_OFF_SEQ10"),    _T("POWER_OFF_SEQ10"),    TRUE },
+//
+//		{ _T("POWER_OFF_DELAY1"),   _T("POWER_OFF_DELAY1"),   TRUE },
+//		{ _T("POWER_OFF_DELAY2"),   _T("POWER_OFF_DELAY2"),   TRUE },
+//		{ _T("POWER_OFF_DELAY3"),   _T("POWER_OFF_DELAY3"),   TRUE },
+//		{ _T("POWER_OFF_DELAY4"),   _T("POWER_OFF_DELAY4"),   TRUE },
+//		{ _T("POWER_OFF_DELAY5"),   _T("POWER_OFF_DELAY5"),   TRUE },
+//		{ _T("POWER_OFF_DELAY6"),   _T("POWER_OFF_DELAY6"),   TRUE },
+//		{ _T("POWER_OFF_DELAY7"),   _T("POWER_OFF_DELAY7"),   TRUE },
+//		{ _T("POWER_OFF_DELAY8"),   _T("POWER_OFF_DELAY8"),   TRUE },
+//		{ _T("POWER_OFF_DELAY9"),   _T("POWER_OFF_DELAY9"),   TRUE },
+//
+//		{ _T("VCC_VOLT"),           _T("VCC_VOLT"),           TRUE },
+//		{ _T("VCC_VOLT_OFFSET"),    _T("VCC_VOLT_OFFSET"),    TRUE },
+//		{ _T("VCC_LIMIT_VOLT_LOW"), _T("VCC_LIMIT_VOLT_LOW"), TRUE },
+//		{ _T("VCC_LIMIT_VOLT_HIGH"),_T("VCC_LIMIT_VOLT_HIGH"),TRUE },
+//		{ _T("VCC_LIMIT_CURR_LOW"), _T("VCC_LIMIT_CURR_LOW"), TRUE },
+//		{ _T("VCC_LIMIT_CURR_HIGH"),_T("VCC_LIMIT_CURR_HIGH"),TRUE },
+//
+//		{ _T("VBL_VOLT"),           _T("VBL_VOLT"),           TRUE },
+//
+//		// 기존 하드코딩 코드에서는 송신명이 VBL_OFFSET_MODEL_INFO였고,
+//		// ini key는 VBL_VOLT_OFFSET임.
+//		{ _T("VBL_VOLT_OFFSET"),         _T("VBL_VOLT_OFFSET"),    TRUE },
+//
+//		{ _T("VBL_LIMIT_VOLT_LOW"), _T("VBL_LIMIT_VOLT_LOW"), TRUE },
+//		{ _T("VBL_LIMIT_VOLT_HIGH"),_T("VBL_LIMIT_VOLT_HIGH"),TRUE },
+//		{ _T("VBL_LIMIT_CURR_LOW"), _T("VBL_LIMIT_CURR_LOW"), TRUE },
+//		{ _T("VBL_LIMIT_CURR_HIGH"),_T("VBL_LIMIT_CURR_HIGH"),TRUE },
+//
+//		{ _T("AGING_TIME_HH"),      _T("AGING_TIME_HH"),      TRUE },
+//		{ _T("AGING_TIME_MM"),      _T("AGING_TIME_MM"),      TRUE },
+//		{ _T("AGING_TIME_MINUTE"),  _T("AGING_TIME_MINUTE"),  TRUE },
+//		{ _T("AGING_END_WAIT_TIME"),_T("AGING_END_WAIT_TIME"),TRUE },
+//
+//		{ _T("TEMPERATURE_USE"),    _T("TEMPERATURE_USE"),    TRUE },
+//		{ _T("TEMPERATURE_MIN"),    _T("TEMPERATURE_MIN"),    TRUE },
+//		{ _T("TEMPERATURE_MAX"),    _T("TEMPERATURE_MAX"),    TRUE },
+//		{ _T("DOOR_USE"),           _T("DOOR_USE"),           TRUE }
+//	};
+//
+//	for (int i = 0; i < _countof(kErcpParams); i++)
+//	{
+//		CString value = ReadModelInfoValueForErcp(modelName, kErcpParams[i].iniKey);
+//
+//		// MODEL_NB가 Model ini에 없고 MODEL_NUMBER만 있는 경우 대비
+//		if (value.IsEmpty() && _tcscmp(kErcpParams[i].iniKey, _T("MODEL_NB")) == 0)
+//		{
+//			value = ReadModelInfoValueForErcp(modelName, _T("MODEL_NUMBER"));
+//		}
+//
+//		// 값이 아예 없으면 보내지 않음
+//		if (value.IsEmpty())
+//			continue;
+//
+//		/*CString one;
+//
+//		if (kErcpParams[i].bUseEqpPrefix)
+//		{
+//			one.Format(
+//				_T("%s_%s#%s^"),
+//				eqpSuffix.GetString(),
+//				kErcpParams[i].sendName,
+//				value.GetString()
+//			);
+//		}
+//		else
+//		{
+//			one.Format(
+//				_T("%s#%s^"),
+//				kErcpParams[i].sendName,
+//				value.GetString()
+//			);
+//		}
+//
+//		outErcpMessageSet += one;*/
+//		CString one;
+//
+//		// RMS ERCP_INFO에서는 장비 Prefix 제거
+//		// 기존: 04HV01_TEMPERATURE_USE_MODEL_INFO#1^
+//		// 변경: TEMPERATURE_USE_MODEL_INFO#1^
+//		one.Format(
+//			_T("%s#%s^"),
+//			kErcpParams[i].sendName,
+//			value.GetString()
+//		);
+//
+//		outErcpMessageSet += one;
+//	}
+//
+//	return !outErcpMessageSet.IsEmpty();
+//}
+
+// 선택된 모델명에서 앞 번호 추출
+// 예: 9_LP140WU4-SPH2-KH1-H -> 9
+// 예: 09_LP140WU4-SPH2-KH1-H -> 9
+static BOOL GetRecipeNoFromSelectedModelName(
 	const CString& modelName,
-	const CString& eqpSuffix,
-	CString& outErcpMessageSet)
+	int& outRecipeNo,
+	CString& outErrMsg)
 {
-	outErcpMessageSet.Empty();
+	outRecipeNo = 0;
+	outErrMsg.Empty();
 
-	static const ERCP_PARAM_MAP kErcpParams[] =
+	CString name = modelName;
+	name.Trim();
+
+	if (name.IsEmpty())
 	{
-		// sendName,                 iniKey,                   bUseEqpPrefix
+		outErrMsg = _T("Model name is empty.");
+		return FALSE;
+	}
 
-		// 기존 코드 방식 유지: MODEL_NB는 prefix 없이 MODEL_NB#value^ 형태
-		// 만약 RMS 엑셀에서 MODEL_NB_MODEL_INFO 형태를 요구하면 아래 sendName을 MODEL_NB_MODEL_INFO로 바꾸고 bUseEqpPrefix를 TRUE로 바꾸면 됨.
-		{ _T("MODEL_NB"),            _T("MODEL_NB"),            FALSE },
+	int underBarPos = name.Find(_T('_'));
 
-		{ _T("DIMMING_SEL_MODEL_INFO"),        _T("DIMMING_SEL"),        TRUE },
-		{ _T("PWM_FREQ_MODEL_INFO"),           _T("PWM_FREQ"),           TRUE },
-		{ _T("PWM_DUTY_MODEL_INFO"),           _T("PWM_DUTY"),           TRUE },
-		{ _T("VBR_VOLT_MODEL_INFO"),           _T("VBR_VOLT"),           TRUE },
-		{ _T("CABLE_OPEN_MODEL_INFO"),         _T("CABLE_OPEN"),         TRUE },
+	CString recipeText;
 
-		{ _T("POWER_ON_SEQ1_MODEL_INFO"),      _T("POWER_ON_SEQ1"),      TRUE },
-		{ _T("POWER_ON_SEQ2_MODEL_INFO"),      _T("POWER_ON_SEQ2"),      TRUE },
-		{ _T("POWER_ON_SEQ3_MODEL_INFO"),      _T("POWER_ON_SEQ3"),      TRUE },
-		{ _T("POWER_ON_SEQ4_MODEL_INFO"),      _T("POWER_ON_SEQ4"),      TRUE },
-		{ _T("POWER_ON_SEQ5_MODEL_INFO"),      _T("POWER_ON_SEQ5"),      TRUE },
-		{ _T("POWER_ON_SEQ6_MODEL_INFO"),      _T("POWER_ON_SEQ6"),      TRUE },
-		{ _T("POWER_ON_SEQ7_MODEL_INFO"),      _T("POWER_ON_SEQ7"),      TRUE },
-		{ _T("POWER_ON_SEQ8_MODEL_INFO"),      _T("POWER_ON_SEQ8"),      TRUE },
-		{ _T("POWER_ON_SEQ9_MODEL_INFO"),      _T("POWER_ON_SEQ9"),      TRUE },
-		{ _T("POWER_ON_SEQ10_MODEL_INFO"),     _T("POWER_ON_SEQ10"),     TRUE },
+	if (underBarPos > 0)
+		recipeText = name.Left(underBarPos);
+	else
+		recipeText = name;
 
-		{ _T("POWER_ON_DELAY1_MODEL_INFO"),    _T("POWER_ON_DELAY1"),    TRUE },
-		{ _T("POWER_ON_DELAY2_MODEL_INFO"),    _T("POWER_ON_DELAY2"),    TRUE },
-		{ _T("POWER_ON_DELAY3_MODEL_INFO"),    _T("POWER_ON_DELAY3"),    TRUE },
-		{ _T("POWER_ON_DELAY4_MODEL_INFO"),    _T("POWER_ON_DELAY4"),    TRUE },
-		{ _T("POWER_ON_DELAY5_MODEL_INFO"),    _T("POWER_ON_DELAY5"),    TRUE },
-		{ _T("POWER_ON_DELAY6_MODEL_INFO"),    _T("POWER_ON_DELAY6"),    TRUE },
-		{ _T("POWER_ON_DELAY7_MODEL_INFO"),    _T("POWER_ON_DELAY7"),    TRUE },
-		{ _T("POWER_ON_DELAY8_MODEL_INFO"),    _T("POWER_ON_DELAY8"),    TRUE },
-		{ _T("POWER_ON_DELAY9_MODEL_INFO"),    _T("POWER_ON_DELAY9"),    TRUE },
+	recipeText.Trim();
 
-		{ _T("POWER_OFF_SEQ1_MODEL_INFO"),     _T("POWER_OFF_SEQ1"),     TRUE },
-		{ _T("POWER_OFF_SEQ2_MODEL_INFO"),     _T("POWER_OFF_SEQ2"),     TRUE },
-		{ _T("POWER_OFF_SEQ3_MODEL_INFO"),     _T("POWER_OFF_SEQ3"),     TRUE },
-		{ _T("POWER_OFF_SEQ4_MODEL_INFO"),     _T("POWER_OFF_SEQ4"),     TRUE },
-		{ _T("POWER_OFF_SEQ5_MODEL_INFO"),     _T("POWER_OFF_SEQ5"),     TRUE },
-		{ _T("POWER_OFF_SEQ6_MODEL_INFO"),     _T("POWER_OFF_SEQ6"),     TRUE },
-		{ _T("POWER_OFF_SEQ7_MODEL_INFO"),     _T("POWER_OFF_SEQ7"),     TRUE },
-		{ _T("POWER_OFF_SEQ8_MODEL_INFO"),     _T("POWER_OFF_SEQ8"),     TRUE },
-		{ _T("POWER_OFF_SEQ9_MODEL_INFO"),     _T("POWER_OFF_SEQ9"),     TRUE },
-		{ _T("POWER_OFF_SEQ10_MODEL_INFO"),    _T("POWER_OFF_SEQ10"),    TRUE },
-
-		{ _T("POWER_OFF_DELAY1_MODEL_INFO"),   _T("POWER_OFF_DELAY1"),   TRUE },
-		{ _T("POWER_OFF_DELAY2_MODEL_INFO"),   _T("POWER_OFF_DELAY2"),   TRUE },
-		{ _T("POWER_OFF_DELAY3_MODEL_INFO"),   _T("POWER_OFF_DELAY3"),   TRUE },
-		{ _T("POWER_OFF_DELAY4_MODEL_INFO"),   _T("POWER_OFF_DELAY4"),   TRUE },
-		{ _T("POWER_OFF_DELAY5_MODEL_INFO"),   _T("POWER_OFF_DELAY5"),   TRUE },
-		{ _T("POWER_OFF_DELAY6_MODEL_INFO"),   _T("POWER_OFF_DELAY6"),   TRUE },
-		{ _T("POWER_OFF_DELAY7_MODEL_INFO"),   _T("POWER_OFF_DELAY7"),   TRUE },
-		{ _T("POWER_OFF_DELAY8_MODEL_INFO"),   _T("POWER_OFF_DELAY8"),   TRUE },
-		{ _T("POWER_OFF_DELAY9_MODEL_INFO"),   _T("POWER_OFF_DELAY9"),   TRUE },
-
-		{ _T("VCC_VOLT_MODEL_INFO"),           _T("VCC_VOLT"),           TRUE },
-		{ _T("VCC_VOLT_OFFSET_MODEL_INFO"),    _T("VCC_VOLT_OFFSET"),    TRUE },
-		{ _T("VCC_LIMIT_VOLT_LOW_MODEL_INFO"), _T("VCC_LIMIT_VOLT_LOW"), TRUE },
-		{ _T("VCC_LIMIT_VOLT_HIGH_MODEL_INFO"),_T("VCC_LIMIT_VOLT_HIGH"),TRUE },
-		{ _T("VCC_LIMIT_CURR_LOW_MODEL_INFO"), _T("VCC_LIMIT_CURR_LOW"), TRUE },
-		{ _T("VCC_LIMIT_CURR_HIGH_MODEL_INFO"),_T("VCC_LIMIT_CURR_HIGH"),TRUE },
-
-		{ _T("VBL_VOLT_MODEL_INFO"),           _T("VBL_VOLT"),           TRUE },
-
-		// 기존 하드코딩 코드에서는 송신명이 VBL_OFFSET_MODEL_INFO였고,
-		// ini key는 VBL_VOLT_OFFSET임.
-		{ _T("VBL_OFFSET_MODEL_INFO"),         _T("VBL_VOLT_OFFSET"),    TRUE },
-
-		{ _T("VBL_LIMIT_VOLT_LOW_MODEL_INFO"), _T("VBL_LIMIT_VOLT_LOW"), TRUE },
-		{ _T("VBL_LIMIT_VOLT_HIGH_MODEL_INFO"),_T("VBL_LIMIT_VOLT_HIGH"),TRUE },
-		{ _T("VBL_LIMIT_CURR_LOW_MODEL_INFO"), _T("VBL_LIMIT_CURR_LOW"), TRUE },
-		{ _T("VBL_LIMIT_CURR_HIGH_MODEL_INFO"),_T("VBL_LIMIT_CURR_HIGH"),TRUE },
-
-		{ _T("AGING_TIME_HH_MODEL_INFO"),      _T("AGING_TIME_HH"),      TRUE },
-		{ _T("AGING_TIME_MM_MODEL_INFO"),      _T("AGING_TIME_MM"),      TRUE },
-		{ _T("AGING_TIME_MINUTE_MODEL_INFO"),  _T("AGING_TIME_MINUTE"),  TRUE },
-		{ _T("AGING_END_WAIT_TIME_MODEL_INFO"),_T("AGING_END_WAIT_TIME"),TRUE },
-
-		{ _T("TEMPERATURE_USE_MODEL_INFO"),    _T("TEMPERATURE_USE"),    TRUE },
-		{ _T("TEMPERATURE_MIN_MODEL_INFO"),    _T("TEMPERATURE_MIN"),    TRUE },
-		{ _T("TEMPERATURE_MAX_MODEL_INFO"),    _T("TEMPERATURE_MAX"),    TRUE },
-		{ _T("DOOR_USE_MODEL_INFO"),           _T("DOOR_USE"),           TRUE }
-	};
-
-	for (int i = 0; i < _countof(kErcpParams); i++)
+	if (recipeText.IsEmpty())
 	{
-		CString value = ReadModelInfoValueForErcp(modelName, kErcpParams[i].iniKey);
+		outErrMsg.Format(_T("Recipe number is empty. model=%s"), modelName.GetString());
+		return FALSE;
+	}
 
-		// MODEL_NB가 Model ini에 없고 MODEL_NUMBER만 있는 경우 대비
-		if (value.IsEmpty() && _tcscmp(kErcpParams[i].iniKey, _T("MODEL_NB")) == 0)
+	for (int i = 0; i < recipeText.GetLength(); i++)
+	{
+		if (!_istdigit(recipeText[i]))
 		{
-			value = ReadModelInfoValueForErcp(modelName, _T("MODEL_NUMBER"));
+			outErrMsg.Format(
+				_T("Invalid recipe number. model=%s recipeText=%s"),
+				modelName.GetString(),
+				recipeText.GetString()
+			);
+			return FALSE;
+		}
+	}
+
+	outRecipeNo = _ttoi(recipeText);
+
+	if (outRecipeNo <= 0 || outRecipeNo > 99)
+	{
+		outErrMsg.Format(
+			_T("Recipe number out of range. model=%s recipeNo=%d"),
+			modelName.GetString(),
+			outRecipeNo
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+// ini 파일의 [MODEL_INFO]에서 key 값 읽기
+static CString ReadModelInfoValueFromIniPath(
+	const CString& iniPath,
+	const CString& key)
+{
+	TCHAR value[512] = { 0 };
+
+	::GetPrivateProfileString(
+		_T("MODEL_INFO"),
+		key,
+		_T(""),
+		value,
+		_countof(value),
+		iniPath
+	);
+
+	CString ret = value;
+	ret.Trim();
+
+	return ret;
+}
+
+// RACKn_Recipe.ini의 [MODEL_INFO]에 있는 파라미터 key 목록 읽기
+static BOOL ReadErcpParamNamesFromRackRecipeIni(
+	const CString& rackRecipeIniPath,
+	std::vector<CString>& outParamNames,
+	CString& outErrMsg)
+{
+	outParamNames.clear();
+	outErrMsg.Empty();
+
+	if (!FileExistsSimple(rackRecipeIniPath))
+	{
+		outErrMsg.Format(
+			_T("Rack recipe key file not found. file=%s"),
+			rackRecipeIniPath.GetString()
+		);
+		return FALSE;
+	}
+
+	const DWORD BUF_SIZE = 64 * 1024;
+	std::vector<TCHAR> buf(BUF_SIZE, 0);
+
+	DWORD read = ::GetPrivateProfileSection(
+		_T("MODEL_INFO"),
+		buf.data(),
+		(DWORD)buf.size(),
+		rackRecipeIniPath
+	);
+
+	if (read == 0)
+	{
+		outErrMsg.Format(
+			_T("MODEL_INFO section is empty. file=%s"),
+			rackRecipeIniPath.GetString()
+		);
+		return FALSE;
+	}
+
+	const TCHAR* p = buf.data();
+
+	while (*p)
+	{
+		CString line = p;
+		line.Trim();
+
+		int eqPos = line.Find(_T('='));
+
+		if (eqPos > 0)
+		{
+			CString key = line.Left(eqPos);
+			key.Trim();
+
+			while (!key.IsEmpty() && key[0] == _T(':'))
+			{
+				key = key.Mid(1);
+				key.Trim();
+			}
+
+			if (!key.IsEmpty())
+				outParamNames.push_back(key);
 		}
 
-		// 값이 아예 없으면 보내지 않음
+		p += _tcslen(p) + 1;
+	}
+
+	if (outParamNames.empty())
+	{
+		outErrMsg.Format(
+			_T("No parameter key in MODEL_INFO. file=%s"),
+			rackRecipeIniPath.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+// 파라미터명이 _MODEL_INFO로 되어 있는데 실제 Recipe 파일은 DIMMING_SEL 같은 이름으로 저장된 경우 대비
+static CString GetRecipeValueByParamNameForErcp(
+	const CString& valueRecipeIniPath,
+	const CString& paramName)
+{
+	CString value;
+
+	CString key = paramName;
+	key.Trim();
+
+	value = ReadModelInfoValueFromIniPath(valueRecipeIniPath, key);
+
+	if (!value.IsEmpty())
+		return value;
+
+	// 예: DIMMING_SEL_MODEL_INFO -> DIMMING_SEL
+	CString suffix = _T("_MODEL_INFO");
+
+	if (key.Right(suffix.GetLength()).CompareNoCase(suffix) == 0)
+	{
+		CString fallbackKey = key.Left(key.GetLength() - suffix.GetLength());
+		fallbackKey.Trim();
+
+		value = ReadModelInfoValueFromIniPath(valueRecipeIniPath, fallbackKey);
+	}
+
+	return value;
+}
+
+// ERCP_INFO 생성
+// 파라미터 목록: RMS\RACKn\RACKn_Recipe.ini
+// 값 source: RMS\RACKn\RACKn_Recipe\NN.ini
+static BOOL BuildErcpMessageSetFromRackRecipeFiles(
+	int rackIndex,
+	const CString& selectedModelName,
+	CString& outErcpMessageSet,
+	CString& outErrMsg)
+{
+	outErcpMessageSet.Empty();
+	outErrMsg.Empty();
+
+	if (rackIndex < 0 || rackIndex >= MAX_RACK)
+	{
+		outErrMsg.Format(_T("Invalid rack index. rackIndex=%d"), rackIndex);
+		return FALSE;
+	}
+
+	int rackNo = rackIndex + 1;
+
+	int recipeNo = 0;
+
+	if (!GetRecipeNoFromSelectedModelName(
+		selectedModelName,
+		recipeNo,
+		outErrMsg))
+	{
+		return FALSE;
+	}
+
+	CString rackRecipeIniPath;
+	rackRecipeIniPath.Format(
+		_T(".\\RMS\\RACK%d\\RACK%d_Recipe.ini"),
+		rackNo,
+		rackNo
+	);
+
+	CString valueRecipeIniPath;
+	valueRecipeIniPath.Format(
+		_T(".\\RMS\\RACK%d\\RACK%d_Recipe\\%03d.ini"),
+		rackNo,
+		rackNo,
+		recipeNo
+	);
+
+	if (!FileExistsSimple(valueRecipeIniPath))
+	{
+		outErrMsg.Format(
+			_T("Recipe value file not found. file=%s"),
+			valueRecipeIniPath.GetString()
+		);
+		return FALSE;
+	}
+
+	std::vector<CString> paramNames;
+
+	if (!ReadErcpParamNamesFromRackRecipeIni(
+		rackRecipeIniPath,
+		paramNames,
+		outErrMsg))
+	{
+		return FALSE;
+	}
+
+	for (size_t i = 0; i < paramNames.size(); i++)
+	{
+		CString paramName = paramNames[i];
+		paramName.Trim();
+
+		if (paramName.IsEmpty())
+			continue;
+
+		CString value;
+
+		// MODEL_NB는 09.ini 안에 값이 없어도 선택 모델 번호로 보정
+		if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		{
+			value = GetRecipeValueByParamNameForErcp(valueRecipeIniPath, paramName);
+
+			if (value.IsEmpty())
+				value.Format(_T("%d"), recipeNo);
+		}
+		else
+		{
+			value = GetRecipeValueByParamNameForErcp(valueRecipeIniPath, paramName);
+		}
+
+		// 값이 없는 파라미터는 ERCP_INFO에서 제외
+		// 0 값은 "0" 문자열이므로 제외되지 않음
 		if (value.IsEmpty())
 			continue;
 
 		CString one;
-
-		if (kErcpParams[i].bUseEqpPrefix)
-		{
-			one.Format(
-				_T("%s_%s#%s^"),
-				eqpSuffix.GetString(),
-				kErcpParams[i].sendName,
-				value.GetString()
-			);
-		}
-		else
-		{
-			one.Format(
-				_T("%s#%s^"),
-				kErcpParams[i].sendName,
-				value.GetString()
-			);
-		}
+		one.Format(
+			_T("%s#%s^"),
+			paramName.GetString(),
+			value.GetString()
+		);
 
 		outErcpMessageSet += one;
 	}
 
-	return !outErcpMessageSet.IsEmpty();
+	if (outErcpMessageSet.IsEmpty())
+	{
+		outErrMsg.Format(
+			_T("ERCP_INFO is empty. rackRecipe=%s valueRecipe=%s"),
+			rackRecipeIniPath.GetString(),
+			valueRecipeIniPath.GetString()
+		);
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 void CHseAgingDlg::Lf_rmsErcpSet(int rack)
@@ -6864,7 +7184,27 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 			return;
 		}
 
-		CString eqpSuffix = lpSystemInfo->m_sEqpName.Right(6);
+		CString ercpBuildErr;
+
+		if (!BuildErcpMessageSetFromRackRecipeFiles(
+			rack,
+			sModelName,
+			ErcpMessageSet,
+			ercpBuildErr))
+		{
+			CString err;
+			err.Format(
+				_T("Failed to build ERCP_INFO from RMS rack recipe files.\nRack=%d\nModel=%s\n%s"),
+				rack + 1,
+				sModelName.GetString(),
+				ercpBuildErr.GetString()
+			);
+
+			AfxMessageBox(err, MB_ICONERROR);
+			return;
+		}
+
+		/*CString eqpSuffix = lpSystemInfo->m_sEqpName.Right(6);
 
 		if (!BuildErcpMessageSetFromModelIni(
 			sModelName,
@@ -6876,7 +7216,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 				sModelName.GetString());
 			AfxMessageBox(err, MB_ICONERROR);
 			return;
-		}
+		}*/
 
 		// ============================================================
 		// Validation.ini Count 증가

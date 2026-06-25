@@ -51,6 +51,9 @@ protected:
 
 	BOOL Lf_checkAgingTempInfoChange();
 
+	BOOL Lf_IsPmLoginMode();
+	void Lf_ApplyModelEditPermission();
+
 	/*static CString ExtractPureModelName(const CString& modelName);
 	static CString MakeModelNameByNumber(int modelNumber, const CString& pureModelName);*/
 
