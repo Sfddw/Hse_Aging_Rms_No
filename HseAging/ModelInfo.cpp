@@ -104,9 +104,124 @@ static BOOL MI_EnsureDirectoryExists(const CString& dirPath)
 	return (::GetLastError() == ERROR_ALREADY_EXISTS);
 }
 
+/// <summary>
+/// 모델.ini 파일 ReadOnly
+/// </summary>
+/// <param name="filePath"></param>
+/// <param name="bReadOnly"></param>
+static void MI_SetFileReadOnly(const CString& filePath, BOOL bReadOnly)
+{
+	DWORD attr = ::GetFileAttributes(filePath);
+
+	if (attr == INVALID_FILE_ATTRIBUTES)
+		return;
+
+	if (attr & FILE_ATTRIBUTE_DIRECTORY)
+		return;
+
+	if (bReadOnly)
+		attr |= FILE_ATTRIBUTE_READONLY;
+	else
+		attr &= ~FILE_ATTRIBUTE_READONLY;
+
+	::SetFileAttributes(filePath, attr);
+}
+
+static void MI_SetReadOnlyForIniFilesInFolder(const CString& folderPath, BOOL bReadOnly)
+{
+	WIN32_FIND_DATA wfd = { 0 };
+	HANDLE hFind = INVALID_HANDLE_VALUE;
+
+	CString pattern;
+	pattern.Format(_T("%s\\*.ini"), folderPath.GetString());
+
+	hFind = ::FindFirstFile(pattern, &wfd);
+	if (hFind == INVALID_HANDLE_VALUE)
+		return;
+
+	do
+	{
+		if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			continue;
+
+		CString filePath;
+		filePath.Format(_T("%s\\%s"), folderPath.GetString(), wfd.cFileName);
+
+		MI_SetFileReadOnly(filePath, bReadOnly);
+
+	} while (::FindNextFile(hFind, &wfd));
+
+	::FindClose(hFind);
+}
+
+static void MI_SetModelAndRackRecipeIniReadOnly(BOOL bReadOnly)
+{
+	// Model 폴더
+	MI_SetReadOnlyForIniFilesInFolder(_T(".\\Model"), bReadOnly);
+
+	// RMS\RACK1~6\RACKn_Recipe 폴더
+	for (int rack = 1; rack <= MAX_RACK; rack++)
+	{
+		CString rackRecipeDir;
+		rackRecipeDir.Format(
+			_T(".\\RMS\\RACK%d\\RACK%d_Recipe"),
+			rack,
+			rack
+		);
+
+		MI_SetReadOnlyForIniFilesInFolder(rackRecipeDir, bReadOnly);
+	}
+}
+
+static BOOL MI_DeleteRecipeFileFromAllRackRecipeFolders(
+	int recipeNo,
+	CString& outErrMsg)
+{
+	outErrMsg.Empty();
+
+	if (recipeNo <= 0)
+		return TRUE;
+
+	for (int rack = 1; rack <= MAX_RACK; rack++)
+	{
+		CString recipePath;
+		recipePath.Format(
+			_T(".\\RMS\\RACK%d\\RACK%d_Recipe\\%03d.ini"),
+			rack,
+			rack,
+			recipeNo
+		);
+
+		if (!MI_FileExists(recipePath))
+			continue;
+
+		// 혹시 ReadOnly가 남아있을 수 있으므로 삭제 전 해제
+		MI_SetFileReadOnly(recipePath, FALSE);
+
+		if (!::DeleteFile(recipePath))
+		{
+			DWORD err = ::GetLastError();
+
+			outErrMsg.Format(
+				_T("Delete old recipe failed. file=%s err=%lu"),
+				recipePath.GetString(),
+				err
+			);
+
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+
+
 // 저장된 Model ini를 RMS\RACK1~6\RACKn_Recipe\00n.ini 로 동기화
 static BOOL MI_SyncSavedModelToAllRackRecipeFolders(
 	const CString& modelNameNoExt,
+	int oldRecipeNo,
+	BOOL bDeleteOldRecipe,
 	CString& outErrMsg)
 {
 	outErrMsg.Empty();
@@ -215,6 +330,16 @@ static BOOL MI_SyncSavedModelToAllRackRecipeFolders(
 		}
 	}
 
+	if (bDeleteOldRecipe && oldRecipeNo > 0 && oldRecipeNo != recipeNo)
+	{
+		if (!MI_DeleteRecipeFileFromAllRackRecipeFolders(
+			oldRecipeNo,
+			outErrMsg))
+		{
+			return FALSE;
+		}
+	}
+
 	// RMS\ModelList.ini도 갱신
 	// RACK1_Recipe 폴더 기준으로 생성
 	CString rack1RecipeDir;
@@ -319,6 +444,9 @@ BOOL CModelInfo::OnInitDialog()
 	Lf_InitDialogDesign();
 
 	Lf_InitComboModelList();
+
+	// Model / RACKn_Recipe 안의 ini 파일 보호
+	MI_SetModelAndRackRecipeIniReadOnly(TRUE);
 
 	// PM 로그인 시 Model Information SAVE 비활성화
 	Lf_ApplyModelEditPermission();
@@ -480,8 +608,7 @@ void CModelInfo::OnBnClickedMbtMiModelDelete()
 
 void CModelInfo::OnBnClickedBtnMiSave()
 {
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-
+	// 버튼이 Disable 되어 있어도 혹시 모를 직접 호출 방어
 	if (Lf_IsPmLoginMode())
 	{
 		m_pApp->Gf_ShowMessageBox(_T("PM login mode cannot save model information."));
@@ -495,35 +622,91 @@ void CModelInfo::OnBnClickedBtnMiSave()
 		return;
 
 	msg_dlg.m_strQMessage.Format(_T("Model data Save ?"));
+
 	if (msg_dlg.DoModal() == IDOK)
 	{
-		Lf_saveModelData();
+		// ============================================================
+		// 저장 전 상태 기억
+		// curLoadingModel : 실제 로드되어 있던 기존 모델명
+		// beforeSaveModelName : SAVE MODEL 칸에 보이던 모델명
+		//
+		// 모델번호만 변경한 경우:
+		// beforeSaveModelName == curLoadingModel
+		// 예: curLoadingModel = 1_LP160...
+		//     SAVE_MODEL_NUM = 111
+		//     저장 후 111_LP160... 으로 rename
+		//     이때 RACKn_Recipe의 001.ini를 삭제해야 함
+		// ============================================================
+		CString oldLoadingModel = curLoadingModel;
+		oldLoadingModel.Trim();
+		oldLoadingModel.MakeUpper();
 
-		CString savedModelName;
-		GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(savedModelName);
-		savedModelName.Trim();
-		savedModelName.MakeUpper();
+		CString beforeSaveModelName;
+		GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(beforeSaveModelName);
+		beforeSaveModelName.Trim();
+		beforeSaveModelName.MakeUpper();
 
-		CString errMsg;
-		if (!MI_SyncSavedModelToAllRackRecipeFolders(savedModelName, errMsg))
+		int oldRecipeNo = 0;
+		BOOL bDeleteOldRecipe = FALSE;
+
+		if (!oldLoadingModel.IsEmpty()
+			&& beforeSaveModelName.CompareNoCase(oldLoadingModel) == 0
+			&& MI_ExtractLeadingModelNo(oldLoadingModel, oldRecipeNo))
 		{
-			CString msg;
-			msg.Format(_T("Model Save OK, but RMS Recipe Sync failed.\r\n\r\n%s"),
-				errMsg.GetString());
-
-			m_pApp->Gf_ShowMessageBox(msg);
+			bDeleteOldRecipe = TRUE;
 		}
-		else
+
+		// 저장 전 ReadOnly 해제
+		MI_SetModelAndRackRecipeIniReadOnly(FALSE);
+
+		try
 		{
-			CString log;
-			log.Format(_T("<MODEL> RMS Recipe Sync OK. model=%s"),
-				savedModelName.GetString());
+			Lf_saveModelData();
 
-			m_pApp->Gf_writeMLog(log);
+			CString savedModelName;
+			GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->GetWindowText(savedModelName);
+			savedModelName.Trim();
+			savedModelName.MakeUpper();
+
+			CString errMsg;
+			if (!MI_SyncSavedModelToAllRackRecipeFolders(
+				savedModelName,
+				oldRecipeNo,
+				bDeleteOldRecipe,
+				errMsg))
+			{
+				CString msg;
+				msg.Format(
+					_T("Model Save OK, but RMS Recipe Sync failed.\r\n\r\n%s"),
+					errMsg.GetString()
+				);
+
+				m_pApp->Gf_ShowMessageBox(msg);
+			}
+			else
+			{
+				CString log;
+				log.Format(
+					_T("<MODEL> RMS Recipe Sync OK. model=%s oldRecipeNo=%d deleteOld=%d"),
+					savedModelName.GetString(),
+					oldRecipeNo,
+					bDeleteOldRecipe
+				);
+
+				m_pApp->Gf_writeMLog(log);
+			}
 		}
+		catch (...)
+		{
+			MI_SetModelAndRackRecipeIniReadOnly(TRUE);
+			m_pApp->Gf_ShowMessageBox(_T("Model save error."));
+			return;
+		}
+
+		// 저장 후 다시 ReadOnly 설정
+		MI_SetModelAndRackRecipeIniReadOnly(TRUE);
 	}
 
-	// Model 삭제 후 Cursor 이동할 위치를 계산한다.
 	int selectedIndex;
 	if (curLoadingModel.GetLength() != 0)
 		selectedIndex = m_cmbMiLoadModel.FindStringExact(0, curLoadingModel);
@@ -531,7 +714,6 @@ void CModelInfo::OnBnClickedBtnMiSave()
 		selectedIndex = 0;
 
 	Lf_InitComboModelList(selectedIndex);
-
 }
 
 
@@ -721,7 +903,7 @@ void CModelInfo::Lf_ApplyModelEditPermission()
 
 	// PM 로그인일 때 SAVE 버튼 비활성화
 	m_btnMiSave.EnableWindow(!bPmLogin);
-	m_mbtMiModelDelete.EnableWindow(!bPmLogin);
+	 m_mbtMiModelDelete.EnableWindow(!bPmLogin);
 
 	if (bPmLogin)
 	{
