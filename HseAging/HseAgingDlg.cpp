@@ -486,6 +486,7 @@ CHseAgingDlg::CHseAgingDlg(CWnd* pParent /*=nullptr*/)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
+	m_bWoModelFilter = FALSE;
 
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
@@ -547,6 +548,7 @@ void CHseAgingDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_STT_CONNECT_INFO, m_sttConnectInfo);
 
 	DDX_Control(pDX, IDC_LST_MA_WOLOG, m_lstMaWoLog);
+	DDX_Control(pDX, IDC_BTN_MA_WO_MODEL_FILTER, m_btnMaWoModelFilter);
 }
 
 BEGIN_MESSAGE_MAP(CHseAgingDlg, CDialogEx)
@@ -606,6 +608,7 @@ BEGIN_MESSAGE_MAP(CHseAgingDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_DOOR5, &CHseAgingDlg::OnBnClickedButtonDoor5)
 	ON_BN_CLICKED(IDC_BUTTON_DOOR6, &CHseAgingDlg::OnBnClickedButtonDoor6)
 	ON_BN_CLICKED(IDC_PAUSE1, &CHseAgingDlg::OnBnClickedPause1)
+	ON_BN_CLICKED(IDC_BTN_MA_WO_MODEL_FILTER, &CHseAgingDlg::OnBnClickedBtnMaWoModelFilter)
 END_MESSAGE_MAP()
 
 
@@ -4077,6 +4080,11 @@ void CHseAgingDlg::Lf_InitDialogDesign()
 		rect_curr.top = rect_move.top - 31;
 		rect_curr.bottom = rect_move.bottom - 31;
 		m_pBtnChUseUnuseSet[rack]->MoveWindow(rect_curr);
+
+		m_btnMaWoModelFilter.EnableWindowsTheming(FALSE);
+		m_btnMaWoModelFilter.SetFaceColor(COLOR_GRAY224);
+		m_btnMaWoModelFilter.SetTextColor(COLOR_BLACK);
+		Lf_SetWoModelFilterButtonText();
 	}
 
 
@@ -4100,80 +4108,279 @@ void CHseAgingDlg::Lf_InitDialogDesign()
 	m_pApp->Gf_setGradientStatic04(&m_sttTempSensor6T, &m_Font[6], FALSE);
 }
 
-void CHseAgingDlg::Lf_InitCobmoRackModelList()
+CString CHseAgingDlg::Lf_MakeModelCompareName(const CString& modelName, BOOL bWoModel)
+{
+	CString name = modelName;
+	name.Trim();
+	name.MakeUpper();
+
+	// 확장자 제거
+	if (name.Right(4).CompareNoCase(_T(".INI")) == 0)
+		name = name.Left(name.GetLength() - 4);
+
+	// 장비 등록 모델명은 앞 번호 제거
+	// 예: 13_LP140WU4-SPB1-KH1 -> LP140WU4-SPB1-KH1
+	if (!bWoModel)
+	{
+		int underBarPos = name.Find(_T('_'));
+
+		if (underBarPos > 0)
+		{
+			CString prefix = name.Left(underBarPos);
+			prefix.Trim();
+
+			BOOL bNumberPrefix = TRUE;
+			for (int i = 0; i < prefix.GetLength(); i++)
+			{
+				if (!_istdigit(prefix[i]))
+				{
+					bNumberPrefix = FALSE;
+					break;
+				}
+			}
+
+			if (bNumberPrefix)
+			{
+				name = name.Mid(underBarPos + 1);
+				name.Trim();
+			}
+		}
+	}
+
+	// W/O 모델명은 마지막 -S, -H 같은 suffix 제거
+	// 예: LP140WU4-SPH2-KH1-S -> LP140WU4-SPH2-KH1
+	// 예: LP160WU6-SPD1-9H1-S -> LP160WU6-SPD1-9H1
+	if (bWoModel)
+	{
+		int lastDash = name.ReverseFind(_T('-'));
+
+		if (lastDash > 0)
+		{
+			CString tail = name.Mid(lastDash + 1);
+			tail.Trim();
+
+			// S, H, J 등 한 글자 suffix만 제거
+			if (tail.GetLength() <= 2)
+			{
+				name = name.Left(lastDash);
+				name.Trim();
+			}
+		}
+	}
+
+	return name;
+}
+
+CString CHseAgingDlg::Lf_GetWoModelCodeForErcp(const CString& selectedRackModel)
+{
+	CString rackCompareName = Lf_MakeModelCompareName(selectedRackModel, FALSE);
+
+	if (rackCompareName.IsEmpty())
+		return _T("");
+
+	// 1순위: W/O 리스트에서 현재 선택된 항목이 있고, 그 항목이 RACK 모델과 매칭되면 그 값을 사용
+	if (::IsWindow(m_lstMaWoLog.GetSafeHwnd()))
+	{
+		int sel = m_lstMaWoLog.GetCurSel();
+
+		if (sel >= 0 &&
+			sel < m_pApp->Wo_BaseModel_List.GetCount() &&
+			sel < m_pApp->Wo_Model_List.GetCount())
+		{
+			CString woBaseModel = m_pApp->Wo_BaseModel_List.GetAt(sel);
+			CString woCompareName = Lf_MakeModelCompareName(woBaseModel, TRUE);
+
+			if (rackCompareName.CompareNoCase(woCompareName) == 0)
+			{
+				CString woModelCode = m_pApp->Wo_Model_List.GetAt(sel);
+				woModelCode.Trim();
+
+				return woModelCode;
+			}
+		}
+	}
+
+	// 2순위: 선택 항목이 없거나 매칭 안 되면 전체 W/O 목록에서 첫 번째 매칭값 사용
+	for (int i = 0; i < m_pApp->Wo_BaseModel_List.GetCount(); i++)
+	{
+		if (i >= m_pApp->Wo_Model_List.GetCount())
+			break;
+
+		CString woBaseModel = m_pApp->Wo_BaseModel_List.GetAt(i);
+		CString woCompareName = Lf_MakeModelCompareName(woBaseModel, TRUE);
+
+		if (rackCompareName.CompareNoCase(woCompareName) == 0)
+		{
+			CString woModelCode = m_pApp->Wo_Model_List.GetAt(i);
+			woModelCode.Trim();
+
+			return woModelCode;
+		}
+	}
+
+	return _T("");
+}
+
+BOOL CHseAgingDlg::Lf_IsModelMatchedWithWoList(const CString& modelName)
+{
+	CString deviceCompareName = Lf_MakeModelCompareName(modelName, FALSE);
+
+	if (deviceCompareName.IsEmpty())
+		return FALSE;
+
+	for (int i = 0; i < m_pApp->Wo_BaseModel_List.GetCount(); i++)
+	{
+		CString woModel = m_pApp->Wo_BaseModel_List.GetAt(i);
+		CString woCompareName = Lf_MakeModelCompareName(woModel, TRUE);
+
+		if (woCompareName.IsEmpty())
+			continue;
+
+		if (deviceCompareName.CompareNoCase(woCompareName) == 0)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+void CHseAgingDlg::Lf_SetWoModelFilterButtonText()
+{
+	if (!::IsWindow(m_btnMaWoModelFilter.GetSafeHwnd()))
+		return;
+
+	if (m_bWoModelFilter)
+		m_btnMaWoModelFilter.SetWindowText(_T("W/O FILTER ON"));
+	else
+		m_btnMaWoModelFilter.SetWindowText(_T("W/O FILTER OFF"));
+}
+
+void CHseAgingDlg::Lf_InitCobmoRackModelList(BOOL bWoFilter)
 {
 	CString strfilename = _T("");
 	CString strfilepath = _T("");
 	WIN32_FIND_DATA wfd;
 	HANDLE hSearch;
 
+	CString oldSel[MAX_RACK];
+
+	for (int rack = 0; rack < MAX_RACK; rack++)
+	{
+		if (m_pCmbMaModel[rack] != nullptr)
+		{
+			m_pCmbMaModel[rack]->GetWindowText(oldSel[rack]);
+			oldSel[rack].Trim();
+		}
+	}
+
+	// W/O 데이터가 없는데 필터를 누른 경우
+	if (bWoFilter && m_pApp->Wo_BaseModel_List.GetCount() <= 0)
+	{
+		m_pApp->Gf_ShowMessageBox(_T("There is no W/O model information.\r\nPlease receive EWOQ first."));
+		bWoFilter = FALSE;
+		m_bWoModelFilter = FALSE;
+	}
+
 	strfilepath.Format(_T("./Model/*.ini"));
 	hSearch = FindFirstFile(strfilepath, &wfd);
 
-	m_cmbMaModelRack1.ResetContent();
-	m_cmbMaModelRack2.ResetContent();
-	m_cmbMaModelRack3.ResetContent();
-	m_cmbMaModelRack4.ResetContent();
-	m_cmbMaModelRack5.ResetContent();
-	m_cmbMaModelRack6.ResetContent();
-	m_cmbMaModelRack1.AddString(_T("- MODEL LIST -"));
-	m_cmbMaModelRack2.AddString(_T("- MODEL LIST -"));
-	m_cmbMaModelRack3.AddString(_T("- MODEL LIST -"));
-	m_cmbMaModelRack4.AddString(_T("- MODEL LIST -"));
-	m_cmbMaModelRack5.AddString(_T("- MODEL LIST -"));
-	m_cmbMaModelRack6.AddString(_T("- MODEL LIST -"));
+	for (int rack = 0; rack < MAX_RACK; rack++)
+	{
+		m_pCmbMaModel[rack]->ResetContent();
+		m_pCmbMaModel[rack]->AddString(_T("- MODEL LIST -"));
+	}
+
 	if (hSearch != INVALID_HANDLE_VALUE)
 	{
-		if (wfd.dwFileAttributes != FILE_ATTRIBUTE_DIRECTORY)
+		do
 		{
+			if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				continue;
+
 			strfilename.Format(_T("%s"), wfd.cFileName);
-			strfilename = strfilename.Mid(0, strfilename.GetLength() - 4);
+
+			if (strfilename.Right(4).CompareNoCase(_T(".ini")) == 0)
+				strfilename = strfilename.Left(strfilename.GetLength() - 4);
+
+			strfilename.Trim();
 			strfilename.MakeUpper();
-			m_cmbMaModelRack1.AddString(strfilename);
-			m_cmbMaModelRack2.AddString(strfilename);
-			m_cmbMaModelRack3.AddString(strfilename);
-			m_cmbMaModelRack4.AddString(strfilename);
-			m_cmbMaModelRack5.AddString(strfilename);
-			m_cmbMaModelRack6.AddString(strfilename);
-		}
-		while (FindNextFile(hSearch, &wfd))
-		{
-			if (wfd.dwFileAttributes != FILE_ATTRIBUTE_DIRECTORY)
+
+			if (strfilename.IsEmpty())
+				continue;
+
+			// W/O FILTER ON이면 W/O 모델명과 매칭되는 모델만 추가
+			if (bWoFilter)
 			{
-				strfilename.Format(_T("%s"), wfd.cFileName);
-				strfilename = strfilename.Mid(0, strfilename.GetLength() - 4);
-				strfilename.MakeUpper();
-				m_cmbMaModelRack1.AddString(strfilename);
-				m_cmbMaModelRack2.AddString(strfilename);
-				m_cmbMaModelRack3.AddString(strfilename);
-				m_cmbMaModelRack4.AddString(strfilename);
-				m_cmbMaModelRack5.AddString(strfilename);
-				m_cmbMaModelRack6.AddString(strfilename);
+				if (!Lf_IsModelMatchedWithWoList(strfilename))
+					continue;
 			}
-		}
+
+			for (int rack = 0; rack < MAX_RACK; rack++)
+			{
+				m_pCmbMaModel[rack]->AddString(strfilename);
+			}
+
+		} while (FindNextFile(hSearch, &wfd));
+
 		FindClose(hSearch);
 	}
 
-	m_cmbMaModelRack1.SetCurSel(0);
-	m_cmbMaModelRack2.SetCurSel(0);
-	m_cmbMaModelRack3.SetCurSel(0);
-	m_cmbMaModelRack4.SetCurSel(0);
-	m_cmbMaModelRack5.SetCurSel(0);
-	m_cmbMaModelRack6.SetCurSel(0);
+	// 기본 선택
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
-		for (int i = 0; i < m_pCmbMaModel[rack]->GetCount(); i++)
+		m_pCmbMaModel[rack]->SetCurSel(0);
+	}
+
+	// 기존 선택값이 필터 후에도 존재하면 유지
+	for (int rack = 0; rack < MAX_RACK; rack++)
+	{
+		BOOL bSelected = FALSE;
+
+		if (!oldSel[rack].IsEmpty() &&
+			oldSel[rack].CompareNoCase(_T("- MODEL LIST -")) != 0)
 		{
-			CString selModelName;
-			selModelName = lpSystemInfo->m_sLastModelName[rack];
-			m_pCmbMaModel[rack]->GetLBText(i, strfilename);
-			if (strfilename == selModelName)
+			for (int i = 0; i < m_pCmbMaModel[rack]->GetCount(); i++)
 			{
-				m_pCmbMaModel[rack]->SetCurSel(i);
-				break;
+				CString item;
+				m_pCmbMaModel[rack]->GetLBText(i, item);
+
+				if (item.CompareNoCase(oldSel[rack]) == 0)
+				{
+					m_pCmbMaModel[rack]->SetCurSel(i);
+					bSelected = TRUE;
+					break;
+				}
+			}
+		}
+
+		// 기존 선택값이 없으면 마지막 선택 모델명 기준으로 선택
+		if (!bSelected)
+		{
+			CString selModelName = lpSystemInfo->m_sLastModelName[rack];
+			selModelName.Trim();
+
+			for (int i = 0; i < m_pCmbMaModel[rack]->GetCount(); i++)
+			{
+				CString item;
+				m_pCmbMaModel[rack]->GetLBText(i, item);
+
+				if (item.CompareNoCase(selModelName) == 0)
+				{
+					m_pCmbMaModel[rack]->SetCurSel(i);
+					break;
+				}
 			}
 		}
 	}
+
+	Lf_SetWoModelFilterButtonText();
+
+	CString log;
+	log.Format(
+		_T("[W/O FILTER] %s. WO_COUNT=%d"),
+		bWoFilter ? _T("ON") : _T("OFF"),
+		m_pApp->Wo_BaseModel_List.GetCount()
+	);
+	m_pApp->Gf_writeMLog(log);
 }
 
 void CHseAgingDlg::Lf_setDoorOnOff(int rack)
@@ -7173,6 +7380,28 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 			return;
 		}
 
+		CString ercpWoModelName;
+		ercpWoModelName = Lf_GetWoModelCodeForErcp(sModelName);
+		ercpWoModelName.Trim();
+
+		if (ercpWoModelName.IsEmpty())
+		{
+			CString err;
+			err.Format(
+				_T("W/O MODEL value not found.\n\n")
+				_T("Selected Model : %s\n\n")
+				_T("Please receive EWOQ first and check W/O model list."),
+				sModelName.GetString()
+			);
+
+			AfxMessageBox(err, MB_ICONERROR);
+			return;
+		}
+
+		// ERCP 메시지의 MODEL= 에 들어갈 값
+		// 예: MODEL=6060L-8061B
+		m_pApp->pCimNet->SetERCPModelName(ercpWoModelName);
+
 		CString modelPath;
 		modelPath.Format(_T(".\\Model\\%s.ini"), sModelName.GetString());
 
@@ -7543,4 +7772,19 @@ void CHseAgingDlg::UpdateAllRackCurModelIni()
 	{
 		UpdateRackCurModelIni(info[i].nRackNo, info[i].nCtrlId);
 	}
+}
+
+void CHseAgingDlg::OnBnClickedBtnMaWoModelFilter()
+{
+	m_bWoModelFilter = !m_bWoModelFilter;
+
+	Lf_InitCobmoRackModelList(m_bWoModelFilter);
+
+	CString msg;
+	msg.Format(
+		_T("W/O Model Filter %s"),
+		m_bWoModelFilter ? _T("ON") : _T("OFF")
+	);
+
+	m_pApp->Gf_writeMLog(msg);
 }

@@ -3285,6 +3285,16 @@ void CCimNetCommApi::SetERCPInfo(CString strBuff)
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 }
 
+void CCimNetCommApi::SetERCPModelName(CString strBuff)
+{
+	m_strERCPModelName.Format(_T("%s"), strBuff.GetString());
+	m_strERCPModelName.Trim();
+
+	TRACE(_T("[SetERCPModelName] this=%p, value=%s\n"),
+		this,
+		m_strERCPModelName.GetString());
+}
+
 void CCimNetCommApi::SetDefectCommentCode(CString strBuff)
 {
 	m_strDefectComCode.Format(_T("%s"), strBuff);
@@ -3500,32 +3510,60 @@ BOOL CCimNetCommApi::ERCP()
 		);
 	}
 
-	CString ercpBaseModelName;
-	ercpBaseModelName = RemoveModelNoPrefix(lpInspWorkInfo->Ercp_Model_Name);
-
 	TRACE(_T("[SetERCPInfo] this=%p, value=%s\n"), this, m_strERCPInfo);
 
+	CString ercpBaseModelName;
+	ercpBaseModelName = RemoveModelNoPrefix(lpInspWorkInfo->Ercp_Model_Name);
+	ercpBaseModelName.Trim();
+
+	if (ercpBaseModelName.IsEmpty())
+	{
+		CString log;
+		log.Format(
+			_T("[ERCP] BASEMODEL is empty. OriginalModel=%s"),
+			lpInspWorkInfo->Ercp_Model_Name
+		);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return RTN_MSG_NOT_SEND;
+	}
+
+	CString ercpModelName;
+	ercpModelName = m_strERCPModelName;
+	ercpModelName.Trim();
+
+	if (ercpModelName.IsEmpty())
+	{
+		CString log;
+		log.Format(
+			_T("[ERCP] MODEL is empty. Please receive EWOQ and match W/O model. BASEMODEL=%s"),
+			ercpBaseModelName.GetString()
+		);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return RTN_MSG_NOT_SEND;
+	}
+
 	m_strERCP.Format(
-		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL= BASEMODEL=%s WODR= CATEGORY=PROD RECIPE=%d RECIPEVER= OPER= NW_CD= NW_DESCRIPTION= CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U::3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
+		_T("ERCP ADDR=%s,%s EQP=%s MACHINE=%s UNIT=%s RCS=H MODE_CODE=N MODEL=%s BASEMODEL=%s WODR= CATEGORY=PROD RECIPE=%d RECIPEVER= OPER= NW_CD= NW_DESCRIPTION= CHANGE_TYPE=B VALIDATIONINFO=[[%s]] UNIT_INFO=[%s:[%d]:U::3:%s:0:[%s]] REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
 
 		m_strRemoteSubjectRMS, // ADDR (1)
-		localSubject,		   // ADDR (2)
+		localSubject,          // ADDR (2)
 		m_strEqpRMS,           // EQP
 
 		m_strMachineName,      // MACHINE
 		unitFullName,          // UNIT
 
-		//lpInspWorkInfo->Ercp_Model_Name, // MODEL
-		ercpBaseModelName,               // BASEMODEL
-		lpInspWorkInfo->Ercp_Recipe,     // RECIPE
+		ercpModelName,         // MODEL      예: 6060L-8061B
+		ercpBaseModelName,     // BASEMODEL  예: LP140WU4-SPH2-KH1
+		lpInspWorkInfo->Ercp_Recipe,
 
-		strValidationInfo, // VALIDATION
+		strValidationInfo,
 
-		m_strMachineName.Left(m_strMachineName.GetLength() - 2), // UNIT_INFO 첫 번째 %s
-		lpInspWorkInfo->Ercp_Recipe,							 // UNIT_INFO 두 번째 %d
-		//m_strMachineName,
+		m_strMachineName.Left(m_strMachineName.GetLength() - 2),
+		lpInspWorkInfo->Ercp_Recipe,
 		unitFullName,
-		
+
 		m_strERCPInfo
 	);
 

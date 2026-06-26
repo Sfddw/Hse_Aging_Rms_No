@@ -217,7 +217,8 @@ static BOOL MI_DeleteRecipeFileFromAllRackRecipeFolders(
 
 
 
-// 저장된 Model ini를 RMS\RACK1~6\RACKn_Recipe\00n.ini 로 동기화
+// 저장된 Model ini를 RMS\RACK1~6\RACKn_Recipe\NNN.ini 로 동기화
+// 예: 1번 모델 -> 001.ini, 111번 모델 -> 111.ini
 static BOOL MI_SyncSavedModelToAllRackRecipeFolders(
 	const CString& modelNameNoExt,
 	int oldRecipeNo,
@@ -438,7 +439,6 @@ BOOL CModelInfo::OnInitDialog()
 	// Dialog의 기본 FONT 설정.
 	SendMessageToDescendants(WM_SETFONT, (WPARAM)m_pDefaultFont->GetSafeHandle(), 1, TRUE, FALSE);
 
-	Lf_InitLocalValue();
 	Lf_InitFontset();
 	Lf_InitColorBrush();
 	Lf_InitDialogDesign();
@@ -800,14 +800,6 @@ void CModelInfo::OnEnChangeEdtMiVerFp()
 {
 	// TODO:  여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	Lf_calcVerResolution();
-}
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void CModelInfo::Lf_InitLocalValue()
-{
-
 }
 
 void CModelInfo::Lf_InitFontset()
@@ -1231,16 +1223,6 @@ void CModelInfo::Lf_saveModelData()
 	CString srcPath, dstPath;
 	srcPath.Format(_T(".\\Model\\%s.ini"), curLoadingModel.GetString());   // ✅ 실제 존재하는 "로드된 파일"이 기준
 	dstPath.Format(_T(".\\Model\\%s.ini"), newModelName.GetString());
-
-	// 타겟 중복 방지
-	/*if (_taccess(dstPath, 0) == 0)
-	{
-		CString msg;
-		msg.Format(_T("Target model file already exists:\r\n%s\r\n\r\nPlease change model number or delete existing file."),
-			dstPath.GetString());
-		m_pApp->Gf_ShowMessageBox(msg);
-		return;
-	}*/
 
 	// ✅ 핵심: SAVE MODEL에 번호가 없으면 "새 모델 추가"로 처리
 	BOOL bSaveAsNew = !HasNumericPrefix(modelName);
@@ -1758,11 +1740,6 @@ BOOL CModelInfo::Lf_checkAgingTempInfoChange()
 
 	CMessageQuestion msg_dlg;
 	strMsg.Append(_T("Do you want change ?"));
-	/*msg_dlg.m_strQMessage.Format(_T("%s"), strMsg);
-	if (msg_dlg.DoModal() == IDOK)
-	{
-		return TRUE;
-	}*/
 	CPassword pw_dlg;
 	if (pw_dlg.DoModal() == IDCANCEL)
 	{

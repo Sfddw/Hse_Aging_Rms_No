@@ -55,13 +55,21 @@ public:
 
 	void Lf_UpdateWoLogList();
 
+
 protected:
+	void Lf_SetWoModelFilterButtonText();
+	BOOL Lf_IsModelMatchedWithWoList(const CString& modelName);
+	CString Lf_MakeModelCompareName(const CString& modelName, BOOL bWoModel);
+	CString Lf_GetWoModelCodeForErcp(const CString& selectedRackModel);
+
+	afx_msg void OnBnClickedBtnMaWoModelFilter();
+
 	void Lf_InitLocalValue();
 	void Lf_InitFontset();
 	void Lf_InitColorBrush();
 	void Lf_InitButtonIcon();
 	void Lf_InitDialogDesign();
-	void Lf_InitCobmoRackModelList();
+	void Lf_InitCobmoRackModelList(BOOL bWoFilter = FALSE);
 
 	void Lf_setAgingSTART(int rack);
 	void Lf_setAgingSTOP(int rack);
@@ -275,4 +283,7 @@ public:
 	afx_msg void OnBnClickedPause1();
 
 	CListBox m_lstMaWoLog;
+
+	CMFCButton m_btnMaWoModelFilter;
+	BOOL m_bWoModelFilter;
 };

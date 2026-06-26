@@ -33,7 +33,6 @@ protected:
 
 	CString curLoadingModel;
 
-	void Lf_InitLocalValue();
 	void Lf_InitFontset();
 	void Lf_InitColorBrush();
 	void Lf_InitDialogDesign();

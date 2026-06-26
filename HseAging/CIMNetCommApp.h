@@ -295,6 +295,8 @@ public:
 	// rack별 연결 상태
 	//BOOL m_blsRmsConnect = FALSE;
 
+	void SetERCPModelName(CString strBuff);
+
 protected:
 	BOOL	m_bIsGmesLocalTestMode;
 	BOOL	m_bIsEasLocalTestMode;
@@ -362,6 +364,7 @@ protected:
 	CString m_strAPDInfo;
 
 	CString m_strERCPInfo;
+	CString m_strERCPModelName;
 
 	CString m_strFullYN;
 	CString m_strGibCode;
