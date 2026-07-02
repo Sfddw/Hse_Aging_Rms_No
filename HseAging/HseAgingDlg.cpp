@@ -7384,7 +7384,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 		ercpWoModelName = Lf_GetWoModelCodeForErcp(sModelName);
 		ercpWoModelName.Trim();
 
-		if (ercpWoModelName.IsEmpty())
+		/*if (ercpWoModelName.IsEmpty())
 		{
 			CString err;
 			err.Format(
@@ -7396,7 +7396,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 
 			AfxMessageBox(err, MB_ICONERROR);
 			return;
-		}
+		}*/
 
 		// ERCP 메시지의 MODEL= 에 들어갈 값
 		// 예: MODEL=6060L-8061B
