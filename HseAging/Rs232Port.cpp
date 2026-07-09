@@ -324,19 +324,47 @@ BOOL CRs232Port::OpenPort3(CString sPortName, unsigned long dwBaud, unsigned sho
 void CRs232Port::ClosePort1 ()
 {
 	m_boolConnected1 = FALSE;
-	SetCommMask ((void *)(m_hComm1), (unsigned long)0);
-	PurgeComm (m_hComm1, PURGE_TXABORT | PURGE_TXCLEAR | PURGE_RXABORT | PURGE_RXCLEAR | EV_RXFLAG | EV_TXEMPTY | EV_ERR | EV_BREAK);
-	CloseHandle (m_hComm1);
-	m_hComm1 = (HANDLE) -1;
+
+	if (m_hComm1 == NULL || m_hComm1 == INVALID_HANDLE_VALUE || m_hComm1 == (HANDLE)-1)
+	{
+		m_hComm1 = (HANDLE)-1;
+		return;
+	}
+
+	SetCommMask(m_hComm1, 0);
+	PurgeComm(
+		m_hComm1,
+		PURGE_TXABORT |
+		PURGE_TXCLEAR |
+		PURGE_RXABORT |
+		PURGE_RXCLEAR
+	);
+
+	CloseHandle(m_hComm1);
+	m_hComm1 = (HANDLE)-1;
 }
 
 void CRs232Port::ClosePort2 ()
 {
 	m_boolConnected2 = FALSE;
-	SetCommMask ((void *)(m_hComm2), (unsigned long)0);
-	PurgeComm (m_hComm2, PURGE_TXABORT | PURGE_TXCLEAR | PURGE_RXABORT | PURGE_RXCLEAR | EV_RXFLAG | EV_TXEMPTY | EV_ERR | EV_BREAK);
-	CloseHandle (m_hComm2);
-	m_hComm2 = (HANDLE) -1;
+
+	if (m_hComm2 == NULL || m_hComm2 == INVALID_HANDLE_VALUE || m_hComm2 == (HANDLE)-1)
+	{
+		m_hComm2 = (HANDLE)-1;
+		return;
+	}
+
+	SetCommMask(m_hComm2, 0);
+	PurgeComm(
+		m_hComm2,
+		PURGE_TXABORT |
+		PURGE_TXCLEAR |
+		PURGE_RXABORT |
+		PURGE_RXCLEAR
+	);
+
+	CloseHandle(m_hComm2);
+	m_hComm2 = (HANDLE)-1;
 }
 
 DWORD CRs232Port::WritePort1 (BYTE* pBuff, DWORD nToWrite)
@@ -548,7 +576,12 @@ DWORD ThreadWatchComm2 (CRs232Port* port_controller)
  			if (dwsize > 0)
 			{
 //*********************************************************************
-				AfxGetApp()->GetMainWnd()->SendMessage(WM_RS232_RECEIVED2, (WPARAM)buff, NULL);
+				CWnd* pMainWnd = AfxGetApp()->GetMainWnd();
+
+				if (pMainWnd != NULL && ::IsWindow(pMainWnd->GetSafeHwnd()))
+				{
+					pMainWnd->SendMessage(WM_RS232_RECEIVED2, (WPARAM)buff, NULL);
+				}
 //*********************************************************************
 				Sleep(100);
 				memset (buff, 0x00, BUFF_SIZE);

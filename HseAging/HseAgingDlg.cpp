@@ -740,6 +740,17 @@ BOOL CHseAgingDlg::OnInitDialog()
 	// DIO Board 초기화 명령을 전달한다
 	Lf_setDIOBoardInitial();
 
+	// ============================================================
+	// 온도레코더 COM 포트 초기화
+	// 기존에는 InitInstance()에서 메인화면 생성 전에 초기화되어
+	// COM 수신 Thread가 먼저 동작할 경우 프로그램 종료 가능성이 있음.
+	// 메인 Dialog 생성 후 초기화하도록 이동.
+	// ============================================================
+	if (m_pApp->Gf_initTempRecorder() == FALSE)
+	{
+		m_pApp->Gf_writeMLog(_T("<TEMP> Temperature Recorder Initialize Fail. Program continue."));
+	}
+
 	// Aging Thread 를 시작한다.
 	AfxBeginThread(ThreadAgingStartRack, this);
 
@@ -4696,7 +4707,7 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 	}
 
 	// Button Enable
-	//m_pBtnAgingStart[rack]->EnableWindow(TRUE);
+	m_pBtnAgingStart[rack]->EnableWindow(TRUE);
 	m_pBtnAgingFusing[rack]->EnableWindow(TRUE);
 	m_pChkChSelect[rack]->EnableWindow(TRUE);
 }
@@ -4766,7 +4777,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	lpInspWorkInfo->Ercp_Recipe = _ttoi(sRecipeNo);
 
-	Lf_rmsErcpSet(rack);					// ERCP MSG SET
+	//Lf_rmsErcpSet(rack);					// ERCP MSG SET
 
 	// 모델정보에서 AGING 시간 정보를 LOAD하여 UI에 표시한다.
 	Read_ModelFile(sModelName, _T("MODEL_INFO"), _T("AGING_TIME_MINUTE"), &nValue);
@@ -4801,7 +4812,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	UpdateAllRackCurModelIni();
 
-	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
+	//m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
 }
 

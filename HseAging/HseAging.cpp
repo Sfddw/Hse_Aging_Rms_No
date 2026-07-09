@@ -109,7 +109,7 @@ BOOL CHseAgingApp::InitInstance()
 	//////////////////////////////////////////////////////////////////
 	Lf_InitGlobalVariable();
 	Lf_initCreateUdpSocket();
-	Gf_initTempRecorder();
+	//Gf_initTempRecorder();
 	Lf_initCreateFolder();
 
 	// GMES DLL Initialize
