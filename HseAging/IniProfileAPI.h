@@ -1454,14 +1454,49 @@ static BOOL CopyModelIniToRecipe_NumberOnly(const CString& modelDir, const CStri
 			if (!bOverwrite && err == ERROR_FILE_EXISTS)
 				continue;
 
-			FindClose(hFind);
+			::FindClose(hFind);
 			return FALSE;
 		}
 
-		// 새로 복사된 파일에만 MODEL_NB 추가
-		if (!AddModelNbToRecipeIni(dstPath))
+		// ============================================================
+		// 원본 Model INI의 ReadOnly 속성이 복사본에 따라올 수 있으므로
+		// MODEL_NB 기록 전에 복사된 Recipe 파일의 ReadOnly를 해제
+		// ============================================================
+		DWORD fileAttr = ::GetFileAttributes(dstPath);
+
+		if (fileAttr == INVALID_FILE_ATTRIBUTES)
 		{
-			FindClose(hFind);
+			::FindClose(hFind);
+			return FALSE;
+		}
+
+		BOOL bWasReadOnly =
+			((fileAttr & FILE_ATTRIBUTE_READONLY) != 0);
+
+		if (bWasReadOnly)
+		{
+			DWORD writableAttr =
+				fileAttr & ~FILE_ATTRIBUTE_READONLY;
+
+			if (!::SetFileAttributes(dstPath, writableAttr))
+			{
+				::FindClose(hFind);
+				return FALSE;
+			}
+		}
+
+		// MODEL_NUMBER 값을 MODEL_NB로 추가
+		BOOL bAddResult = AddModelNbToRecipeIni(dstPath);
+
+		// 원래 ReadOnly 파일이었다면 다시 ReadOnly 적용
+		if (bWasReadOnly)
+		{
+			::SetFileAttributes(dstPath, fileAttr);
+		}
+
+		if (!bAddResult)
+		{
+			::FindClose(hFind);
 			return FALSE;
 		}
 
