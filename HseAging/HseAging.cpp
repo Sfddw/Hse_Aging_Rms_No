@@ -2572,6 +2572,10 @@ BOOL CHseAgingApp::Gf_gmesConnect(int nServerType)
 	{
 		lpSystemInfo->m_sEqpName = "W4AMAL02HV04";
 	}
+	if (lpSystemInfo->m_sChamberNo == "#13")
+	{
+		lpSystemInfo->m_sEqpName = "W4AMAL02HV03";
+	}
 	pCimNet->SetMachineName(lpSystemInfo->m_sEqpName);
 
 	if (DEBUG_GMES_TEST_SERVER)

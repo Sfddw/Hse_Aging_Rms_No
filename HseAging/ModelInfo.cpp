@@ -1259,23 +1259,46 @@ void CModelInfo::Lf_saveModelData()
 	}
 	else
 	{
-		// 번호가 있는 경우는 "파일명 변경(rename)"로 처리
-		CString oldPath;
-		oldPath.Format(_T(".\\Model\\%s.ini"), curLoadingModel.GetString()); // ✅ SAVE MODEL 문자열 말고 "실제 로드 파일"로 rename
-
-		if (!::MoveFile(oldPath, dstPath))
+		// 모델 번호나 모델명이 실제로 변경된 경우에만 Rename
+		if (curLoadingModel.CompareNoCase(newModelName) != 0)
 		{
-			DWORD err = GetLastError();
-			CString msg;
-			msg.Format(_T("Rename failed.\r\n%s -> %s\r\nError=%lu"),
-				oldPath.GetString(), dstPath.GetString(), err);
-			m_pApp->Gf_ShowMessageBox(msg);
-			return;
-		}
+			CString oldPath;
 
-		modelName = newModelName;
-		GetDlgItem(IDC_EDT_MI_SAVE_MODEL)->SetWindowText(modelName);
-		curLoadingModel = modelName;
+			oldPath.Format(
+				_T(".\\Model\\%s.ini"),
+				curLoadingModel.GetString()
+			);
+
+			if (!::MoveFile(oldPath, dstPath))
+			{
+				DWORD err = ::GetLastError();
+
+				CString msg;
+				msg.Format(
+					_T("Rename failed.\r\n")
+					_T("%s\r\n->\r\n%s\r\n")
+					_T("Error=%lu"),
+					oldPath.GetString(),
+					dstPath.GetString(),
+					err
+				);
+
+				m_pApp->Gf_ShowMessageBox(msg);
+				return;
+			}
+
+			modelName = newModelName;
+			curLoadingModel = newModelName;
+
+			GetDlgItem(IDC_EDT_MI_SAVE_MODEL)
+				->SetWindowText(newModelName);
+		}
+		else
+		{
+			// VCC 등 설정값만 변경한 경우
+			// 기존 파일명을 그대로 유지
+			modelName = curLoadingModel;
+		}
 	}
 
 	// ✅ 이제부터는 modelName(=정규화된 새 이름)으로 저장
@@ -1781,10 +1804,29 @@ static CString ExtractPureModelName(const CString& modelName)
 }
 
 // modelNumber=5, pure="LP140WU3" -> "005_LP140WU3"
-static CString MakeModelNameByNumber(int modelNumber, const CString& pureModelName)
+//static CString MakeModelNameByNumber(int modelNumber, const CString& pureModelName)
+//{
+//	CString newName;
+//	/*newName.Format(_T("%03d_%s"), modelNumber, pureModelName);*/
+//	newName.Format(_T("%d_%s"), modelNumber, pureModelName);
+//	return newName;
+//}
+static CString MakeModelNameByNumber(
+	int modelNumber,
+	const CString& pureModelName)
 {
 	CString newName;
-	/*newName.Format(_T("%03d_%s"), modelNumber, pureModelName);*/
-	newName.Format(_T("%d_%s"), modelNumber, pureModelName);
+
+	// Model 폴더 파일명은 2자리 번호 사용
+	// 1  → 01
+	// 9  → 09
+	// 10 → 10
+	// 43 → 43
+	newName.Format(
+		_T("%02d_%s"),
+		modelNumber,
+		pureModelName.GetString()
+	);
+
 	return newName;
 }
