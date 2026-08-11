@@ -762,7 +762,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 	SetTimer(8, 1000, NULL);
 	//SetTimer(115, 30 * 1 * 1000, NULL); // 5분마다 체크
 	//SetTimer(115, 60 * 60 * 1000, NULL); // 1시간마다 체크
-	SetTimer(120, 60 * 1000, NULL);   // 1분마다 체크
+	//SetTimer(120, 60 * 1000, NULL);   // RMS EAYT - 1분마다 체크
 
 	InitRecipeFolderAndFiles(FALSE, TRUE); // Recipe 폴더 생성
 
@@ -4810,7 +4810,38 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	m_pApp->Gf_sumInitSummaryInfo(rack); // summary.ini 초기화
 
-	UpdateAllRackCurModelIni();
+	//UpdateAllRackCurModelIni();
+
+	// 260805 KDW 전체 RACK 업데이트 -> 현재 RACK 업데이트로 수정
+	static const int comboCtrlIds[MAX_RACK] =
+	{
+		IDC_CMB_MA_MODEL_RACK1,
+		IDC_CMB_MA_MODEL_RACK2,
+		IDC_CMB_MA_MODEL_RACK3,
+		IDC_CMB_MA_MODEL_RACK4,
+		IDC_CMB_MA_MODEL_RACK5,
+		IDC_CMB_MA_MODEL_RACK6
+	};
+
+	if (!UpdateRackCurModelIni(
+		rack + 1,              // 내부 rack은 0~5, 함수 인자는 1~6
+		comboCtrlIds[rack]))
+	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Fusing CurModel Update Failed ")
+			_T("/ Rack=%d"),
+			rack + 1
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		m_pApp->Gf_ShowMessageBox(
+			_T("CurModel.ini update failed.\r\n")
+			_T("Please check the RMS log and file attributes.")
+		);
+	}
 
 	//m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
@@ -7714,47 +7745,294 @@ static BOOL AddModelNbFromModelNumberToIni(const CString& iniPath)
 }
 
 /// <summary>
-/// 특정 Rack 1개 CurModel.ini 갱신
+/// 260805 KDW
+/// 파일의 ReadOnly 속성을 해제한다.
+/// 파일이 아직 존재하지 않으면 정상으로 처리한다.
+/// </summary>
+/// <param name="filePath">ReadOnly를 해제할 파일 경로</param>
+/// <returns>성공 TRUE, 실패 FALSE</returns>
+static BOOL MakeFileWritable(const CString& filePath)
+{
+	DWORD attr = ::GetFileAttributes(filePath);
+
+	// 파일 속성을 읽지 못한 경우
+	if (attr == INVALID_FILE_ATTRIBUTES)
+	{
+		DWORD error = ::GetLastError();
+
+		// CurModel.ini가 아직 만들어지기 전이면
+		// CopyFile이 새로 생성할 수 있으므로 성공 처리
+		if (error == ERROR_FILE_NOT_FOUND ||
+			error == ERROR_PATH_NOT_FOUND)
+		{
+			return TRUE;
+		}
+
+		return FALSE;
+	}
+
+	// 파일이 아니라 폴더인 경우
+	if ((attr & FILE_ATTRIBUTE_DIRECTORY) != 0)
+	{
+		::SetLastError(ERROR_DIRECTORY);
+		return FALSE;
+	}
+
+	// 이미 ReadOnly가 아닌 경우
+	if ((attr & FILE_ATTRIBUTE_READONLY) == 0)
+	{
+		return TRUE;
+	}
+
+	// 기존 속성 중 ReadOnly만 제거
+	DWORD newAttr =
+		attr & ~FILE_ATTRIBUTE_READONLY;
+
+	if (!::SetFileAttributes(
+		filePath,
+		newAttr))
+	{
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+/// <summary>
+/// 260805 KDW CurModel.ini 업데이트 안되는 에러 수정
 /// </summary>
 /// <param name="nRackNo"></param>
 /// <param name="nComboCtrlId"></param>
 /// <returns></returns>
-BOOL CHseAgingDlg::UpdateRackCurModelIni(int rackNo, int comboCtrlId)
+BOOL CHseAgingDlg::UpdateRackCurModelIni(
+	int rackNo,
+	int comboCtrlId)
 {
-	if (rackNo < 1 || rackNo > 6)
-		return FALSE;
+	// ============================================================
+	// Rack 번호 검사
+	// ============================================================
+	if (rackNo < 1 || rackNo > MAX_RACK)
+	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Invalid Rack Number / Rack=%d"),
+			rackNo
+		);
 
-	CComboBox* pCombo = (CComboBox*)GetDlgItem(comboCtrlId);
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// Rack Model ComboBox 검사
+	// ============================================================
+	CComboBox* pCombo =
+		(CComboBox*)GetDlgItem(comboCtrlId);
+
 	if (pCombo == nullptr)
-		return FALSE;
+	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> ComboBox is NULL / Rack=%d CtrlId=%d"),
+			rackNo,
+			comboCtrlId
+		);
 
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// 현재 Rack에서 선택된 모델명
+	// ============================================================
 	CString selectedModel;
 	pCombo->GetWindowText(selectedModel);
 	selectedModel.Trim();
 
 	if (selectedModel.IsEmpty())
-		return FALSE;
-
-	int recipeNo = 0;
-	if (!GetRecipeNoFromModelText(selectedModel, recipeNo))
-		return FALSE;
-
-	CString srcRecipeIni = GetRmsRackRecipeFilePath(rackNo, recipeNo);
-	CString rackDir = GetRmsRackDir(rackNo);
-	CString rackCurModelIni = GetRmsRackCurModelPath(rackNo);
-
-	if (!EnsureDirectoryExists(rackDir))
-		return FALSE;
-
-	if (!FileExistsSimple(srcRecipeIni))
-		return FALSE;
-
-	// 선택된 Recipe 파일을 현재 Rack의 CurModel.ini로 복사
-	// 예: RMS\RACK1\RACK1_Recipe\009.ini -> RMS\RACK1\RACK1_CurModel.ini
-	if (!::CopyFile(srcRecipeIni, rackCurModelIni, FALSE))
 	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Selected model is empty / Rack=%d"),
+			rackNo
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
 		return FALSE;
 	}
+
+	// ============================================================
+	// 모델명 앞의 Recipe 번호 추출
+	// 예: 01_LP160... → 1
+	// ============================================================
+	int recipeNo = 0;
+
+	if (!GetRecipeNoFromModelText(
+		selectedModel,
+		recipeNo))
+	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Invalid model recipe number ")
+			_T("/ Rack=%d Model=%s"),
+			rackNo,
+			selectedModel.GetString()
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	CString srcRecipeIni =
+		GetRmsRackRecipeFilePath(
+			rackNo,
+			recipeNo
+		);
+
+	CString rackDir =
+		GetRmsRackDir(rackNo);
+
+	CString rackCurModelIni =
+		GetRmsRackCurModelPath(rackNo);
+
+	// ============================================================
+	// Rack 폴더 확인
+	// ============================================================
+	if (!EnsureDirectoryExists(rackDir))
+	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Rack folder create/check failed ")
+			_T("/ Rack=%d Folder=%s"),
+			rackNo,
+			rackDir.GetString()
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// 원본 Recipe 파일 확인
+	// ============================================================
+	if (!FileExistsSimple(srcRecipeIni))
+	{
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Source Recipe file not found ")
+			_T("/ Rack=%d Recipe=%03d File=%s"),
+			rackNo,
+			recipeNo,
+			srcRecipeIni.GetString()
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// 기존 CurModel.ini가 ReadOnly이면 CopyFile 덮어쓰기가
+	// 실패할 수 있으므로 복사 전에 ReadOnly 해제
+	// ============================================================
+	if (!MakeFileWritable(rackCurModelIni))
+	{
+		DWORD error = ::GetLastError();
+
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> ReadOnly release failed ")
+			_T("/ Rack=%d File=%s Error=%lu"),
+			rackNo,
+			rackCurModelIni.GetString(),
+			error
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// 선택된 Recipe를 CurModel.ini로 복사
+	// FALSE = 대상 파일이 있어도 덮어쓰기
+	// ============================================================
+	if (!::CopyFile(
+		srcRecipeIni,
+		rackCurModelIni,
+		FALSE))
+	{
+		DWORD error = ::GetLastError();
+
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Copy failed ")
+			_T("/ Rack=%d Model=%s Recipe=%03d ")
+			_T("/ Source=%s Target=%s Error=%lu"),
+			rackNo,
+			selectedModel.GetString(),
+			recipeNo,
+			srcRecipeIni.GetString(),
+			rackCurModelIni.GetString(),
+			error
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// 원본 Recipe가 ReadOnly이므로 복사 완료 후 CurModel.ini도
+	// ReadOnly 속성을 가질 수 있다.
+	// CurModel은 실행 중 계속 갱신되어야 하므로 다시 ReadOnly 해제
+	// ============================================================
+	if (!MakeFileWritable(rackCurModelIni))
+	{
+		DWORD error = ::GetLastError();
+
+		CString log;
+		log.Format(
+			_T("<RMS CURMODEL> Post-copy ReadOnly release failed ")
+			_T("/ Rack=%d File=%s Error=%lu"),
+			rackNo,
+			rackCurModelIni.GetString(),
+			error
+		);
+
+		m_pApp->Gf_writeMLog(log);
+		m_pApp->Gf_writeRMSLog(log);
+
+		return FALSE;
+	}
+
+	// ============================================================
+	// 성공 로그
+	// ============================================================
+	CString successLog;
+	successLog.Format(
+		_T("<RMS CURMODEL> Update Success ")
+		_T("/ Rack=%d Model=%s Recipe=%03d"),
+		rackNo,
+		selectedModel.GetString(),
+		recipeNo
+	);
+
+	m_pApp->Gf_writeMLog(successLog);
+	m_pApp->Gf_writeRMSLog(successLog);
 
 	return TRUE;
 }

@@ -2622,7 +2622,14 @@ BOOL CCimNetCommApi::MessageSend(int nMode, int rackNo)
 	}
 
 	sLog.Format(_T("<HOST_R> %s"), m_strHostSendMessage);
-	m_pApp->Gf_writeMLog(sLog);
+	if (nMode == ECS_MODE_RMS_EAYT || nMode == ECS_MODE_ERCP)
+	{
+		m_pApp->Gf_writeRMSLog(sLog);
+	}
+	else
+	{
+		m_pApp->Gf_writeMLog(sLog);
+	}
 
 	m_strHostRecvMessage.Format(_T("EMPTY"));
 
@@ -3549,6 +3556,7 @@ BOOL CCimNetCommApi::ERCP()
 
 		m_strRemoteSubjectRMS, // ADDR (1)
 		localSubject,          // ADDR (2)
+		//m_strMachineName,          // ADDR (2)
 		m_strEqpRMS,           // EQP
 
 		m_strMachineName,      // MACHINE
@@ -4800,11 +4808,18 @@ BOOL CCimNetCommApi::RMSO()
 
 BOOL CCimNetCommApi::RMS_EAYT()
 {
+	CString machineName = m_strMachineName;
+	if (machineName.GetLength() >= 2)
+	{
+		machineName = machineName.Left(machineName.GetLength() - 2);
+	}
+
 	MakeClientTimeString();
 	m_strRMSEAYT.Format(_T("EAYT ADDR=%s EQP=%s MACHINE=%s UNIT= NAME=%s REPLY_REQ=Y TO_EQP= MMC_TXN_ID="),
 		m_strRemoteSubjectRMS,
 		m_strEqpRMS,
-		m_strMachineName,
+		//m_strMachineName, W4AMAL04HV04
+		machineName, // 260811 KDW 수정 - W4AMAL04HV
 		m_strLocalSubjectRMS
 	);
 	BOOL nRetCode = MessageSend(ECS_MODE_RMS_EAYT);

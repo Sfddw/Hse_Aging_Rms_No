@@ -3111,7 +3111,14 @@ Send_RETRY:
 	}
 
 	sLog.Format(_T("<HOST_R> %s"), pCimNet->GetHostRecvMessage());
-	Gf_writeMLog(sLog);
+	if (hostCMD == HOST_ERCP || hostCMD == HOST_RMS_EAYT)
+	{
+		Gf_writeRMSLog(sLog);
+	}
+	else
+	{
+		Gf_writeMLog(sLog);
+	}
 
 	if (nRtnCD == RTN_OK)
 	{
