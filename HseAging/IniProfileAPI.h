@@ -1582,6 +1582,133 @@ static CString GetSharedRecipePathByNo(int recipeNo)
 	return path;
 }
 
+// ============================================================
+// 260812 KDW
+// RACKn_Recipe.ini에
+// MODULE_INFORMATION_START_TEMP Key를 보장한다.
+//
+// 이미 존재하면 기존 값 유지
+// 없을 때만 새로 추가
+// ============================================================
+static BOOL EnsureModuleStartTempRecipeKey(
+	const CString& rackRecipeIniPath)
+{
+	if (!FileExistsSimple(rackRecipeIniPath))
+		return FALSE;
+
+	const CString section =
+		_T("MODEL_INFO");
+
+	const CString key =
+		_T("MODULE_INFORMATION_START_TEMP");
+
+	// 이미 있으면 아무 작업 안 함
+	if (IniKeyExistsSimple_ByPath(
+		rackRecipeIniPath,
+		section,
+		key))
+	{
+		return TRUE;
+	}
+
+	// 없으면
+	//
+	// [MODEL_INFO]
+	// MODULE_INFORMATION_START_TEMP=
+	//
+	// 추가
+	if (!::WritePrivateProfileString(
+		section,
+		key,
+		_T(""),
+		rackRecipeIniPath))
+	{
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+// ============================================================
+// 260812 KDW
+// RACKn_Parameter.ini에
+// MODULE_INFORMATION_START_TEMP Section을 보장한다.
+//
+// 이미 존재하는 값은 절대 덮어쓰지 않고
+// 없는 Key만 추가한다.
+// ============================================================
+static BOOL EnsureModuleStartTempParameterSection(
+	const CString& parameterIniPath)
+{
+	if (!FileExistsSimple(parameterIniPath))
+		return FALSE;
+
+	const CString section =
+		_T("MODULE_INFORMATION_START_TEMP");
+
+	struct PARAM_ITEM
+	{
+		LPCTSTR key;
+		LPCTSTR defaultValue;
+	};
+
+	static const PARAM_ITEM items[] =
+	{
+		{ _T("PINDEX"),            _T("") },
+		{ _T("SPECIAL_ITEM"),      _T("0") },
+		{ _T("ADDRESS"),           _T("") },
+		{ _T("PARA_OFFSET"),       _T("") },
+		{ _T("CURRENT_ADDRESS"),   _T("") },
+
+		{ _T("UNIT_TYPE"),         _T("FLOAT") },
+		{ _T("WORD_SIZE"),         _T("2") },
+
+		// 시작온도가 45.0 / 50.5 등의 형식이므로
+		// 소수점 1자리
+		{ _T("DECIMAL_PLACE"),     _T("1") },
+
+		{ _T("SIGN_YN"),           _T("N") },
+		{ _T("SNDPOS"),            _T("0") },
+		{ _T("FILE_PATH"),         _T("") },
+
+		// Recipe 계열 Parameter
+		{ _T("FILE_NAME"),
+		  _T("Recipe\\{RECIPEID}?2Eini") },
+
+		{ _T("INTERNAL_PARA_NAME"),
+		  _T("MODEL?5FINFO//MODULE?5FINFORMATION?5FSTART?5FTEMP") },
+
+		{ _T("DELIMITER"),         _T("=") },
+		{ _T("ROW_NUM"),           _T("0") },
+		{ _T("COL_NUM"),           _T("2") },
+		{ _T("BIT_LENGTH"),        _T("") }
+	};
+
+	for (int i = 0; i < _countof(items); i++)
+	{
+		// 기존 값이 있으면 그대로 유지
+		if (IniKeyExistsSimple_ByPath(
+			parameterIniPath,
+			section,
+			items[i].key))
+		{
+			continue;
+		}
+
+		// 없는 항목만 생성
+		if (!::WritePrivateProfileString(
+			section,
+			items[i].key,
+			items[i].defaultValue,
+			parameterIniPath))
+		{
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
 /// <summary>
 /// Recipe1~Recipe6 생성/복사 함수에서 ModelList.ini 생성 연결
 /// </summary>
@@ -1637,6 +1764,17 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 		if (!CreateDefaultParameterIniIfNotExists(rackParameterIni))
 			return FALSE;
 
+		// ============================================================
+		// 260812 KDW
+		// 65번째 Parameter
+		// MODULE_INFORMATION_START_TEMP 자동 추가
+		// ============================================================
+		if (!EnsureModuleStartTempParameterSection(
+			rackParameterIni))
+		{
+			return FALSE;
+		}
+
 		// RMS\RACKn\RACKn_CurModel.ini 생성
 		CString rackCurModelIni;
 		rackCurModelIni.Format(
@@ -1659,6 +1797,19 @@ static BOOL InitRecipeSubFoldersAndCopyModelIni(
 
 		if (!CreateRackRecipeModelNbOnlyIfNotExists(rackRecipeIni))
 			return FALSE;
+
+		// ============================================================
+		// 260812 KDW
+		// ERCP 65번째 Parameter Key 추가
+		//
+		// [MODEL_INFO]
+		// MODULE_INFORMATION_START_TEMP=
+		// ============================================================
+		if (!EnsureModuleStartTempRecipeKey(
+			rackRecipeIni))
+		{
+			return FALSE;
+		}
 	}
 
 	// RMS\ModelList.ini 생성

@@ -7283,6 +7283,48 @@ static CString GetRecipeValueByParamNameForErcp(
 	return value;
 }
 
+// ============================================================
+// 260812 KDW
+// ERCP MODULE_INFORMATION_START_TEMP 값 가져오기
+//
+// rackIndex는 0 ~ 5
+//
+// RACK1,2 -> 1ZONE 설정온도
+// RACK3,4 -> 2ZONE 설정온도
+// RACK5,6 -> 3ZONE 설정온도
+// ============================================================
+static BOOL GetModuleInformationStartTemp(
+	LPINSPWORKINFO lpInspWorkInfo,
+	int rackIndex,
+	float& outTemp)
+{
+	outTemp = 0.0f;
+
+	if (lpInspWorkInfo == nullptr)
+		return FALSE;
+
+	if (rackIndex < 0 || rackIndex >= MAX_RACK)
+		return FALSE;
+
+	// RACK1, RACK2
+	if (rackIndex == 0 || rackIndex == 1)
+	{
+		outTemp = lpInspWorkInfo->m_fTempReadValST590_2[0];
+	}
+	// RACK3, RACK4
+	else if (rackIndex == 2 || rackIndex == 3)
+	{
+		outTemp = lpInspWorkInfo->m_fTempReadValST590_3[0];
+	}
+	// RACK5, RACK6
+	else
+	{
+		outTemp = lpInspWorkInfo->m_fTempReadValST590_4[0];
+	}
+
+	return TRUE;
+}
+
 // ERCP_INFO 생성
 // 파라미터 목록: RMS\RACKn\RACKn_Recipe.ini
 // 값 source: RMS\RACKn\RACKn_Recipe\NN.ini
@@ -7357,18 +7399,59 @@ static BOOL BuildErcpMessageSetFromRackRecipeFiles(
 
 		CString value;
 
-		// MODEL_NB는 09.ini 안에 값이 없어도 선택 모델 번호로 보정
-		if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		// ============================================================
+		// 260812 KDW
+		// MODULE_INFORMATION_START_TEMP는 Recipe ini의 고정값이 아니라
+		// Fusing 시점의 Chamber 설정온도를 사용한다.
+		// ============================================================
+		if (paramName.CompareNoCase(
+			_T("MODULE_INFORMATION_START_TEMP")) == 0)
 		{
-			value = GetRecipeValueByParamNameForErcp(valueRecipeIniPath, paramName);
+			LPINSPWORKINFO pInspWorkInfo =
+				m_pApp->GetInspWorkInfo();
+
+			float startTemp = 0.0f;
+
+			if (!GetModuleInformationStartTemp(
+				pInspWorkInfo,
+				rackIndex,
+				startTemp))
+			{
+				outErrMsg.Format(
+					_T("Failed to get MODULE_INFORMATION_START_TEMP. Rack=%d"),
+					rackIndex + 1
+				);
+
+				return FALSE;
+			}
+
+			// 온도는 소수점 한 자리
+			// 예: 45.0, 50.5
+			value.Format(
+				_T("%.1f"),
+				startTemp
+			);
+		}
+		// ============================================================
+		// 기존 MODEL_NB 처리
+		// ============================================================
+		else if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+		{
+			value = GetRecipeValueByParamNameForErcp(
+				valueRecipeIniPath,
+				paramName);
 
 			if (value.IsEmpty())
 				value.Format(_T("%d"), recipeNo);
 		}
 		else
 		{
-			value = GetRecipeValueByParamNameForErcp(valueRecipeIniPath, paramName);
+			// 기존 Parameter들은 Recipe 파일에서 값 읽기
+			value = GetRecipeValueByParamNameForErcp(
+				valueRecipeIniPath,
+				paramName);
 		}
+
 
 		// 값이 없는 파라미터는 ERCP_INFO에서 제외
 		// 0 값은 "0" 문자열이므로 제외되지 않음
@@ -7406,7 +7489,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 	{
 		m_pApp->pCimNet->m_strUnitName.Format(_T("%02d"), rack+1);
 		// rack index는 0~5로 들어오는 구조
-		if (rack < 0 || rack >= 7)
+		if (rack < 0 || rack >= MAX_RACK)
 		{
 			AfxMessageBox(_T("Invalid rack number."), MB_ICONERROR);
 			return;
