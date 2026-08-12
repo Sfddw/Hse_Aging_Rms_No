@@ -4843,7 +4843,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 		);
 	}
 
-	//m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
+	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
 
 }
 

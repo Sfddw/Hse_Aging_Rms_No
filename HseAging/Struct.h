@@ -243,6 +243,12 @@ typedef struct _ST_SYSTEMINFO_{
 	int m_nTempLogInterval;
 	int m_nSensingLogInterval;
 
+	// 260811 KDW 추가
+	// ERCP MACHINE 설정
+	// TRUE  : MACHINE=W4AMAL02HV02
+	// FALSE : MACHINE=W4AMAL02HV
+	int m_nErcpMachineFullName;
+
 }SYSTEMINFO, *LPSYSTEMINFO;
 
 

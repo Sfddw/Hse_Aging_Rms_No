@@ -67,5 +67,9 @@ public:
 
 	CComboBox m_cmbSyControllerPort;
 
+	// 260811 KDW ERCP 콤보박스 추가
+	// ERCP MACHINE Enable / Disable
+	CComboBox m_cmbSyErcpSet;
+
 	afx_msg void OnBnClickedMbtSyPasswordChange();
 };

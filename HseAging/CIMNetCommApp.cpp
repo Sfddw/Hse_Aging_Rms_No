@@ -3455,13 +3455,63 @@ BOOL CCimNetCommApi::ERCP()
 {
 	MakeClientTimeString();
 
-	LPINSPWORKINFO lpInspWorkInfo = m_pApp->GetInspWorkInfo();
+	LPINSPWORKINFO lpInspWorkInfo =
+		m_pApp->GetInspWorkInfo();
 
-	CString localSubject = m_strLocalSubjectRMS;
+	// 260811 KDW
+	// SYSTEM 설정 정보 가져오기
+	LPSYSTEMINFO pSystemInfo =
+		m_pApp->GetSystemInfo();
+
+	// 안전 체크
+	if (pSystemInfo == nullptr)
+	{
+		m_pApp->Gf_writeRMSLog(
+			_T("[ERCP] SYSTEMINFO is NULL")
+		);
+
+		return RTN_MSG_NOT_SEND;
+	}
+
+	CString localSubject =
+		m_strLocalSubjectRMS;
+
+	// ============================================================
+	// 260811 KDW 추가
+	// ERCP MACHINE 이름 결정
+	//
+	// Enable
+	// W4AMAL02HV02 → W4AMAL02HV02
+	//
+	// Disable
+	// W4AMAL02HV02 → W4AMAL02HV
+	// ============================================================
+	CString ercpMachineName =
+		m_strMachineName;
+
+	ercpMachineName.Trim();
+
+	if (pSystemInfo->m_nErcpMachineFullName == FALSE)
+	{
+		int len = ercpMachineName.GetLength();
+
+		// 마지막 두 글자가 실제 숫자인 경우에만 제거
+		if (len >= 2 &&
+			_istdigit(ercpMachineName[len - 1]) &&
+			_istdigit(ercpMachineName[len - 2]))
+		{
+			ercpMachineName =
+				ercpMachineName.Left(len - 2);
+		}
+	}
+
 
 	// UNIT 이름 생성
-	// 예: W4AMAL04HV0101
+	// UNIT은 설정과 관계없이 기존 전체 Machine Name 사용
+	// 예: W4AMAL02HV02 + 01
+	//     → W4AMAL02HV0201
 	CString unitFullName;
+
 	unitFullName.Format(
 		_T("%s%s"),
 		m_strMachineName.GetString(),
@@ -3559,7 +3609,8 @@ BOOL CCimNetCommApi::ERCP()
 		//m_strMachineName,          // ADDR (2)
 		m_strEqpRMS,           // EQP
 
-		m_strMachineName,      // MACHINE
+		ercpMachineName,			/// MACHINE
+		//m_strMachineName,      // MACHINE
 		unitFullName,          // UNIT
 
 		//ercpModelName,         // MODEL      예: 6060L-8061B

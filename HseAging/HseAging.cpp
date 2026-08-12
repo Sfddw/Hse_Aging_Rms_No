@@ -1545,6 +1545,37 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("SYSTEM"), _T("TEMP_LOG_INTERVAL"), &lpSystemInfo->m_nTempLogInterval);
 	Read_SysIniFile(_T("SYSTEM"), _T("SENSING_LOG_INTERVAL"), &lpSystemInfo->m_nSensingLogInterval);
 
+	// ============================================================
+	// 260811 KDW 추가
+	// ERCP MACHINE 설정
+	//
+	// 1 : Enable
+	//     MACHINE=W4AMAL02HV02
+	//
+	// 0 : Disable
+	//     MACHINE=W4AMAL02HV
+	//
+	// 기존 Operation.ini에 항목이 없는 장비는
+	// 기존 동작을 유지하기 위해 Enable(1)을 기본값으로 한다.
+	// ============================================================
+	sdata.Empty();
+
+	Read_SysIniFile(
+		_T("SYSTEM"),
+		_T("ERCP_MACHINE_FULL_NAME"),
+		&sdata
+	);
+
+	if (sdata.IsEmpty())
+	{
+		// 기존 설정파일 호환
+		lpSystemInfo->m_nErcpMachineFullName = TRUE;
+	}
+	else
+	{
+		lpSystemInfo->m_nErcpMachineFullName =
+			(_ttoi(sdata) != 0) ? TRUE : FALSE;
+	}
 
 	lpSystemInfo->m_nMesIDType = MES_ID_TYPE_PID;
 	for (int rack = 0; rack < MAX_RACK; rack++)

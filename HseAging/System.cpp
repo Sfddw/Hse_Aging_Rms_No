@@ -36,6 +36,9 @@ void CSystem::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CMB_SY_TEMP_LOG_INTERVAL, m_cmbSyTempLogInterval);
 	DDX_Control(pDX, IDC_CMB_SY_SENSING_LOG_INTERVAL, m_cmbSySensingLogInterval);
 	DDX_Control(pDX, IDC_CMB_SY_CONTROLLER_PORT, m_cmbSyControllerPort);
+
+	// 260811 KDW 추가 ERCP MACHINE 설정
+	DDX_Control(pDX, IDC_CMB_SY_ERCP_SET, m_cmbSyErcpSet);
 }
 
 
@@ -340,6 +343,23 @@ void CSystem::Lf_InitDialogControl()
 
 	m_cmbSyTempLogInterval.SetCurSel(lpSystemInfo->m_nTempLogInterval);
 	m_cmbSySensingLogInterval.SetCurSel(lpSystemInfo->m_nSensingLogInterval);
+
+	// ============================================================
+	// 260811 KDW 추가
+	// ERCP MACHINE 설정 표시
+	//
+	// ComboBox
+	// 0 = Enable
+	// 1 = Disable
+	// ============================================================
+	if (lpSystemInfo->m_nErcpMachineFullName == TRUE)
+	{
+		m_cmbSyErcpSet.SetCurSel(0);		// Enable
+	}
+	else
+	{
+		m_cmbSyErcpSet.SetCurSel(1);		// Disable
+	}
 }
 
 void CSystem::Lf_saveSystemInfo()
@@ -427,4 +447,31 @@ void CSystem::Lf_saveSystemInfo()
 
 	lpSystemInfo->m_nSensingLogInterval = m_cmbSySensingLogInterval.GetCurSel();
 	Write_SysIniFile(_T("SYSTEM"), _T("SENSING_LOG_INTERVAL"), lpSystemInfo->m_nSensingLogInterval);
+
+	// ============================================================
+	// 260811 KDW 추가
+	// ERCP MACHINE 설정 저장
+	//
+	// ComboBox
+	// 0 = Enable  → 1 저장
+	// 1 = Disable → 0 저장
+	// ============================================================
+	int ercpSetSel = m_cmbSyErcpSet.GetCurSel();
+
+	if (ercpSetSel == 0)
+	{
+		// Enable
+		lpSystemInfo->m_nErcpMachineFullName = TRUE;
+	}
+	else
+	{
+		// Disable
+		lpSystemInfo->m_nErcpMachineFullName = FALSE;
+	}
+
+	Write_SysIniFile(
+		_T("SYSTEM"),
+		_T("ERCP_MACHINE_FULL_NAME"),
+		lpSystemInfo->m_nErcpMachineFullName
+	);
 }

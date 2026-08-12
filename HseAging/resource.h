@@ -1559,6 +1559,8 @@
 #define IDC_MBC_MA_FUSING_RACK2         2034
 #define IDC_EDT_SY_RMS_EQP              2034
 #define IDC_MBC_MA_FUSING_RACK3         2035
+#define IDC_CMB_SY_SENSING_LOG_INTERVAL2 2035
+#define IDC_CMB_SY_ERCP_SET             2035
 #define IDC_MBC_MA_FUSING_RACK4         2036
 #define IDC_MBC_MA_FUSING_RACK5         2037
 #define IDC_MBC_MA_FUSING_RACK6         2038
@@ -2065,7 +2067,6 @@
 #define IDC_BUTTON_DOOR3                2428
 #define IDC_BUTTON_DOOR4                2429
 #define IDC_BUTTON_DOOR5                2430
-#define IDC_BUTTON_DOOR7                2431
 #define IDC_BUTTON_DOOR6                2432
 #define IDC_STT_MA_SW_VER               2433
 #define IDC_STT_MA_AGING_COUNT          2434
