@@ -4546,8 +4546,6 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	m_pApp->pCimNet->r_strmodelName = sModelName;
 
-	//Lf_rmsErcpSet();
-
 	/*if (lpSystemInfo->m_sLastTimeOut[rack] != 0 && lpSystemInfo->m_sLastTimeOut[rack] <= 240)*/
 	if (lpSystemInfo->m_sLastTimeOut[rack] != 0 && lpInspWorkInfo->m_nAgingSetTime[rack] >= lpSystemInfo->m_sLastTimeOut[rack])
 	{
@@ -4669,8 +4667,6 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), RESET_RACK_PID);
 	lpInspWorkInfo->m_nAgingInYN[rack] = FALSE;
-
-	//Lf_rmsErcpSet();
 }
 
 void CHseAgingDlg::Lf_setAgingSTOP(int rack)
@@ -4843,7 +4839,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 		);
 	}
 
-	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]);
+	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]); // ERCP 메시지에 따른 START 버튼 활성화 / 비활성화
 
 }
 
@@ -7607,13 +7603,74 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 		m_pApp->pCimNet->SetERCPInfo(ErcpMessageSet);
 
 		CString log;
-		log.Format(_T("[ERCP] Rack=%d Model=%s ERCP_INFO=%s"),
+		log.Format(
+			_T("[ERCP] Rack=%d Model=%s ERCP_INFO=%s"),
 			rack + 1,
 			sModelName.GetString(),
-			ErcpMessageSet.GetString());
+			ErcpMessageSet.GetString()
+		);
+
 		m_pApp->Gf_writeRMSLog(log);
 
-		m_pApp->Gf_gmesSendHost(HOST_ERCP, rack, NULL, NULL);
+
+		// ============================================================
+		// 260813 KDW
+		// ERCP Rack Log
+		// ============================================================
+
+		// 이전 ERCP 결과 초기화
+		m_pApp->pCimNet->m_Ercp_Msg_Yn[rack] = FALSE;
+
+
+		// ------------------------------------------------------------
+		// ERCP 전송 시작
+		// ------------------------------------------------------------
+		Lf_writeRackMLog(
+			rack,
+			_T("ERCP : SEND")
+		);
+
+
+		// ------------------------------------------------------------
+		// ERCP 전송 + ERCP_R 대기
+		// ------------------------------------------------------------
+		m_pApp->Gf_gmesSendHost(
+			HOST_ERCP,
+			rack,
+			NULL,
+			NULL
+		);
+
+
+		// ------------------------------------------------------------
+		// ERCP_R 결과
+		//
+		// TRUE
+		//  RTN_CD=0
+		//  ERR_CD=0
+		//
+		// FALSE
+		//  Mapping Error
+		//  RTN_CD != 0
+		//  ERR_CD != 0
+		//  Timeout
+		//  RMS Disconnect
+		//  Send Fail
+		// ------------------------------------------------------------
+		if (m_pApp->pCimNet->m_Ercp_Msg_Yn[rack] == TRUE)
+		{
+			Lf_writeRackMLog(
+				rack,
+				_T("ERCP : OK")
+			);
+		}
+		else
+		{
+			Lf_writeRackMLog(
+				rack,
+				_T("ERCP : NG")
+			);
+		}
 	}
 	catch (const std::exception& ex)
 	{

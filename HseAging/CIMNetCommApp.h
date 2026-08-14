@@ -94,6 +94,14 @@ public:
 	CLSID			clsid_ECS;
 	HRESULT			hr;
 
+	// ============================================================
+	// 260813 KDW
+	// ERCP 비동기 응답 대기용
+	// ============================================================
+	HANDLE m_hErcpReplyEvent;
+	CCriticalSection m_csErcpReply;
+	CString m_strLastErcpReply;
+
 	// ----------------------------------------
 	
 	BOOL Init(int nServerType);

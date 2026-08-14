@@ -2158,14 +2158,39 @@ static BOOL FindRecipeIniByNo(const CString& recipeDir, CString& recipeNo, CStri
 
 CCimNetCommApi::CCimNetCommApi(void)
 {
-	m_nMessageReceiveFlag	= 0;
-	m_bIsGmesLocalTestMode		= FALSE;
-	m_bIsEasLocalTestMode		= FALSE;
+	m_nMessageReceiveFlag = 0;
+	m_bIsGmesLocalTestMode = FALSE;
+	m_bIsEasLocalTestMode = FALSE;
+
+	// ========================================================
+	// 260813 KDW
+	// ERCP_R 응답 Event
+	//
+	// TRUE  : Manual Reset Event
+	// FALSE : 초기 상태 Non-Signal
+	// ========================================================
+	m_hErcpReplyEvent =
+		::CreateEvent(
+			nullptr,
+			TRUE,
+			FALSE,
+			nullptr
+		);
+
+	m_strLastErcpReply.Empty();
 }
 
 
 CCimNetCommApi::~CCimNetCommApi(void)
 {
+	if (m_hErcpReplyEvent != nullptr)
+	{
+		::CloseHandle(
+			m_hErcpReplyEvent
+		);
+
+		m_hErcpReplyEvent = nullptr;
+	}
 }
 
 BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
@@ -3629,30 +3654,347 @@ BOOL CCimNetCommApi::ERCP()
 	CString modelname = lpInspWorkInfo->Ercp_Model_Name;
 	int recipe = lpInspWorkInfo->Ercp_Recipe;
 
-	BOOL nRetCode = MessageSend(ECS_MODE_ERCP);
-	if (nRetCode != RTN_OK)
+	// ============================================================
+// 260813 KDW
+// ERCP 비동기 전송 + 최대 2초 응답 대기
+//
+// 특징
+//
+// 1. SendTibMessageNoWait 사용
+//    -> DLL 내부 5초 Timeout 영향 안 받음
+//
+// 2. ERCP_R은 RMS Receive Thread가 수신
+//
+// 3. 최대 2초까지만 응답 대기
+//
+// 4. 2초가 지나도 응답이 없으면
+//    Popup 없이 생산 계속
+//
+// 5. 기다리는 동안 Windows Message를 처리하여
+//    화면이 Not Responding 상태가 되지 않도록 함
+// ============================================================
+
+	m_strHostSendMessage =
+		m_strERCP;
+
+	m_strHostRecvMessage =
+		_T("EMPTY");
+
+
+	// ------------------------------------------------------------
+	// 이전 ERCP 응답 초기화
+	// ------------------------------------------------------------
 	{
-		m_Ercp_Msg_Yn[rackIndex] = FALSE;
-		return nRetCode;
+		CSingleLock lock(
+			&m_csErcpReply,
+			TRUE
+		);
+
+		m_strLastErcpReply.Empty();
 	}
 
+
+	if (m_hErcpReplyEvent != nullptr)
+	{
+		::ResetEvent(
+			m_hErcpReplyEvent
+		);
+	}
+
+
+	// ------------------------------------------------------------
+	// SEND LOG
+	// ------------------------------------------------------------
+	CString sendLog;
+
+	sendLog.Format(
+		_T("[RMS] %s"),
+		m_strERCP.GetString()
+	);
+
+	m_pApp->Gf_writeRMSLog(
+		sendLog
+	);
+
+
+	// ------------------------------------------------------------
+	// RMS 연결 확인
+	//
+	// RMS 연결이 없어도 생산은 계속
+	// ------------------------------------------------------------
+	if (rms == nullptr ||
+		m_pApp->m_blsRmsConnect == FALSE)
+	{
+		CString log;
+
+		log.Format(
+			_T("[ERCP] RMS Not Connected. ")
+			_T("Production continues. ")
+			_T("Rack=%d Model=%s"),
+			rackIndex + 1,
+			modelname.GetString()
+		);
+
+		m_pApp->Gf_writeRMSLog(log);
+		m_pApp->Gf_writeMLog(log);
+
+		m_Ercp_Msg_Yn[rackIndex] =
+			TRUE;
+
+		return RTN_OK;
+	}
+
+
+	// ------------------------------------------------------------
+	// ERCP 비동기 전송
+	// ------------------------------------------------------------
+	VARIANT_BOOL bSend =
+		rms->SendTibMessageNoWait(
+			(_bstr_t)m_strERCP
+		);
+
+
+	// ------------------------------------------------------------
+	// 전송 자체 실패
+	//
+	// Popup 없음
+	// 생산 계속
+	// ------------------------------------------------------------
+	if (bSend == VARIANT_FALSE)
+	{
+		CString log;
+
+		log.Format(
+			_T("[ERCP] Async Send Failed. ")
+			_T("Production continues. ")
+			_T("Rack=%d Model=%s"),
+			rackIndex + 1,
+			modelname.GetString()
+		);
+
+		m_pApp->Gf_writeRMSLog(log);
+		m_pApp->Gf_writeMLog(log);
+
+		m_Ercp_Msg_Yn[rackIndex] =
+			TRUE;
+
+		return RTN_OK;
+	}
+
+
+	// ============================================================
+	// ERCP_R 최대 2초 대기
+	// ============================================================
+
+	const DWORD ERCP_REPLY_TIMEOUT_MS =
+		2000;
+
+	ULONGLONG startTick =
+		::GetTickCount64();
+
+	BOOL bReplyReceived =
+		FALSE;
+
+
+	while (TRUE)
+	{
+		ULONGLONG elapsed =
+			::GetTickCount64() - startTick;
+
+		if (elapsed >=
+			ERCP_REPLY_TIMEOUT_MS)
+		{
+			break;
+		}
+
+		DWORD remainTime =
+			(DWORD)(
+				ERCP_REPLY_TIMEOUT_MS -
+				elapsed
+				);
+
+
+		// ========================================================
+		// Event + Windows Message를 동시에 기다림
+		//
+		// 이걸 사용하면 2초 동안 기다려도
+		// 화면이 완전히 멈추지 않는다.
+		// ========================================================
+		DWORD waitResult =
+			::MsgWaitForMultipleObjects(
+				1,
+				&m_hErcpReplyEvent,
+				FALSE,
+				remainTime,
+				QS_ALLINPUT
+			);
+
+
+		// --------------------------------------------------------
+		// ERCP_R 도착
+		// --------------------------------------------------------
+		if (waitResult ==
+			WAIT_OBJECT_0)
+		{
+			bReplyReceived =
+				TRUE;
+
+			break;
+		}
+
+
+		// --------------------------------------------------------
+		// Windows UI Message 발생
+		// --------------------------------------------------------
+		else if (waitResult ==
+			WAIT_OBJECT_0 + 1)
+		{
+			MSG msg;
+
+			while (
+				::PeekMessage(
+					&msg,
+					nullptr,
+					0,
+					0,
+					PM_REMOVE
+				))
+			{
+				::TranslateMessage(
+					&msg
+				);
+
+				::DispatchMessage(
+					&msg
+				);
+			}
+
+			continue;
+		}
+
+
+		// --------------------------------------------------------
+		// 2초 Timeout
+		// --------------------------------------------------------
+		else if (waitResult ==
+			WAIT_TIMEOUT)
+		{
+			break;
+		}
+
+
+		// 그 외 오류
+		else
+		{
+			break;
+		}
+	}
+
+
+	// ============================================================
+	// 2초 동안 ERCP_R 없음
+	//
+	// Popup 없음
+	// Production 계속
+	// ============================================================
+	if (bReplyReceived == FALSE)
+	{
+		CString log;
+
+		log.Format(
+			_T("[ERCP] Reply Timeout 2000ms. ")
+			_T("Production continues. ")
+			_T("Rack=%d Model=%s Recipe=%d"),
+			rackIndex + 1,
+			modelname.GetString(),
+			recipe
+		);
+
+		m_pApp->Gf_writeRMSLog(log);
+		m_pApp->Gf_writeMLog(log);
+
+		// 응답이 없어도 생산 허용
+		m_Ercp_Msg_Yn[rackIndex] =
+			FALSE;
+
+		return RTN_OK;
+	}
+
+
+	// ============================================================
+	// ERCP_R 수신 성공
+	// ============================================================
+	CString ercpReply;
+
+	{
+		CSingleLock lock(
+			&m_csErcpReply,
+			TRUE
+		);
+
+		ercpReply =
+			m_strLastErcpReply;
+	}
+
+
+	// 기존 GetFieldData()를 사용할 수 있도록
+	// ERCP_R을 Host Receive Message에 설정
+	m_strHostRecvMessage =
+		ercpReply;
+
+
+	CString recvLog;
+
+	recvLog.Format(
+		_T("[ERCP] Reply Received within 2 sec / %s"),
+		ercpReply.GetString()
+	);
+
+	m_pApp->Gf_writeRMSLog(
+		recvLog
+	);
+
+
+	// ============================================================
+	// 여기부터는 기존 ERCP_R 판정 유지
+	// ============================================================
 	CString strMsg;
 
-	GetFieldData(&strMsg, _T("RTN_CD"));
+
+	// RTN_CD
+	GetFieldData(
+		&strMsg,
+		_T("RTN_CD")
+	);
+
 	if (strMsg.Compare(_T("0")) != 0)
 	{
-		m_Ercp_Msg_Yn[rackIndex] = FALSE;
+		m_Ercp_Msg_Yn[rackIndex] =
+			FALSE;
+
 		return 3;
 	}
 
-	GetFieldData(&strMsg, _T("ERR_CD"));
+
+	// ERR_CD
+	GetFieldData(
+		&strMsg,
+		_T("ERR_CD")
+	);
+
 	if (strMsg.Compare(_T("0")) != 0)
 	{
-		m_Ercp_Msg_Yn[rackIndex] = FALSE;
+		m_Ercp_Msg_Yn[rackIndex] =
+			FALSE;
+
 		return 3;
 	}
 
-	m_Ercp_Msg_Yn[rackIndex] = TRUE;
+
+	// 정상 ERCP_R
+	m_Ercp_Msg_Yn[rackIndex] =
+		TRUE;
+
 	return RTN_OK;
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -5002,6 +5344,76 @@ UINT __cdecl CCimNetCommApi::RmsRecvThreadProc(LPVOID pParam)
 			CString log;
 			log.Format(_T("[RMS] %s"), msg.GetString());
 			m_pApp->Gf_writeRMSLog(log);
+
+			// ============================================================
+			// 260813 KDW
+			// RMS 전체 Command 이름 확인
+			//
+			// ERCP_R을 ERCP 요청으로 잘못 인식하지 않도록 한다.
+			// ============================================================
+			CString fullCmd;
+
+			int spacePos =
+				msg.Find(_T(' '));
+
+			if (spacePos >= 0)
+			{
+				fullCmd =
+					msg.Left(spacePos);
+			}
+			else
+			{
+				fullCmd = msg;
+			}
+
+			fullCmd.Trim();
+
+
+			// ============================================================
+			// ERCP_R 비동기 응답
+			// ============================================================
+			if (fullCmd.CompareNoCase(
+				_T("ERCP_R")) == 0)
+			{
+				// 마지막 ERCP_R 저장
+				{
+					CSingleLock lock(
+						&pThis->m_csErcpReply,
+						TRUE
+					);
+
+					pThis->m_strLastErcpReply =
+						msg;
+				}
+
+				// ERCP() 쪽에 응답 도착 신호
+				if (pThis->m_hErcpReplyEvent != nullptr)
+				{
+					::SetEvent(
+						pThis->m_hErcpReplyEvent
+					);
+				}
+
+				CString ercpLog;
+
+				ercpLog.Format(
+					_T("[ERCP ASYNC RECV] %s"),
+					msg.GetString()
+				);
+
+				m_pApp->Gf_writeRMSLog(
+					ercpLog
+				);
+
+				// 매우 중요
+				//
+				// 아래 기존
+				// cmd = msg.Left(4)
+				// 로 넘어가면 ERCP_R을 ERCP로 오인한다.
+				//
+				// 따라서 여기서 다음 Loop로 이동
+				continue;
+			}
 
 			CString cmd = msg.Left(4);
 
