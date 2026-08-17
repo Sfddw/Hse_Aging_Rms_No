@@ -7250,6 +7250,85 @@ static BOOL ReadErcpParamNamesFromRackRecipeIni(
 	return TRUE;
 }
 
+// ============================================================
+// 260814 KDW
+// ERCP 전송용 값은 RMS Recipe 값이 아니라
+// 현재 선택된 Model 폴더의 모델 ini에서 직접 읽는다.
+//
+// 예:
+// .\Model\01_LP160WU3-SPB2-KH1-4.ini
+//
+// RMS Parameter 이름:
+// DIMMING_SEL_MODEL_INFO
+//
+// Model ini 실제 Key:
+// DIMMING_SEL
+//
+// 위와 같은 경우도 fallback 처리
+// ============================================================
+static CString GetModelValueByParamNameForErcp(
+	const CString& modelIniPath,
+	const CString& paramName)
+{
+	CString value;
+
+	CString key = paramName;
+	key.Trim();
+
+	if (key.IsEmpty())
+		return _T("");
+
+
+	// --------------------------------------------------------
+	// 1차:
+	// RMS Parameter 이름 그대로 Model ini에서 찾음
+	//
+	// 예:
+	// VCC_VOLT
+	// PWM_FREQ
+	// --------------------------------------------------------
+	value = ReadModelInfoValueFromIniPath(
+		modelIniPath,
+		key
+	);
+
+	if (!value.IsEmpty())
+		return value;
+
+
+	// --------------------------------------------------------
+	// 2차:
+	// RMS Parameter 이름이
+	// XXX_MODEL_INFO 형식이면
+	// _MODEL_INFO 제거 후 다시 검색
+	//
+	// 예:
+	// DIMMING_SEL_MODEL_INFO
+	// -> DIMMING_SEL
+	// --------------------------------------------------------
+	const CString suffix =
+		_T("_MODEL_INFO");
+
+	if (key.GetLength() > suffix.GetLength() &&
+		key.Right(suffix.GetLength()).CompareNoCase(suffix) == 0)
+	{
+		CString fallbackKey =
+			key.Left(
+				key.GetLength() -
+				suffix.GetLength()
+			);
+
+		fallbackKey.Trim();
+
+		value = ReadModelInfoValueFromIniPath(
+			modelIniPath,
+			fallbackKey
+		);
+	}
+
+	return value;
+}
+
 // 파라미터명이 _MODEL_INFO로 되어 있는데 실제 Recipe 파일은 DIMMING_SEL 같은 이름으로 저장된 경우 대비
 static CString GetRecipeValueByParamNameForErcp(
 	const CString& valueRecipeIniPath,
@@ -7321,10 +7400,28 @@ static BOOL GetModuleInformationStartTemp(
 	return TRUE;
 }
 
+// ============================================================
+// 260814 KDW
 // ERCP_INFO 생성
-// 파라미터 목록: RMS\RACKn\RACKn_Recipe.ini
-// 값 source: RMS\RACKn\RACKn_Recipe\NN.ini
-static BOOL BuildErcpMessageSetFromRackRecipeFiles(
+//
+// Parameter 목록:
+//   RMS\RACKn\RACKn_Recipe.ini
+//
+// Parameter 실제 값:
+//   Model\<현재 선택 모델>.ini
+//
+// 예:
+//   선택 모델:
+//   01_LP160WU3-SPB2-KH1-4
+//
+//   값 Source:
+//   .\Model\01_LP160WU3-SPB2-KH1-4.ini
+//
+// 중요:
+// RMS\RACKn\RACKn_Recipe\001.ini ~ 015.ini의 값은
+// ERCP 생성 시 더 이상 사용하지 않는다.
+// ============================================================
+static BOOL BuildErcpMessageSetFromSelectedModel(
 	int rackIndex,
 	const CString& selectedModelName,
 	CString& outErcpMessageSet,
@@ -7333,48 +7430,122 @@ static BOOL BuildErcpMessageSetFromRackRecipeFiles(
 	outErcpMessageSet.Empty();
 	outErrMsg.Empty();
 
-	if (rackIndex < 0 || rackIndex >= MAX_RACK)
+
+	// ========================================================
+	// Rack 범위 확인
+	// ========================================================
+	if (rackIndex < 0 ||
+		rackIndex >= MAX_RACK)
 	{
-		outErrMsg.Format(_T("Invalid rack index. rackIndex=%d"), rackIndex);
+		outErrMsg.Format(
+			_T("Invalid rack index. rackIndex=%d"),
+			rackIndex
+		);
+
 		return FALSE;
 	}
 
-	int rackNo = rackIndex + 1;
 
+	int rackNo =
+		rackIndex + 1;
+
+
+	// ========================================================
+	// 선택된 모델 이름 확인
+	// ========================================================
+	CString modelName =
+		selectedModelName;
+
+	modelName.Trim();
+
+	if (modelName.IsEmpty())
+	{
+		outErrMsg =
+			_T("Selected model name is empty.");
+
+		return FALSE;
+	}
+
+
+	// ========================================================
+	// 선택 모델의 Recipe 번호
+	//
+	// 예:
+	// 02_LP140WU4-SPB2-KH1-2
+	// -> 2
+	//
+	// MODEL_NB가 Model ini에 없을 경우 fallback으로 사용
+	// ========================================================
 	int recipeNo = 0;
 
 	if (!GetRecipeNoFromSelectedModelName(
-		selectedModelName,
+		modelName,
 		recipeNo,
 		outErrMsg))
 	{
 		return FALSE;
 	}
 
+
+	// ========================================================
+	// RMS Parameter 목록 파일
+	//
+	// 예:
+	// .\RMS\RACK1\RACK1_Recipe.ini
+	//
+	// 여기서는 "어떤 Parameter를 보낼지"만 가져온다.
+	// 실제 값은 여기서 읽지 않는다.
+	// ========================================================
 	CString rackRecipeIniPath;
+
 	rackRecipeIniPath.Format(
 		_T(".\\RMS\\RACK%d\\RACK%d_Recipe.ini"),
 		rackNo,
 		rackNo
 	);
 
-	CString valueRecipeIniPath;
-	valueRecipeIniPath.Format(
-		_T(".\\RMS\\RACK%d\\RACK%d_Recipe\\%03d.ini"),
-		rackNo,
-		rackNo,
-		recipeNo
-	);
 
-	if (!FileExistsSimple(valueRecipeIniPath))
+	if (!FileExistsSimple(
+		rackRecipeIniPath))
 	{
 		outErrMsg.Format(
-			_T("Recipe value file not found. file=%s"),
-			valueRecipeIniPath.GetString()
+			_T("Rack recipe key file not found. file=%s"),
+			rackRecipeIniPath.GetString()
 		);
+
 		return FALSE;
 	}
 
+
+	// ========================================================
+	// 실제 ERCP 값을 읽을 현재 선택 Model 파일
+	//
+	// 예:
+	// .\Model\02_LP140WU4-SPB2-KH1-2.ini
+	// ========================================================
+	CString modelIniPath;
+
+	modelIniPath.Format(
+		_T(".\\Model\\%s.ini"),
+		modelName.GetString()
+	);
+
+
+	if (!FileExistsSimple(
+		modelIniPath))
+	{
+		outErrMsg.Format(
+			_T("Selected model ini file not found. file=%s"),
+			modelIniPath.GetString()
+		);
+
+		return FALSE;
+	}
+
+
+	// ========================================================
+	// RMS에서 요구하는 Parameter 이름 목록 읽기
+	// ========================================================
 	std::vector<CString> paramNames;
 
 	if (!ReadErcpParamNamesFromRackRecipeIni(
@@ -7385,21 +7556,34 @@ static BOOL BuildErcpMessageSetFromRackRecipeFiles(
 		return FALSE;
 	}
 
-	for (size_t i = 0; i < paramNames.size(); i++)
+
+	// ========================================================
+	// Parameter별 ERCP_INFO 생성
+	// ========================================================
+	for (size_t i = 0;
+		i < paramNames.size();
+		i++)
 	{
-		CString paramName = paramNames[i];
+		CString paramName =
+			paramNames[i];
+
 		paramName.Trim();
 
 		if (paramName.IsEmpty())
 			continue;
 
+
 		CString value;
 
-		// ============================================================
-		// 260812 KDW
-		// MODULE_INFORMATION_START_TEMP는 Recipe ini의 고정값이 아니라
-		// Fusing 시점의 Chamber 설정온도를 사용한다.
-		// ============================================================
+
+		// ====================================================
+		// MODULE_INFORMATION_START_TEMP
+		//
+		// 이 값은 Model ini의 고정값이 아니라
+		// Fusing 시점의 실제 Chamber 설정온도를 사용.
+		//
+		// 기존 기능 유지.
+		// ====================================================
 		if (paramName.CompareNoCase(
 			_T("MODULE_INFORMATION_START_TEMP")) == 0)
 		{
@@ -7414,65 +7598,161 @@ static BOOL BuildErcpMessageSetFromRackRecipeFiles(
 				startTemp))
 			{
 				outErrMsg.Format(
-					_T("Failed to get MODULE_INFORMATION_START_TEMP. Rack=%d"),
+					_T("Failed to get ")
+					_T("MODULE_INFORMATION_START_TEMP. ")
+					_T("Rack=%d"),
 					rackIndex + 1
 				);
 
 				return FALSE;
 			}
 
-			// 온도는 소수점 한 자리
-			// 예: 45.0, 50.5
+
 			value.Format(
 				_T("%.1f"),
 				startTemp
 			);
 		}
-		// ============================================================
-		// 기존 MODEL_NB 처리
-		// ============================================================
-		else if (paramName.CompareNoCase(_T("MODEL_NB")) == 0)
+
+
+		// ====================================================
+		// MODEL_NB
+		//
+		// 우선순위:
+		//
+		// 1. 선택 Model ini의 MODEL_NB
+		// 2. 선택 Model ini의 MODEL_NUMBER
+		// 3. 파일명 앞 번호
+		//
+		// 예:
+		// 02_LP...
+		// -> 2
+		// ====================================================
+		else if (paramName.CompareNoCase(
+			_T("MODEL_NB")) == 0)
 		{
-			value = GetRecipeValueByParamNameForErcp(
-				valueRecipeIniPath,
-				paramName);
+			value =
+				ReadModelInfoValueFromIniPath(
+					modelIniPath,
+					_T("MODEL_NB")
+				);
+
 
 			if (value.IsEmpty())
-				value.Format(_T("%d"), recipeNo);
+			{
+				value =
+					ReadModelInfoValueFromIniPath(
+						modelIniPath,
+						_T("MODEL_NUMBER")
+					);
+			}
+
+
+			if (value.IsEmpty())
+			{
+				value.Format(
+					_T("%d"),
+					recipeNo
+				);
+			}
 		}
+
+
+		// ====================================================
+		// 일반 Parameter
+		//
+		// 여기서부터는 RMS Recipe 값이 아니라
+		// 선택 모델의 Model ini 값을 읽는다.
+		// ====================================================
 		else
 		{
-			// 기존 Parameter들은 Recipe 파일에서 값 읽기
-			value = GetRecipeValueByParamNameForErcp(
-				valueRecipeIniPath,
-				paramName);
+			value =
+				GetModelValueByParamNameForErcp(
+					modelIniPath,
+					paramName
+				);
 		}
 
 
-		// 값이 없는 파라미터는 ERCP_INFO에서 제외
-		// 0 값은 "0" 문자열이므로 제외되지 않음
+		// ====================================================
+		// Model ini에 해당 Parameter 값이 없으면
+		// 기존 방식처럼 ERCP_INFO에서 제외
+		//
+		// "0"은 IsEmpty가 아니므로 정상 전송됨.
+		// ====================================================
 		if (value.IsEmpty())
-			continue;
+		{
+			CString missingLog;
 
+			missingLog.Format(
+				_T("[ERCP] Parameter value not found. ")
+				_T("Rack=%d Model=%s Param=%s"),
+				rackIndex + 1,
+				modelName.GetString(),
+				paramName.GetString()
+			);
+
+			m_pApp->Gf_writeRMSLog(
+				missingLog
+			);
+
+			continue;
+		}
+
+
+		// ====================================================
+		// ERCP_INFO Parameter 추가
+		//
+		// 예:
+		// VCC_VOLT#3.3^
+		// ====================================================
 		CString one;
+
 		one.Format(
 			_T("%s#%s^"),
 			paramName.GetString(),
 			value.GetString()
 		);
 
-		outErcpMessageSet += one;
+
+		outErcpMessageSet +=
+			one;
 	}
 
+
+	// ========================================================
+	// ERCP_INFO 생성 실패
+	// ========================================================
 	if (outErcpMessageSet.IsEmpty())
 	{
 		outErrMsg.Format(
-			_T("ERCP_INFO is empty. rackRecipe=%s valueRecipe=%s"),
+			_T("ERCP_INFO is empty. ")
+			_T("RackRecipe=%s ModelIni=%s"),
 			rackRecipeIniPath.GetString(),
-			valueRecipeIniPath.GetString()
+			modelIniPath.GetString()
 		);
+
 		return FALSE;
 	}
+
+
+	// ========================================================
+	// 실제 Value Source 확인용 로그
+	// ========================================================
+	CString sourceLog;
+
+	sourceLog.Format(
+		_T("[ERCP] Value Source = MODEL INI ")
+		_T("/ Rack=%d Model=%s File=%s"),
+		rackIndex + 1,
+		modelName.GetString(),
+		modelIniPath.GetString()
+	);
+
+	m_pApp->Gf_writeRMSLog(
+		sourceLog
+	);
+
 
 	return TRUE;
 }
@@ -7536,21 +7816,29 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 
 		CString ercpBuildErr;
 
-		if (!BuildErcpMessageSetFromRackRecipeFiles(
+		if (!BuildErcpMessageSetFromSelectedModel(
 			rack,
 			sModelName,
 			ErcpMessageSet,
 			ercpBuildErr))
 		{
 			CString err;
+
 			err.Format(
-				_T("Failed to build ERCP_INFO from RMS rack recipe files.\nRack=%d\nModel=%s\n%s"),
+				_T("Failed to build ERCP_INFO from selected Model ini.\n")
+				_T("Rack=%d\n")
+				_T("Model=%s\n")
+				_T("%s"),
 				rack + 1,
 				sModelName.GetString(),
 				ercpBuildErr.GetString()
 			);
 
-			AfxMessageBox(err, MB_ICONERROR);
+			AfxMessageBox(
+				err,
+				MB_ICONERROR
+			);
+
 			return;
 		}
 
