@@ -508,6 +508,38 @@ BOOL CCommand::Gf_dio_setDIOWriteOutput(int color, int mode)
 	return ret;
 }
 
+// ============================================================
+// 260818 KDW 추가
+// PCHK 등의 단순 알림용 DIO
+// ACK를 기다리지 않고 즉시 Return
+// ============================================================
+BOOL CCommand::Gf_dio_setDIOWriteOutputNoWait(
+	int color,
+	int mode)
+{
+	int nSize = 0;
+	char szPacket[2048] = { 0, };
+
+	sprintf_s(
+		szPacket,
+		"%02X%01d",
+		color,
+		mode
+	);
+
+	nSize =
+		(int)strlen(szPacket);
+
+
+	return m_pApp->udp_sendPacketUDP(
+		IP_ADDRESS_DIO,
+		CMD_DIO_OUTPUT,
+		nSize,
+		szPacket,
+		NACK
+	);
+}
+
 BOOL CCommand::Gf_dio_getDIOReadStatus()
 {
 	BOOL ret = FALSE;

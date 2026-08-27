@@ -3176,7 +3176,7 @@ BOOL CPidInput::HandlePIDScan()
 
 		P_Chk = m_pApp->Gf_gmesSendHost(
 			HOST_PCHK,
-			_ttoi(lpInspWorkInfo->m_RackID),
+			NowRackNum,
 			_ttoi(lpInspWorkInfo->m_LayerID),
 			_ttoi(lpInspWorkInfo->m_Layer_ChID)
 		);
@@ -3198,32 +3198,90 @@ BOOL CPidInput::HandlePIDScan()
 		}
 		else
 		{
-			m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
+			// ========================================================
+			// Buzzer ON
+			// 알림용이므로 ACK 기다리지 않음
+			// ========================================================
+			m_pApp->pCommand
+				->Gf_dio_setDIOWriteOutputNoWait(
+					9,
+					1
+				);
 
+
+			// ========================================================
+			// NG Message
+			// ========================================================
 			sdata.Format(
 				_T("%s [CODE = %d]"),
 				lpInspWorkInfo->m_AgingErrorMsg,
 				MES_MSG_ERROR
 			);
-			m_pApp->Gf_ShowMessageBox(sdata);
 
-			lpInspWorkInfo->m_nDioOutputData =
-				lpInspWorkInfo->m_nDioOutputData & ~DIO_OUT_BUZZER;
-
-			m_pApp->pCommand->Gf_dio_setDIOWriteOutput(
-				lpInspWorkInfo->m_nDioOutputData,
-				lpInspWorkInfo->m_nDioOutputMode
+			m_pApp->Gf_ShowMessageBox(
+				sdata
 			);
+
+
+			// ========================================================
+			// 팝업 닫는 즉시 PCHK ERROR 화면 반영
+			// Rack / Channel 정보 추가
+			// ========================================================
+			int rackNo = _ttoi(lpInspWorkInfo->m_RackID);
+			int chNo = _ttoi(lpInspWorkInfo->m_ChID);
 
 			sdata.Format(
-				_T("PCHK ERROR [%s] [CODE = %d]"),
-				scannedPid.GetString(),
+				_T("MACHING ERROR RACK%02dCH%02d [%s]"),
+				rackNo,
+				chNo,
+				m_nMainKeyInData.GetString(),
 				MES_MSG_ERROR
 			);
-			Lf_addMessage(sdata);
 
-			if (pEditControl != nullptr)
-				pEditControl->SetWindowText(_T(""));
+			Lf_addMessage(
+				sdata
+			);
+
+
+			// PID Edit Clear
+			CWnd* pFocusedWnd =
+				GetFocus();
+
+			if (pFocusedWnd != nullptr)
+			{
+				CEdit* pEditControl =
+					reinterpret_cast<CEdit*>(
+						pFocusedWnd
+						);
+
+				if (pEditControl != nullptr)
+				{
+					pEditControl
+						->SetWindowText(
+							_T("")
+						);
+				}
+			}
+
+
+			// ========================================================
+			// Buzzer OFF
+			// 화면 처리를 막지 않도록 NoWait
+			// ========================================================
+			lpInspWorkInfo->m_nDioOutputData =
+				lpInspWorkInfo
+				->m_nDioOutputData &
+				~DIO_OUT_BUZZER;
+
+
+			m_pApp->pCommand
+				->Gf_dio_setDIOWriteOutputNoWait(
+					lpInspWorkInfo
+					->m_nDioOutputData,
+
+					lpInspWorkInfo
+					->m_nDioOutputMode
+				);
 		}
 
 		m_bPidScanBusy = FALSE;
@@ -3316,7 +3374,7 @@ BOOL CPidInput::HandlePIDScan()
 	}
 
 	// ============================================================
-	// 3) 길이가 맞지 않는 경우 초기화ㅔ  7\
+	// 3) 길이가 맞지 않는 경우 초기화
 	// ============================================================
 	CWnd* pFocusedWnd = GetFocus();
 	if (pFocusedWnd != nullptr &&
@@ -3410,7 +3468,7 @@ BOOL CPidInput::ProcessScannedPid(const CString& scannedPid)
 
 	P_Chk = m_pApp->Gf_gmesSendHost(
 		HOST_PCHK,
-		_ttoi(lpInspWorkInfo->m_RackID),
+		NowRackNum,
 		_ttoi(lpInspWorkInfo->m_LayerID),
 		_ttoi(lpInspWorkInfo->m_Layer_ChID)
 	);

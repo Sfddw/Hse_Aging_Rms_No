@@ -49,6 +49,8 @@ public:
 	BOOL Gf_dio_setDownloadData(int len, char* packet);
 	BOOL Gf_dio_setDownloadComplete();
 
+	BOOL Gf_dio_setDIOWriteOutputNoWait(int color, int mode);
+
 protected:
 	LPMODELINFO		lpModelInfo;
 	LPSYSTEMINFO	lpSystemInfo;

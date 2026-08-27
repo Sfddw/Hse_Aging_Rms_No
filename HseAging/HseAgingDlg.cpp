@@ -4716,7 +4716,16 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	if (m_pCmbMaModel[rack]->GetCurSel() == 0)
 	{
-		m_pApp->Gf_ShowMessageBox(_T("No model was selected. Please select a model."));
+		m_pApp->Gf_ShowMessageBox(
+			_T("No model was selected. Please select a model.")
+		);
+
+		// Barcode 입력 Focus 복구
+		if (::IsWindow(GetSafeHwnd()))
+		{
+			SetFocus();
+		}
+
 		return;
 	}
 
@@ -4732,11 +4741,11 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 			break;
 		}
 	}
-	/*if (bFusing == FALSE)
+	if (bFusing == FALSE)
 	{
 		Lf_writeRackMLog(rack, _T("Fusing : N/C"));
 		return;
-	}*/
+	}
 	////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -4745,6 +4754,23 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 	int nValue;
 
 	lpInspWorkInfo->m_PidTestError[rack] = false; // PID, AGING START ERROR MESSAGE FLAG
+
+	// ============================================================
+	// 260819 KDW
+	// FUSING 버튼을 클릭하면 해당 버튼이 Focus를 가지고 있음.
+	//
+	// 바로 아래에서 FUSING 버튼을 Disable하면
+	// Keyboard Focus가 사라질 수 있으므로
+	// 메인 Dialog로 Focus를 먼저 이동한다.
+	//
+	// Barcode Scanner의 RACKxxCHxx 입력이
+	// PreTranslateMessage()로 계속 들어오도록 하기 위함.
+	// ============================================================
+	if (::IsWindow(GetSafeHwnd()))
+	{
+		SetFocus();
+	}
+
 
 	// Button Disable
 	m_pBtnAgingStart[rack]->EnableWindow(FALSE);
@@ -4840,6 +4866,16 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 	}
 
 	m_pBtnAgingStart[rack]->EnableWindow(m_pApp->pCimNet->m_Ercp_Msg_Yn[rack]); // ERCP 메시지에 따른 START 버튼 활성화 / 비활성화
+	// ============================================================
+	// 260819 KDW
+	// FUSING 완료 후 Barcode 입력을 받을 수 있도록
+	// Main Dialog에 Focus 복구
+	// ============================================================
+	if (::IsWindow(GetSafeHwnd()) &&
+		IsWindowEnabled())
+	{
+		SetFocus();
+	}
 
 }
 

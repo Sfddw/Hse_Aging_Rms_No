@@ -291,6 +291,8 @@ void CHseAgingApp::Lf_InitGlobalVariable()
 	m_bIsEasConnect = FALSE;
 
 	memset(m_nAckCmdPG, 0, sizeof(m_nAckCmdPG));
+	// DIO ACK 초기화
+	m_nAckCmdDIO = 0;
 
 	memset(lpInspWorkInfo->m_nConnectInfo, 0, sizeof(lpInspWorkInfo->m_nConnectInfo));
 	memset(lpInspWorkInfo->m_nMainEthConnect, 0, sizeof(lpInspWorkInfo->m_nMainEthConnect));
@@ -1106,26 +1108,104 @@ BOOL CHseAgingApp::udp_sendPacketUDP(CString ip, int nCommand, int nSize, char* 
 	m_pApp->Gf_writeMLog(sLog);
 #endif
 
-	// 생성된 Packet을 전송.
+	// ============================================================
+// Packet 전송
+// ============================================================
 	UINT ret = TRUE;
 
-	m_pUDPSocket->SendToUDP(ip, packetlen, sendPacket);
 
-	int rack=-1, layer=-1;
-	Lf_IPStringToRackInfo(ip, &rack, &layer);
+	// ============================================================
+	// DIO 여부 확인
+	//
+	// DIO = 192.168.10.64
+	// Main Board와 ACK 변수를 분리해서 사용
+	// ============================================================
+	BOOL bDio =
+		(ip.CompareNoCase(IP_ADDRESS_DIO) == 0);
 
-	// ACK Receive
-	if ((rack == -1) && (layer == -1))
+
+	// ACK 이전 값 초기화
+	if (bDio == TRUE &&
+		recvACK == ACK)
+	{
+		m_nAckCmdDIO = 0;
+	}
+
+
+	// 실제 UDP 전송
+	m_pUDPSocket->SendToUDP(
+		ip,
+		packetlen,
+		sendPacket
+	);
+
+
+	// ============================================================
+	// DIO ACK 처리
+	// ============================================================
+	if (bDio == TRUE)
+	{
+		if (recvACK == ACK)
+		{
+			if (procWaitRecvACK_DIO(
+				nCommand,
+				waitTime) == TRUE)
+			{
+				return TRUE;
+			}
+
+			return FALSE;
+		}
+
+		// ACK가 필요 없는 DIO 명령
+		return TRUE;
+	}
+
+
+	// ============================================================
+	// Main Board ACK 처리
+	// ============================================================
+	int rack = -1;
+	int layer = -1;
+
+	Lf_IPStringToRackInfo(
+		ip,
+		&rack,
+		&layer
+	);
+
+
+	// ============================================================
+	// 배열 범위 반드시 확인
+	// ============================================================
+	if (rack < 0 ||
+		rack >= MAX_RACK ||
+		layer < 0 ||
+		layer >= MAX_LAYER)
+	{
 		return FALSE;
+	}
+
 
 	m_nAckCmdPG[rack][layer] = 0;
+
+
 	if (recvACK == ACK)
 	{
-		if (procWaitRecvACK(rack, layer, nCommand, waitTime) == TRUE)
+		if (procWaitRecvACK(
+			rack,
+			layer,
+			nCommand,
+			waitTime) == TRUE)
+		{
 			ret = TRUE;
+		}
 		else
+		{
 			ret = FALSE;
+		}
 	}
+
 
 	return ret;
 }
@@ -1514,11 +1594,12 @@ void CHseAgingApp::udp_processDioPacket(CString strPacket)
 			break;
 		}
 	}
-	// ACK Receive Check는 모든 Packet처리가 완료된 이후 Set한다.
-	int rack, layer;
-	Lf_IPStringToRackInfo(recvIP, &rack, &layer);
-	m_nAckCmdPG[rack][layer] = cmd;
-	//m_nAckCmdDIO = cmd;
+	// ============================================================
+	// DIO ACK Receive
+	//
+	// DIO는 Main Board의 Rack/Layer ACK 배열을 사용하지 않는다.
+	// ============================================================
+	m_nAckCmdDIO = cmd;
 }
 
 
@@ -2894,11 +2975,95 @@ Send_RETRY:
 	return FALSE;
 }
 
+// ============================================================
+// 260818 KDW
+// PCHK MODEL INTERLOCK
+//
+// FUSING 모델명:
+// 02_LP140WU4-SPH2-KH1-J
+//
+// MES TOP_MODEL_NAME:
+// LP140WU4-SPH2-KH1-J
+//
+// 앞의 "숫자_" Prefix만 제거한다.
+// ============================================================
+static CString NormalizePchkModelName(const CString& rawModelName)
+{
+	CString modelName = rawModelName;
+	modelName.Trim();
+
+	if (modelName.IsEmpty())
+		return _T("");
+
+
+	// 혹시 .ini가 붙어서 들어오는 경우 대비
+	if (modelName.GetLength() > 4 &&
+		modelName.Right(4).CompareNoCase(_T(".ini")) == 0)
+	{
+		modelName =
+			modelName.Left(
+				modelName.GetLength() - 4
+			);
+	}
+
+
+	// '_' 위치 찾기
+	int underscorePos =
+		modelName.Find(_T('_'));
+
+
+	// '_' 앞이 전부 숫자인 경우에만 Prefix 제거
+	//
+	// 예:
+	// 02_LP140WU4... -> LP140WU4...
+	if (underscorePos > 0)
+	{
+		BOOL prefixIsNumber = TRUE;
+
+		for (int i = 0;
+			i < underscorePos;
+			i++)
+		{
+			TCHAR ch =
+				modelName[i];
+
+			if (ch < _T('0') ||
+				ch > _T('9'))
+			{
+				prefixIsNumber = FALSE;
+				break;
+			}
+		}
+
+
+		if (prefixIsNumber == TRUE)
+		{
+			modelName =
+				modelName.Mid(
+					underscorePos + 1
+				);
+		}
+	}
+
+
+	modelName.Trim();
+
+	return modelName;
+}
+
+
+
 BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 {
 	int nRtnCD;
 	CString sLog, sdata = _T("");
 	char Luc_PF = 0;
+
+	// ========================================================
+	// PCHK Model Interlock NG Flag
+	// ========================================================
+	BOOL bPchkModelInterlockNg = FALSE;
+
 	CHseAgingDlg* pMain = (CHseAgingDlg*)AfxGetMainWnd();
 	int displayChNo = GetDisplayChannelNo(layer, ch);
 
@@ -2932,13 +3097,222 @@ Send_RETRY:
 	}
 	else if (hostCMD == HOST_PCHK)
 	{
-		/*Gf_gmesSetValueAgcm(rack, layer, ch);
-		nRtnCD = pCimNet->PCHK();
+		// ========================================================
+		// PCHK 전송
+		// ========================================================
+		nRtnCD =
+			pCimNet->PCHK_B(
+				lpInspWorkInfo->m_nPid
+			);
+
+
+		// ========================================================
+		// MES 자체 PCHK가 OK일 때만 Model Interlock 검사
+		// ========================================================
 		if (nRtnCD == RTN_OK)
 		{
-			pCimNet->GetFieldData(&lpInspWorkInfo->m_sMesPchkRtnPID[rack][layer][ch], _T("RTN_PID"));
-		}*/
-		nRtnCD = pCimNet->PCHK_B(lpInspWorkInfo->m_nPid);
+			// ----------------------------------------------------
+			// Rack Index 확인
+			// Rack1 = 0
+			// Rack2 = 1
+			// ...
+			// Rack6 = 5
+			// ----------------------------------------------------
+			if (rack < 0 ||
+				rack >= MAX_RACK)
+			{
+				lpInspWorkInfo->m_AgingErrorMsg.Format(
+					_T("PCHK MODEL CHECK ERROR\r\n")
+					_T("Invalid Rack Number [%d]"),
+					rack + 1
+				);
+
+				sLog.Format(
+					_T("<PCHK MODEL> INVALID RACK ")
+					_T("/ RackIndex=%d PID=%s"),
+					rack,
+					lpInspWorkInfo->m_nPid.GetString()
+				);
+
+				Gf_writeMLog(sLog);
+
+				bPchkModelInterlockNg =
+					TRUE;
+			}
+			else
+			{
+				// ------------------------------------------------
+				// PCHK_R의 TOP_MODEL_NAME 추출
+				//
+				// 예:
+				// LP140WU4-SPH2-KH1-J
+				// ------------------------------------------------
+				CString mesTopModel;
+
+				pCimNet->GetFieldData(
+					&mesTopModel,
+					_T("TOP_MODEL_NAME")
+				);
+
+				mesTopModel.Trim();
+
+
+				// ------------------------------------------------
+				// 해당 Rack에 마지막 FUSING된 Model
+				//
+				// 예:
+				// 02_LP140WU4-SPH2-KH1-J
+				// ------------------------------------------------
+				CString fusingModel =
+					lpSystemInfo
+					->m_sLastModelName[rack];
+
+				fusingModel.Trim();
+
+
+				// ------------------------------------------------
+				// 비교용 Model명 생성
+				// ------------------------------------------------
+				CString normalizedFusingModel =
+					NormalizePchkModelName(
+						fusingModel
+					);
+
+				CString normalizedMesModel =
+					NormalizePchkModelName(
+						mesTopModel
+					);
+
+
+				// =================================================
+				// MES TOP_MODEL_NAME 없음
+				// =================================================
+				if (normalizedMesModel.IsEmpty())
+				{
+					lpInspWorkInfo
+						->m_AgingErrorMsg.Format(
+							_T("PCHK MODEL CHECK NG\r\n")
+							_T("MES TOP_MODEL_NAME is empty.\r\n")
+							_T("RACK : %d\r\n")
+							_T("FUSING MODEL : %s"),
+							rack + 1,
+							normalizedFusingModel.GetString()
+						);
+
+
+					sLog.Format(
+						_T("<PCHK MODEL> NG / ")
+						_T("Rack=%d PID=%s ")
+						_T("MES_TOP_MODEL=EMPTY ")
+						_T("FUSING_MODEL=%s"),
+						rack + 1,
+						lpInspWorkInfo
+						->m_nPid.GetString(),
+						fusingModel.GetString()
+					);
+
+					Gf_writeMLog(sLog);
+
+					bPchkModelInterlockNg =
+						TRUE;
+				}
+
+
+				// =================================================
+				// FUSING Model 없음
+				// =================================================
+				else if (
+					normalizedFusingModel.IsEmpty())
+				{
+					lpInspWorkInfo
+						->m_AgingErrorMsg.Format(
+							_T("PCHK MODEL CHECK NG\r\n")
+							_T("FUSING MODEL is empty.\r\n")
+							_T("RACK : %d\r\n")
+							_T("MES MODEL : %s"),
+							rack + 1,
+							normalizedMesModel.GetString()
+						);
+
+
+					sLog.Format(
+						_T("<PCHK MODEL> NG / ")
+						_T("Rack=%d PID=%s ")
+						_T("FUSING_MODEL=EMPTY ")
+						_T("MES_TOP_MODEL=%s"),
+						rack + 1,
+						lpInspWorkInfo
+						->m_nPid.GetString(),
+						normalizedMesModel.GetString()
+					);
+
+					Gf_writeMLog(sLog);
+
+					bPchkModelInterlockNg =
+						TRUE;
+				}
+
+
+				// =================================================
+				// Model 불일치
+				// =================================================
+				else if (
+					normalizedFusingModel.CompareNoCase(
+						normalizedMesModel
+					) != 0)
+				{
+					lpInspWorkInfo
+						->m_AgingErrorMsg.Format(
+							_T("PCHK MODEL MISMATCH\r\n")
+							_T("RACK : %d\r\n")
+							_T("FUSING MODEL : %s\r\n")
+							_T("MES TOP MODEL : %s"),
+							rack + 1,
+							normalizedFusingModel.GetString(),
+							normalizedMesModel.GetString()
+						);
+
+
+					sLog.Format(
+						_T("<PCHK MODEL> NG / ")
+						_T("Rack=%d PID=%s ")
+						_T("FUSING_MODEL=%s ")
+						_T("MES_TOP_MODEL=%s"),
+						rack + 1,
+						lpInspWorkInfo
+						->m_nPid.GetString(),
+						normalizedFusingModel.GetString(),
+						normalizedMesModel.GetString()
+					);
+
+					Gf_writeMLog(sLog);
+
+					bPchkModelInterlockNg =
+						TRUE;
+				}
+
+
+				// =================================================
+				// Model 일치
+				// =================================================
+				else
+				{
+					sLog.Format(
+						_T("<PCHK MODEL> OK / ")
+						_T("Rack=%d PID=%s ")
+						_T("FUSING_MODEL=%s ")
+						_T("MES_TOP_MODEL=%s"),
+						rack + 1,
+						lpInspWorkInfo
+						->m_nPid.GetString(),
+						normalizedFusingModel.GetString(),
+						normalizedMesModel.GetString()
+					);
+
+					Gf_writeMLog(sLog);
+				}
+			}
+		}
 	}
 	else if (hostCMD == HOST_EWOQ)
 	{
@@ -3149,6 +3523,24 @@ Send_RETRY:
 	else
 	{
 		Gf_writeMLog(sLog);
+	}
+
+	// ============================================================
+	// PCHK Model Interlock NG
+	//
+	// MES PCHK 자체는 RTN_CD=0이어도
+	// TOP_MODEL_NAME과 FUSING MODEL이 다르면
+	// 최종 PCHK 결과는 FALSE
+	//
+	// 중요:
+	// 여기서 바로 FALSE를 반환하여
+	// 아래 Gf_gmesShowLocalErrorMsg()가
+	// 우리가 만든 m_AgingErrorMsg를 덮어쓰지 않게 한다.
+	// ============================================================
+	if (hostCMD == HOST_PCHK &&
+		bPchkModelInterlockNg == TRUE)
+	{
+		return FALSE;
 	}
 
 	if (nRtnCD == RTN_OK)
