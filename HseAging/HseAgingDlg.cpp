@@ -4741,11 +4741,11 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 			break;
 		}
 	}
-	if (bFusing == FALSE)
+	/*if (bFusing == FALSE)
 	{
 		Lf_writeRackMLog(rack, _T("Fusing : N/C"));
 		return;
-	}
+	}*/
 	////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -7814,6 +7814,27 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 		if (sModelName.IsEmpty())
 		{
 			AfxMessageBox(_T("Model name is empty."), MB_ICONERROR);
+			return;
+		}
+
+		// ============================================================
+		// 260928 KDW 추가 - RMS OFF
+		//
+		// RMS가 의도적으로 OFF인 경우 ERCP를 수행하지 않고
+		// Aging Start Interlock을 통과시킨다.
+		// ============================================================
+		if (lpSystemInfo->m_sRmsUse == FALSE)
+		{
+			m_pApp->pCimNet->m_Ercp_Msg_Yn[rack] = TRUE;
+
+			CString sLog;
+			sLog.Format(
+				_T("[RMS] RACK%d ERCP SKIP - RMS USE OFF"),
+				rack + 1
+			);
+
+			m_pApp->Gf_writeRMSLog(sLog);
+
 			return;
 		}
 

@@ -2247,14 +2247,29 @@ BOOL CCimNetCommApi::ConnectTibRv(int nServerType)
 
 		if (resultConnect == VARIANT_TRUE)
 		{
+			if (StartRmsRecvThread() == FALSE)
+			{
+				m_pApp->Gf_writeRMSLog(
+					_T("[RMS] RMS Receive Thread Start Fail")
+				);
+
+				rms->Terminate();
+
+				m_pApp->m_blsRmsConnect = FALSE;
+
+				return FALSE;
+			}
+
 			m_pApp->m_blsRmsConnect = TRUE;
 
 			CString sLog;
-			sLog.Format(_T("<RMS> RMS Server Connection Succeeded / %s"),
-				m_strLocalSubjectRMS.GetString());
+			sLog.Format(
+				_T("<RMS> RMS Server Connection Succeeded / %s"),
+				m_strLocalSubjectRMS.GetString()
+			);
+
 			m_pApp->Gf_writeMLog(sLog);
 
-			StartRmsRecvThread();
 			return TRUE;
 		}
 		else
@@ -2723,14 +2738,19 @@ BOOL CCimNetCommApi::MessageSend(int nMode, int rackNo)
 			}
 		}
 
-		do
+		// 260928 KDW 추가 - SendTibMessage() 내부에서 이미 RMS 응답을 대기한다.
+		// 따라서 여기서 GetreceivedDataFlag()를 다시 기다리면 안 된다.
+		m_sReceiveMessage =
+			(LPCTSTR)rms->GetReceiveData();
+
+		if (m_sReceiveMessage.IsEmpty())
 		{
-			if (rms->GetreceivedDataFlag() == VARIANT_TRUE)
-			{
-				m_sReceiveMessage = (LPCTSTR)rms->GetReceiveData();
-				break;
-			}
-		} while (1);
+			m_pApp->Gf_writeRMSLog(
+				_T("[RMS] Receive Message Empty")
+			);
+
+			return RTN_RCV_TIMEOUT;
+		}
 	}
 	else
 	{

@@ -121,9 +121,31 @@ BOOL CHseAgingApp::InitInstance()
 	{
 		AfxMessageBox(_T("TIB Driver Init Fail.\r\nPlease check whether you have installed the TibDriver and registered the EAS DLL."), MB_ICONERROR);
 	}
-	if (Gf_gmesInitServer(SERVER_RMS) == FALSE)
+	/*if (Gf_gmesInitServer(SERVER_RMS) == FALSE)
 	{
 		AfxMessageBox(_T("TIB Driver Init Fail.\r\nPlease check whether you have installed the TibDriver and registered the RMS DLL."), MB_ICONERROR);
+	}*/
+	// RMS는 사용 설정일 때만 Init
+	if (lpSystemInfo->m_sRmsUse == TRUE)
+	{
+		if (Gf_gmesInitServer(SERVER_RMS) == FALSE)
+		{
+			AfxMessageBox(
+				_T("TIB Driver Init Fail.\r\n")
+				_T("Please check whether you have installed the TibDriver ")
+				_T("and registered the RMS DLL."),
+				MB_ICONERROR
+			);
+		}
+	}
+	else
+	{
+		m_blsRmsConnect = FALSE;
+		lpInspWorkInfo->m_nConnectInfo[CONNECT_RMS] = FALSE;
+
+		Gf_writeRMSLog(
+			_T("[RMS] Program Start - RMS USE = OFF")
+		);
 	}
 
 	CUserID user_dlg;
@@ -1678,6 +1700,20 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("EAS"), _T("EAS_LOCAL_SUBJECT"), &lpSystemInfo->m_sEasLocalSubject);
 	Read_SysIniFile(_T("EAS"), _T("EAS_REMOTE_SUBJECT"), &lpSystemInfo->m_sEasRemoteSubject);
 
+	// RMS ON / OFF (1 = ON / 0 = OFF)
+	sdata.Empty();
+	Read_SysIniFile(_T("RMS"), _T("RMS_USE"), &sdata);
+
+	if (sdata.IsEmpty())
+	{
+		lpSystemInfo->m_sRmsUse = TRUE;
+	}
+	else
+	{
+		lpSystemInfo->m_sRmsUse =
+			(_ttoi(sdata) != 0) ? TRUE : FALSE;
+	}
+
 	Read_SysIniFile(_T("RMS"), _T("RMS_SERVICE_PORT"), &lpSystemInfo->m_sRmsServicePort);
 	Read_SysIniFile(_T("RMS"), _T("RMS_NETWORK"), &lpSystemInfo->m_sRmsNetWork);
 	Read_SysIniFile(_T("RMS"), _T("RMS_DAEMON_PORT"), &lpSystemInfo->m_sRmsDaemonPort);
@@ -2701,6 +2737,106 @@ BOOL CHseAgingApp::Gf_gmesConnect(int nServerType)
 	return FALSE;
 }
 
+
+BOOL CHseAgingApp::Gf_applyRmsUseSetting(BOOL bSendEayt)
+{
+	CString sLog;
+
+	// ============================================================
+	// RMS OFF
+	// ============================================================
+	if (lpSystemInfo->m_sRmsUse == FALSE)
+	{
+		// RMS 수신 Thread 종료 + DLL Terminate
+		pCimNet->CloseTibRv(SERVER_RMS);
+
+		m_blsRmsConnect = FALSE;
+		lpInspWorkInfo->m_nConnectInfo[CONNECT_RMS] = FALSE;
+
+		Gf_writeRMSLog(
+			_T("[RMS] RMS USE = OFF / RMS communication stopped.")
+		);
+
+		return TRUE;
+	}
+
+
+	// ============================================================
+	// RMS ON
+	//
+	// System 화면에서 Port / Subject 등도 변경할 수 있기 때문에
+	// 기존 연결을 한번 정리하고 새 설정으로 다시 Init한다.
+	// ============================================================
+	pCimNet->CloseTibRv(SERVER_RMS);
+
+	m_blsRmsConnect = FALSE;
+	lpInspWorkInfo->m_nConnectInfo[CONNECT_RMS] = FALSE;
+
+
+	// ============================================================
+	// RMS DLL Init
+	// ============================================================
+	if (Gf_gmesInitServer(SERVER_RMS) == FALSE)
+	{
+		Gf_writeRMSLog(
+			_T("[RMS] RMS USE = ON / RMS Init Fail.")
+		);
+
+		return FALSE;
+	}
+
+
+	// ============================================================
+	// RMS Connect
+	// ============================================================
+	if (Gf_gmesConnect(SERVER_RMS) == FALSE)
+	{
+		Gf_writeRMSLog(
+			_T("[RMS] RMS USE = ON / RMS Connect Fail.")
+		);
+
+		return FALSE;
+	}
+
+
+	m_blsRmsConnect = TRUE;
+	lpInspWorkInfo->m_nConnectInfo[CONNECT_RMS] = TRUE;
+
+	Gf_writeRMSLog(
+		_T("[RMS] RMS USE = ON / RMS Connected.")
+	);
+
+
+	// ============================================================
+	// 최초 RMS EAYT Check
+	// ============================================================
+	if (bSendEayt == TRUE)
+	{
+		if (Gf_gmesSendHost(
+			HOST_RMS_EAYT,
+			0,
+			0,
+			0
+		) == FALSE)
+		{
+			Gf_writeRMSLog(
+				_T("[RMS] Initial RMS EAYT Check NG.")
+			);
+
+			// EAYT가 실패해도 RMS ON 설정 자체는 유지한다.
+			// 연결도 강제로 OFF시키지 않는다.
+			return FALSE;
+		}
+
+		Gf_writeRMSLog(
+			_T("[RMS] Initial RMS EAYT Check OK.")
+		);
+	}
+
+	return TRUE;
+}
+
+
 void CHseAgingApp::Gf_gmesSetValueAgcm(int rack, int layer, int ch)
 {
 	CString strPanelID, strChannelID;
@@ -3067,7 +3203,34 @@ BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 	CHseAgingDlg* pMain = (CHseAgingDlg*)AfxGetMainWnd();
 	int displayChNo = GetDisplayChannelNo(layer, ch);
 
-	if (m_pApp->m_bUserIdAdmin == TRUE)
+	// ============================================================
+	// 260928 KDW 추가 - RMS Command 여부
+	// ============================================================
+	BOOL bRmsCommand =
+		(hostCMD == HOST_ERCP ||
+			hostCMD == HOST_RMSO ||
+			hostCMD == HOST_RMS_EAYT ||
+			hostCMD == HOST_ERCP_TEST);
+
+
+	// RMS OFF 상태에서는 RMS 메시지를 송신하지 않는다.
+	if (bRmsCommand == TRUE &&
+		lpSystemInfo->m_sRmsUse == FALSE)
+	{
+		Gf_writeRMSLog(
+			_T("[RMS] Message Send Skip - RMS USE = OFF")
+		);
+
+		// 의도적으로 OFF한 상태이므로
+		// Aging Logic을 NG로 만들지 않기 위해 TRUE 처리
+		return TRUE;
+	}
+
+
+	// 기존 Admin의 MES/EAS Bypass는 유지
+	// 단, RMS Command는 실제로 전송 가능하도록 한다.
+	if (m_pApp->m_bUserIdAdmin == TRUE &&
+		bRmsCommand == FALSE)
 	{
 		return TRUE;
 	}

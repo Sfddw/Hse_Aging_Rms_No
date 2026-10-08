@@ -295,18 +295,47 @@ BOOL CUserID::Lf_confirmUserID()
 			}
 			lpInspWorkInfo->m_nConnectInfo[CONNECT_EAS] = TRUE;
 		}
-		// RMS Connect
-		if (m_pApp->m_blsRmsConnect == FALSE)
+		// ============================================================
+		// 260928 KDW 추가 - RMS Connect
+		// ============================================================
+		if (lpSystemInfo->m_sRmsUse == TRUE)
 		{
-			if (m_pApp->Gf_gmesConnect(SERVER_RMS) == FALSE)
+			if (m_pApp->m_blsRmsConnect == FALSE)
 			{
-				m_pApp->Gf_ShowMessageBox(_T("RMS Server Connect Fail"));
+				if (m_pApp->Gf_gmesConnect(SERVER_RMS) == FALSE)
+				{
+					m_pApp->Gf_ShowMessageBox(
+						_T("RMS Server Connect Fail")
+					);
 
-				CString sLog;
-				sLog.Format(_T("<RMS> RMS Server Connection Fail"));
-				m_pApp->Gf_writeMLog(sLog);
+					CString sLog;
+					sLog.Format(
+						_T("<RMS> RMS Server Connection Fail")
+					);
+					m_pApp->Gf_writeMLog(sLog);
+
+					lpInspWorkInfo
+						->m_nConnectInfo[CONNECT_RMS] = FALSE;
+				}
+				else
+				{
+					lpInspWorkInfo
+						->m_nConnectInfo[CONNECT_RMS] = TRUE;
+
+					// RMS 연결 직후 최초 EAYT
+					m_pApp->Gf_gmesSendHost(
+						HOST_RMS_EAYT,
+						0,
+						0,
+						0
+					);
+				}
 			}
-			lpInspWorkInfo->m_nConnectInfo[CONNECT_RMS] = TRUE;
+		}
+		else
+		{
+			lpInspWorkInfo
+				->m_nConnectInfo[CONNECT_RMS] = FALSE;
 		}
 
 		m_pApp->m_bUserIdAdmin = FALSE;

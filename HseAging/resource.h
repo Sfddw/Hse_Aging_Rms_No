@@ -1559,9 +1559,10 @@
 #define IDC_MBC_MA_FUSING_RACK2         2034
 #define IDC_EDT_SY_RMS_EQP              2034
 #define IDC_MBC_MA_FUSING_RACK3         2035
-#define IDC_CMB_SY_SENSING_LOG_INTERVAL2 2035
 #define IDC_CMB_SY_ERCP_SET             2035
 #define IDC_MBC_MA_FUSING_RACK4         2036
+#define IDC_CMB_SY_RMS_SET              2036
+#define IDC_CMB_SY_RMS_USE              2036
 #define IDC_MBC_MA_FUSING_RACK5         2037
 #define IDC_MBC_MA_FUSING_RACK6         2038
 #define IDC_MBC_MA_START_RACK1          2039

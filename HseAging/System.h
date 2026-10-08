@@ -71,5 +71,9 @@ public:
 	// ERCP MACHINE Enable / Disable
 	CComboBox m_cmbSyErcpSet;
 
+	// 260928 KDW RMS ON/OFF 콤보박스 추가
+	CComboBox m_cmbSyRmsUse;
+
 	afx_msg void OnBnClickedMbtSyPasswordChange();
+
 };

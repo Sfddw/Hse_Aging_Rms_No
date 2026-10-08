@@ -39,6 +39,8 @@ void CSystem::DoDataExchange(CDataExchange* pDX)
 
 	// 260811 KDW 추가 ERCP MACHINE 설정
 	DDX_Control(pDX, IDC_CMB_SY_ERCP_SET, m_cmbSyErcpSet);
+	// 260928 KDW 추가 RMS ON / OFF 설정
+	DDX_Control(pDX, IDC_CMB_SY_RMS_USE, m_cmbSyRmsUse);
 }
 
 
@@ -360,6 +362,27 @@ void CSystem::Lf_InitDialogControl()
 	{
 		m_cmbSyErcpSet.SetCurSel(1);		// Disable
 	}
+
+	// ============================================================
+	// 260928 KDW 추가
+	// RMS ON / OFF 설정 표시
+	//
+	// 0 = ON
+	// 1 = OFF
+	// ============================================================
+	m_cmbSyRmsUse.ResetContent();
+	m_cmbSyRmsUse.AddString(_T("ON"));
+	m_cmbSyRmsUse.AddString(_T("OFF"));
+
+	if (lpSystemInfo->m_sRmsUse == TRUE)
+	{
+		m_cmbSyRmsUse.SetCurSel(0);     // ON
+	}
+	else
+	{
+		m_cmbSyRmsUse.SetCurSel(1);     // OFF
+	}
+
 }
 
 void CSystem::Lf_saveSystemInfo()
@@ -429,6 +452,31 @@ void CSystem::Lf_saveSystemInfo()
 	GetDlgItem(IDC_EDT_SY_RMS_EQP)->GetWindowText(lpSystemInfo->m_sRmsEqp);
 	Write_SysIniFile(_T("RMS"), _T("RMS_EQP"), lpSystemInfo->m_sRmsEqp);
 
+	// ============================================================
+	// 260928 KDW 추가
+	// RMS ON / OFF 저장
+	//
+	// ComboBox
+	// 0 = ON
+	// 1 = OFF
+	// ============================================================
+	int rmsUseSel = m_cmbSyRmsUse.GetCurSel();
+
+	if (rmsUseSel == 0)
+	{
+		lpSystemInfo->m_sRmsUse = TRUE;
+	}
+	else
+	{
+		lpSystemInfo->m_sRmsUse = FALSE;
+	}
+
+	Write_SysIniFile(
+		_T("RMS"),
+		_T("RMS_USE"),
+		lpSystemInfo->m_sRmsUse
+	);
+
 
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -474,4 +522,21 @@ void CSystem::Lf_saveSystemInfo()
 		_T("ERCP_MACHINE_FULL_NAME"),
 		lpSystemInfo->m_nErcpMachineFullName
 	);
+
+	// ============================================================
+	// 260928 KDW 추가 - 저장된 RMS ON / OFF 설정 즉시 적용
+	// ============================================================
+	BOOL bRmsResult =
+		m_pApp->Gf_applyRmsUseSetting(TRUE);
+
+	if (lpSystemInfo->m_sRmsUse == TRUE &&
+		bRmsResult == FALSE)
+	{
+		AfxMessageBox(
+			_T("RMS setting was saved,\r\n")
+			_T("but RMS Init / Connect / EAYT Check failed.\r\n\r\n")
+			_T("Please check RMS Log."),
+			MB_ICONERROR
+		);
+	}
 }

@@ -112,6 +112,9 @@ public:
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	BOOL	Gf_gmesInitServer(BOOL nServerType);
 	BOOL	Gf_gmesConnect(int nServerType);
+	// 260928 KDW 추가 - RMS ON / OFF 설정 즉시 적용
+	BOOL	Gf_applyRmsUseSetting(BOOL bSendEayt = TRUE);
+
 	void	Gf_gmesSetValueAgcm(int rack, int layer, int ch);
 	void	Gf_gmesShowLocalErrorMsg(int hostCMD);
 	CString Gf_gmesGetUserID();
