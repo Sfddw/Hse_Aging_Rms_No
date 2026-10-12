@@ -4628,42 +4628,68 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	lpInspWorkInfo->m_fOpeIblSetMax[rack] = lpModelInfo->m_fVblLimitCurrHigh;
 
 
-	// Summary Log 및 실처리 전송 관련 정보를 초기화 한다
-	
-	//lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
+	/* ============================================================
+	* 261008 KDW SUMMARYLOG 수정 (초기화값 변경)
+	   Summary Log 통계 초기화
+	   현재 Aging START하는 Rack만 초기화
+	   ============================================================ */
 
 	lpInspWorkInfo->m_nAgingDoorOpenTime[rack] = 0;
-
 	lpInspWorkInfo->m_nAgingTempMatchTime[rack] = 0;
-
 	lpInspWorkInfo->m_nAgingTempMeasCount[rack] = 0;
-	//lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = 0;
-	for (int rack = 0; rack < MAX_LAYER; rack++)
+
+	// 1. 현재 Rack의 Layer / Channel 측정 횟수 초기화
+	for (int layer = 0; layer < MAX_LAYER; layer++)
 	{
-		for (int layer = 0; layer < MAX_LAYER; layer++)
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			for (int ch = 0; ch < MAX_CHANNEL; ch++)
-			{
-				lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][ch] = 0;
-				lpInspWorkInfo->m_ast_AgingTempError[rack][layer][ch] = FALSE;
-			}
+			lpInspWorkInfo->m_nAgingPowerMeasCount
+				[rack][layer][ch] = 0;
+
+			lpInspWorkInfo->m_ast_AgingTempError
+				[rack][layer][ch] = FALSE;
 		}
 	}
-	lpInspWorkInfo->m_fOpeAgingTempMin[rack] = 60;
+
+	// 2. 현재 Rack의 온도 통계 초기화
+	lpInspWorkInfo->m_fOpeAgingTempMin[rack] = 0;
 	lpInspWorkInfo->m_fOpeAgingTempMax[rack] = 0;
 	lpInspWorkInfo->m_fOpeAgingTempAvg[rack] = 0;
-	memset(lpInspWorkInfo->m_fOpeAgingVccMin, 0, sizeof(lpInspWorkInfo->m_fOpeAgingVccMin));
-	memset(lpInspWorkInfo->m_fOpeAgingVccMax, 0, sizeof(lpInspWorkInfo->m_fOpeAgingVccMax));
-	memset(lpInspWorkInfo->m_fOpeAgingVccAvg, 0, sizeof(lpInspWorkInfo->m_fOpeAgingVccAvg));
-	memset(lpInspWorkInfo->m_fOpeAgingIccMin, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIccMin));
-	memset(lpInspWorkInfo->m_fOpeAgingIccMax, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIccMax));
-	memset(lpInspWorkInfo->m_fOpeAgingIccAvg, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIccAvg));
-	memset(lpInspWorkInfo->m_fOpeAgingVblMin, 0, sizeof(lpInspWorkInfo->m_fOpeAgingVblMin));
-	memset(lpInspWorkInfo->m_fOpeAgingVblMax, 0, sizeof(lpInspWorkInfo->m_fOpeAgingVblMax));
-	memset(lpInspWorkInfo->m_fOpeAgingVblAvg, 0, sizeof(lpInspWorkInfo->m_fOpeAgingVblAvg));
-	memset(lpInspWorkInfo->m_fOpeAgingIblMin, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblMin));
-	memset(lpInspWorkInfo->m_fOpeAgingIblMax, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblMax));
-	memset(lpInspWorkInfo->m_fOpeAgingIblAvg, 0, sizeof(lpInspWorkInfo->m_fOpeAgingIblAvg));
+
+	// 3. 현재 Rack의 전압 / 전류 통계만 초기화
+
+	// VCC
+	memset(lpInspWorkInfo->m_fOpeAgingVccMin[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingVccMin[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingVccMax[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingVccMax[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingVccAvg[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingVccAvg[rack]));
+
+	// ICC
+	memset(lpInspWorkInfo->m_fOpeAgingIccMin[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingIccMin[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingIccMax[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingIccMax[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingIccAvg[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingIccAvg[rack]));
+
+	// VBL
+	memset(lpInspWorkInfo->m_fOpeAgingVblMin[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingVblMin[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingVblMax[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingVblMax[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingVblAvg[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingVblAvg[rack]));
+
+	// IBL
+	memset(lpInspWorkInfo->m_fOpeAgingIblMin[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingIblMin[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingIblMax[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingIblMax[rack]));
+	memset(lpInspWorkInfo->m_fOpeAgingIblAvg[rack], 0,
+		sizeof(lpInspWorkInfo->m_fOpeAgingIblAvg[rack]));
+
 
 	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), RESET_RACK_PID);
 	lpInspWorkInfo->m_nAgingInYN[rack] = FALSE;
@@ -5682,30 +5708,63 @@ void CHseAgingDlg::Lf_updateTempature()
 	}
 }
 
+/// <summary>
+/// 261008 KDW 온도가 50도로 측정되다가 단 한 번 0도가 들어오면 최소값이 0이되는 로직 수정
+/// </summary>
 void CHseAgingDlg::Lf_saveTempMinMax()
 {
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
-		if (lpInspWorkInfo->m_nAgingOperatingMode[rack] != AGING_RUNNING)
+		if (lpInspWorkInfo->m_nAgingOperatingMode[rack]
+			!= AGING_RUNNING)
+		{
 			continue;
-
-		// Min Value Save
-		if (lpInspWorkInfo->m_fOpeAgingTempMin[rack] > lpInspWorkInfo->m_fTempReadVal[rack])
-		{
-			lpInspWorkInfo->m_fOpeAgingTempMin[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
 		}
 
-		// Max Value Save
-		if (lpInspWorkInfo->m_fOpeAgingTempMax[rack] < lpInspWorkInfo->m_fTempReadVal[rack])
+		float tempVal =
+			lpInspWorkInfo->m_fTempReadVal[rack];
+
+		// 1. 비정상 온도는 Summary 통계에서 제외
+		// 기존 SDR100 유효 범위 기준
+		if (!(tempVal >= 10.0f && tempVal <= 100.0f))
 		{
-			lpInspWorkInfo->m_fOpeAgingTempMax[rack] = lpInspWorkInfo->m_fTempReadVal[rack];
+			TRACE(
+				_T("[TEMP] RACK%d Invalid Temp=%.1f\n"),
+				rack + 1,
+				tempVal
+			);
+			continue;
 		}
 
-		// AVG 계산을 위한 Data 누적. AVG 변수에 측정값을 누적하고 Complete 시점에 Count 값으로 나눈다
-		lpInspWorkInfo->m_fOpeAgingTempAvg[rack] = lpInspWorkInfo->m_fOpeAgingTempAvg[rack] + lpInspWorkInfo->m_fTempReadVal[rack];
-		lpInspWorkInfo->m_nAgingTempMeasCount[rack] = lpInspWorkInfo->m_nAgingTempMeasCount[rack] + 1;
+		// 2. 첫 번째 정상 측정값
+		if (lpInspWorkInfo->m_nAgingTempMeasCount[rack] == 0)
+		{
+			lpInspWorkInfo->m_fOpeAgingTempMin[rack] = tempVal;
+			lpInspWorkInfo->m_fOpeAgingTempMax[rack] = tempVal;
+		}
+		else
+		{
+			// 3. 최소값
+			if (lpInspWorkInfo->m_fOpeAgingTempMin[rack] > tempVal)
+			{
+				lpInspWorkInfo->m_fOpeAgingTempMin[rack] = tempVal;
+			}
+
+			// 4. 최대값
+			if (lpInspWorkInfo->m_fOpeAgingTempMax[rack] < tempVal)
+			{
+				lpInspWorkInfo->m_fOpeAgingTempMax[rack] = tempVal;
+			}
+		}
+
+		// 5. 평균 계산용 누적
+		lpInspWorkInfo->m_fOpeAgingTempAvg[rack] += tempVal;
+
+		// 6. 정상 측정 횟수만 증가
+		lpInspWorkInfo->m_nAgingTempMeasCount[rack]++;
 	}
 }
+
 
 void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 {
@@ -5732,21 +5791,39 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			{
 				for (int tp = 1; tp < 7; tp++)
 				{
-					int nVal;
-					sscanf_s(&szpacket[10 + (tp - 1) * 5], "%04X", &nVal);
+					unsigned int nVal = 0;
 
-					if ((float)(nVal / 10.0) < 10)
+					// 온도 원시값 파싱
+					int result = sscanf_s(
+						&szpacket[10 + (tp - 1) * 5],
+						"%4X",
+						&nVal
+					);
+
+					// 파싱 실패 시 기존 온도 유지
+					if (result != 1)
 					{
+						TRACE(_T("[TEMP] RACK%d Parse Failed\n"), tp);
 						continue;
 					}
 
-					if (nVal > 1000)	nVal = 0;
-					lpInspWorkInfo->m_fTempReadVal[tp - 1] = (float)(nVal / 10.0);
-					//lpInspWorkInfo->m_fTempReadVal[tp - 1] = 45+tp;
+					// 기존 프로그램의 유효 범위 유지: 10.0 ~ 100.0°C
+					if (nVal < 100 || nVal > 1000)
+					{
+						TRACE(
+							_T("[TEMP] RACK%d Invalid Raw=%u\n"),
+							tp,
+							nVal
+						);
 
-					//CString sTemp;
-					//sTemp.Format(_T("%.1f°C"), lpInspWorkInfo->m_fTempReadVal[1]);  // tp=3 번째 → 인덱스 2
-					//GetDlgItem(IDC_STT_TEMP_SENSOR2)->SetWindowText(sTemp);
+						// 비정상 값을 0으로 저장하지 않는다.
+						// 마지막 정상 온도값을 유지한다.
+						continue;
+					}
+
+					// 정상 온도만 저장
+					lpInspWorkInfo->m_fTempReadVal[tp - 1] =
+						static_cast<float>(nVal) / 10.0f;
 				}
 			}
 		}

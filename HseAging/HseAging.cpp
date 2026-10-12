@@ -2395,21 +2395,76 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_MAX].Format(_T("%.1f"), lpInspWorkInfo->m_fOpeAgingTempMax[rack]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_TEMP_AVG].Format(_T("%.1f"), (float)(lpInspWorkInfo->m_fOpeAgingTempAvg[rack] / (float)lpInspWorkInfo->m_nAgingTempMeasCount[rack]));
 
+
+	// ============================================================
+	// 261008 KDW VCC, VBL, ICC, IBL 검증부분 수정 (SUMMARYLOG 평균 0 나누기 방지)
+	// Power Measure MIN / MAX 
+	// ============================================================
+
+	// VCC
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVccMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVccMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
+	// ICC
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIccMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIccMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
+	// VBL
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVblMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingVblMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
 
+	// IBL
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MIN].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIblMin[rack][layer][channel]);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MAX].Format(_T("%.2f"), lpInspWorkInfo->m_fOpeAgingIblMax[rack][layer][channel]);
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].Format(_T("%.2f"), (float)(lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel] / (float)lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel]));
+
+
+	// ============================================================
+	// Power Measure AVG
+	// 측정 횟수가 0인 경우 NaN 발생 방지
+	// ============================================================
+
+	int powerCount =
+		lpInspWorkInfo->m_nAgingPowerMeasCount[rack][layer][channel];
+
+	if (powerCount > 0)
+	{
+		// VCC AVG
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_AVG].Format(
+			_T("%.2f"),
+			lpInspWorkInfo->m_fOpeAgingVccAvg[rack][layer][channel] / (float)powerCount);
+
+		// ICC AVG
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_AVG].Format(
+			_T("%.2f"),
+			lpInspWorkInfo->m_fOpeAgingIccAvg[rack][layer][channel] / (float)powerCount);
+
+		// VBL AVG
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_AVG].Format(
+			_T("%.2f"),
+			lpInspWorkInfo->m_fOpeAgingVblAvg[rack][layer][channel] / (float)powerCount);
+
+		// IBL AVG
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].Format(
+			_T("%.2f"),
+			lpInspWorkInfo->m_fOpeAgingIblAvg[rack][layer][channel] / (float)powerCount);
+	}
+	else
+	{
+		// 측정 데이터가 없는 경우
+		CString sLog;
+		sLog.Format(
+			_T("[SUMMARY] RACK%d L%d CH%d - No Power Data"),
+			rack + 1, layer + 1, channel + 1);
+
+		Gf_writeMLog(sLog);
+
+		// NaN 대신 빈 값 기록
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_VCC_AVG].Empty();
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_ICC_AVG].Empty();
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_VBL_AVG].Empty();
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].Empty();
+	}
+
 
 	if (bNewCsv == TRUE)
 	{
