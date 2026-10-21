@@ -38,10 +38,10 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 
 	CString sLog;
 	DWORD preTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 };
-	DWORD temTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 }; 
+	DWORD temTick[MAX_RACK] = { 0, 0, 0, 0, 0, 0 };
 	BOOL debugDoorOpen = DOOR_CLOSE;
 	float elapsedTimeToSubtract = 0;
-	CPidInput idDlg; 
+	CPidInput idDlg;
 	DWORD condStartTick[MAX_RACK] = { 0 };
 
 	while (1)
@@ -52,66 +52,67 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 				continue;
 
 			// 2025-02-18 KDW. AGING START시 DELAY동안 RUNTIME값 수정
-				if ((lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE || lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_ERROR) &&
-					lpInspWorkInfo->m_nAgingInYN[rack] == FALSE)
+			if ((lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_IDLE || lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_ERROR) &&
+				lpInspWorkInfo->m_nAgingInYN[rack] == FALSE)
+			{
+				BOOL bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
+				BOOL bTempRange = OK;
+
+				if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
+					bDoorStatus = DOOR_CLOSE;
+
+				if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == TRUE)
 				{
-					BOOL bDoorStatus = lpInspWorkInfo->m_nDoorOpenClose[rack];
-					BOOL bTempRange = OK;
-
-					if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
-						bDoorStatus = DOOR_CLOSE;
-
-					if (lpInspWorkInfo->m_nOpeTemperatureUse[rack] == TRUE)
+					bTempRange = OK;
+					if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack] ||
+						lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
 					{
-						bTempRange = OK;
-						if (lpInspWorkInfo->m_fTempReadVal[rack] < lpInspWorkInfo->m_nOpeTemperatureMin[rack] ||
-							lpInspWorkInfo->m_fTempReadVal[rack] > lpInspWorkInfo->m_nOpeTemperatureMax[rack])
-						{
-							bTempRange = NG;
-						}
-					}
-
-					if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
-					{
-					CheckAgain:
-						// 조건 처음 만족 → 타임스탬프 찍기
-						if (condStartTick[rack] == 0)
-							condStartTick[rack] = ::GetTickCount();
-
-						// 아직 4초 안 지남 → 아래 계산부로 내려가지 말고 다음 루프로
-						if ((::GetTickCount() - condStartTick[rack]) < 4000)
-						{continue;
-							//goto CheckAgain;
-						}
-
-						// 4초 연속 유지됨 → 여기서만 RUNNING 전이
-						// (필요시 DoorUse=false 분기 포함)
-						lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
-
-						// (필요하다면 MES 관련 코드 복구)
-						 idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
-						 lpInspWorkInfo->m_nAgnIn = TRUE;
-						 AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
-						 lpInspWorkInfo->m_nAgingInYN[rack] = TRUE;
-
-						m_pApp->Gf_sumSetStartTime(rack);
-						lpInspWorkInfo->m_nAgingResumeOffsetSec[rack] = lpSystemInfo->m_sLastTimeOut[rack] * 60;
-						lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
-
-						sLog.Format(_T("DOOR&TEMP Check : OK"));
-						pDlg->Lf_writeRackMLog(rack, sLog);
-
-						condStartTick[rack] = 0;  // 전이 후 초기화
-						// 전이 완료했으니 계속 진행 (아래 경과시간 계산으로 내려가도 OK)
-					}
-					else
-					{
-						// 조건이 깨지면 타이머 초기화
-						condStartTick[rack] = 0;
-						// 아직 IDLE 유지 → 아래 계산부 수행 이유 없음, 다음 루프로
-						continue;
+						bTempRange = NG;
 					}
 				}
+
+				if ((bTempRange == OK) && (bDoorStatus == DOOR_CLOSE))
+				{
+				CheckAgain:
+					// 조건 처음 만족 → 타임스탬프 찍기
+					if (condStartTick[rack] == 0)
+						condStartTick[rack] = ::GetTickCount();
+
+					// 아직 4초 안 지남 → 아래 계산부로 내려가지 말고 다음 루프로
+					if ((::GetTickCount() - condStartTick[rack]) < 4000)
+					{
+						continue;
+						//goto CheckAgain;
+					}
+
+					// 4초 연속 유지됨 → 여기서만 RUNNING 전이
+					// (필요시 DoorUse=false 분기 포함)
+					lpInspWorkInfo->m_nAgingOperatingMode[rack] = AGING_RUNNING;
+
+					// (필요하다면 MES 관련 코드 복구)
+					idDlg.m_nMesAutoDMOU = MES_AGN_IN_AUTO;
+					lpInspWorkInfo->m_nAgnIn = TRUE;
+					AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)rack, NULL);
+					lpInspWorkInfo->m_nAgingInYN[rack] = TRUE;
+
+					m_pApp->Gf_sumSetStartTime(rack);
+					lpInspWorkInfo->m_nAgingResumeOffsetSec[rack] = lpSystemInfo->m_sLastTimeOut[rack] * 60;
+					lpInspWorkInfo->m_nAgingStartTick[rack] = ::GetTickCount64();
+
+					sLog.Format(_T("DOOR&TEMP Check : OK"));
+					pDlg->Lf_writeRackMLog(rack, sLog);
+
+					condStartTick[rack] = 0;  // 전이 후 초기화
+					// 전이 완료했으니 계속 진행 (아래 경과시간 계산으로 내려가도 OK)
+				}
+				else
+				{
+					// 조건이 깨지면 타이머 초기화
+					condStartTick[rack] = 0;
+					// 아직 IDLE 유지 → 아래 계산부 수행 이유 없음, 다음 루프로
+					continue;
+				}
+			}
 
 			agingTotalSec = lpInspWorkInfo->m_nAgingSetTime[rack] * 60;
 			agingElapseSec = ((::GetTickCount64() - lpInspWorkInfo->m_nAgingStartTick[rack]) / 1000) + lpInspWorkInfo->m_nAgingResumeOffsetSec[rack];
@@ -140,15 +141,15 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 				elapsedTimeToSubtract = lpInspWorkInfo->m_nAgingTempMatchTime[rack] / 1000;
 			}
 
-			agingElapseSec -=  elapsedTimeToSubtract;
+			agingElapseSec -= elapsedTimeToSubtract;
 
 			// Aging 경과 시간에 DOOR Open 시간을 마이너스 하여 업데이트 한다.
-			
+
 			lpInspWorkInfo->m_nAgingRunTime[rack] = (int)(agingElapseSec / 60);
 			sLog.Format(_T("LAST_TIMEOUT_RACK%d"), rack + 1);
 			Write_SysIniFile(_T("SYSTEM"), sLog, lpInspWorkInfo->m_nAgingRunTime[rack]);
 
-			
+
 
 
 			// Aging 완료되면 Start Flag Clear
@@ -170,7 +171,7 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 					lpInspWorkInfo->m_nLampColor = 1;
 					lpInspWorkInfo->m_nAgingStatusS[rack] = 1;
 					//m_pApp->pCommand->Gf_dio_setDIOWriteOutput(9, 1);
-					
+
 
 					if (lpInspWorkInfo->m_nOpeDoorUse[rack] == FALSE)
 						bDoorStatus = DOOR_OPEN;
@@ -268,15 +269,15 @@ UINT ThreadAgingStartRack(LPVOID pParam)
 								if (bTempErrorOnce[rack] == FALSE)
 								{
 									bTempErrorOnce[rack] = TRUE;
-										for (int layer = 0; layer < MAX_LAYER; layer++)
+									for (int layer = 0; layer < MAX_LAYER; layer++)
+									{
+										// Channel 상태 Update. /Normal/Error
+										for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 										{
-											// Channel 상태 Update. /Normal/Error
-											for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
-											{
-												lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] = TEMP_LOW;
-												lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_TEMP;
-											}
+											lpInspWorkInfo->m_ast_AgingChErrorResult[rack][layer][ch] = TEMP_LOW;
+											lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] = ERR_INFO_TEMP;
 										}
+									}
 								}
 							}
 							else
@@ -450,15 +451,15 @@ class CAboutDlg : public CDialogEx
 public:
 	CAboutDlg();
 
-// 대화 상자 데이터입니다.
+	// 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_ABOUTBOX };
 #endif
 
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 지원입니다.
 
-// 구현입니다.
+	// 구현입니다.
 protected:
 	DECLARE_MESSAGE_MAP()
 };
@@ -718,7 +719,7 @@ BOOL CHseAgingDlg::OnInitDialog()
 		m_bFwMismatchNotified[i] = FALSE;
 		lpInspWorkInfo->m_nAgingStatusS[i] = 0;
 	}
-	
+
 	pCimNet = new CCimNetCommApi;
 
 	lpInspWorkInfo->m_nLampColor = 0;
@@ -815,7 +816,7 @@ void CHseAgingDlg::OnPaint()
 		rectOri = rect;
 
 		rect.bottom = 70;
-		dc.FillSolidRect(rect, RGB(48,55,63));
+		dc.FillSolidRect(rect, RGB(48, 55, 63));
 
 		rect.top = rect.bottom;
 		rect.bottom = rectOri.bottom;
@@ -841,711 +842,711 @@ HBRUSH CHseAgingDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	// TODO:  여기서 DC의 특성을 변경합니다.
 	switch (nCtlColor)
 	{
-		case CTLCOLOR_MSGBOX:
-			break;
-		case CTLCOLOR_EDIT:
-			break;
-		case CTLCOLOR_LISTBOX:
-			if ((pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK1)
-				|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK2)
-				|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK3)
-				|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK4)
-				|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK5)
-				|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK6)
-				)
+	case CTLCOLOR_MSGBOX:
+		break;
+	case CTLCOLOR_EDIT:
+		break;
+	case CTLCOLOR_LISTBOX:
+		if ((pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK1)
+			|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK2)
+			|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK3)
+			|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK4)
+			|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK5)
+			|| (pWnd->GetDlgCtrlID() == IDC_LST_MA_MLOG_RACK6)
+			)
+		{
+			pDC->SetBkColor(COLOR_BLACK);
+			pDC->SetTextColor(COLOR_WHITE);
+			return m_Brush[COLOR_IDX_BLACK];
+		}
+		break;
+	case CTLCOLOR_SCROLLBAR:
+
+		break;
+	case CTLCOLOR_BTN:
+		break;
+	case CTLCOLOR_STATIC:		// Static, CheckBox control
+		if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_CHAMBER_NO)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MES_USER_ID)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MES_USER_NAME)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER5)
+			)
+		{
+			pDC->SetBkColor(COLOR_SKYBLUE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_SKYBLUE];
+		}
+		else if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
+			|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT)
+			|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT2))
+		{
+			pDC->SetBkColor(COLOR_SKYBLUE);
+			pDC->SetTextColor(COLOR_RED);
+			return m_Brush[COLOR_IDX_SKYBLUE];
+		}
+
+		if ((pWnd->GetDlgCtrlID() == IDC_GRP_MA_CHAMBER_NO)
+			|| (pWnd->GetDlgCtrlID() == IDC_GRP_MA_DESCRIPTION)
+			|| (pWnd->GetDlgCtrlID() == IDC_GRP_MA_FW_VERSION)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK1)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK2)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK3)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK4)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK5)
+			|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK6)
+			)
+		{
+			pDC->SetBkColor(COLOR_USER_BACKGROUND);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_USER_BACKGROUND];
+		}
+
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR1)
+		{
+			if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_1] == DOOR_OPEN)
 			{
-				pDC->SetBkColor(COLOR_BLACK);
+				pDC->SetBkColor(COLOR_RED128);
 				pDC->SetTextColor(COLOR_WHITE);
-				return m_Brush[COLOR_IDX_BLACK];
+				return m_Brush[COLOR_IDX_RED128];
 			}
-			break;
-		case CTLCOLOR_SCROLLBAR:
-
-			break;
-		case CTLCOLOR_BTN:
-			break;
-		case CTLCOLOR_STATIC:		// Static, CheckBox control
-			if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_CHAMBER_NO)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MES_USER_ID)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MES_USER_NAME)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK1_LAYER5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK2_LAYER5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK3_LAYER5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK4_LAYER5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK5_LAYER5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RACK6_LAYER5)
-				)
+			else
 			{
-				pDC->SetBkColor(COLOR_SKYBLUE);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_SKYBLUE];
+				pDC->SetBkColor(COLOR_BLUE128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_BLUE128];
 			}
-			else if ((pWnd->GetDlgCtrlID() == IDC_STATIC)
-				|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT)
-				|| (pWnd->GetDlgCtrlID() == IDC_STATIC_NG_COUNT2))
-			{
-				pDC->SetBkColor(COLOR_SKYBLUE);
-				pDC->SetTextColor(COLOR_RED);
-				return m_Brush[COLOR_IDX_SKYBLUE];
-			}
+		}
 
-			if ((pWnd->GetDlgCtrlID() == IDC_GRP_MA_CHAMBER_NO)
-				|| (pWnd->GetDlgCtrlID() == IDC_GRP_MA_DESCRIPTION)
-				|| (pWnd->GetDlgCtrlID() == IDC_GRP_MA_FW_VERSION)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK1)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK2)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK3)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK4)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK5)
-				|| (pWnd->GetDlgCtrlID() == IDC_CHK_MA_SELECT_RACK6)
-				)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR2)
+		{
+			if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_2] == DOOR_OPEN)
 			{
-				pDC->SetBkColor(COLOR_USER_BACKGROUND);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_USER_BACKGROUND];
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR1)
+			else
 			{
-				if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_1] == DOOR_OPEN)
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_BLUE128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_BLUE128];
-				}
+				pDC->SetBkColor(COLOR_BLUE128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_BLUE128];
 			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR2)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR3)
+		{
+			if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_3] == DOOR_OPEN)
 			{
-				if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_2] == DOOR_OPEN)
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_BLUE128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_BLUE128];
-				}
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR3)
+			else
 			{
-				if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_3] == DOOR_OPEN)
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_BLUE128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_BLUE128];
-				}
+				pDC->SetBkColor(COLOR_BLUE128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_BLUE128];
 			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR4)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR4)
+		{
+			if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_4] == DOOR_OPEN)
 			{
-				if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_4] == DOOR_OPEN)
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_BLUE128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_BLUE128];
-				}
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR5)
+			else
 			{
-				if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_5] == DOOR_OPEN)
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_BLUE128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_BLUE128];
-				}
+				pDC->SetBkColor(COLOR_BLUE128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_BLUE128];
 			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR6)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR5)
+		{
+			if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_5] == DOOR_OPEN)
 			{
-				if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_6] == DOOR_OPEN)
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_BLUE128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_BLUE128];
-				}
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
-
-			if ((pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK6)
-				)
+			else
 			{
-				pDC->SetBkColor(COLOR_BLACK);
-				pDC->SetTextColor(COLOR_GREEN);
-				return m_Brush[COLOR_IDX_BLACK];
+				pDC->SetBkColor(COLOR_BLUE128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_BLUE128];
 			}
+		}
 
-			if ((pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR1_V)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR2_V)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR3_V)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR4_V)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR5_V)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR6_V)
-				)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DOOR6)
+		{
+			if (lpInspWorkInfo->m_nDoorOpenClose[DOOR_6] == DOOR_OPEN)
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_BLUE128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_BLUE128];
+			}
+		}
+
+		if ((pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_SET_TIME_RACK6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_MA_RUN_TIME_RACK6)
+			)
+		{
+			pDC->SetBkColor(COLOR_BLACK);
+			pDC->SetTextColor(COLOR_GREEN);
+			return m_Brush[COLOR_IDX_BLACK];
+		}
+
+		if ((pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR1_V)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR2_V)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR3_V)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR4_V)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR5_V)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_TEMP_SENSOR6_V)
+			)
+		{
+			pDC->SetBkColor(COLOR_GREEN128);
+			pDC->SetTextColor(COLOR_GRAY224);
+			return m_Brush[COLOR_IDX_GREEN128];
+		}
+
+		if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_PG)
+		{
+			if (lpInspWorkInfo->m_nConnectInfo[CONNECT_PG] == TRUE)
 			{
 				pDC->SetBkColor(COLOR_GREEN128);
-				pDC->SetTextColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_WHITE);
 				return m_Brush[COLOR_IDX_GREEN128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_PG)
+			else
 			{
-				if (lpInspWorkInfo->m_nConnectInfo[CONNECT_PG] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GREEN128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GREEN128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_DIO)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_DIO)
+		{
+			if (lpInspWorkInfo->m_nConnectInfo[CONNECT_DIO] != 0)
 			{
-				if (lpInspWorkInfo->m_nConnectInfo[CONNECT_DIO] != 0)
-				{
-					pDC->SetBkColor(COLOR_GREEN128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GREEN128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
+				pDC->SetBkColor(COLOR_GREEN128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_GREEN128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_TEMP)
+			else
 			{
-				if (lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] != 0)
-				{
-					pDC->SetBkColor(COLOR_GREEN128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GREEN128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_BARCODE)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_TEMP)
+		{
+			if (lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] != 0)
 			{
-				if (lpInspWorkInfo->m_nConnectInfo[CONNECT_BARCODE] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GREEN128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GREEN128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
+				pDC->SetBkColor(COLOR_GREEN128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_GREEN128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_MES)
+			else
 			{
-				if (lpInspWorkInfo->m_nConnectInfo[CONNECT_MES] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GREEN128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GREEN128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
+		}
 
-			if ((pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH14) 
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH6) 
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH6) 
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH10) 
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH2) 
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH16)
-				)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_BARCODE)
+		{
+			if (lpInspWorkInfo->m_nConnectInfo[CONNECT_BARCODE] == TRUE)
 			{
-				int chStt;
-				chStt = Lf_getChannelInfo(pWnd->GetDlgCtrlID());
-				if (chStt == STATUS_IDLE)
-				{
-					pDC->SetBkColor(COLOR_GRAY128);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY128];
-				}
-				else if (chStt == STATUS_RUN)
-				{
-					pDC->SetBkColor(COLOR_LIGHT_GREEN);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_LIGHT_GREEN];
-				}
-				else if (chStt == STATUS_ERROR)
-				{
-					pDC->SetBkColor(COLOR_PURPLE);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_PURPLE];
-				}
-				else if (chStt == STATUS_UNUSE)
-				{
-					pDC->SetBkColor(COLOR_DARK_YELLOW);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_DARK_YELLOW];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_DARK_RED);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_DARK_RED];
-				}
+				pDC->SetBkColor(COLOR_GREEN128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_GREEN128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_NOT_CONN)
+			else
 			{
-				pDC->SetBkColor(COLOR_DARK_RED);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_DARK_RED];
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_IDLE)
+		if (pWnd->GetDlgCtrlID() == IDC_STT_CONNECT_INFO_MES)
+		{
+			if (lpInspWorkInfo->m_nConnectInfo[CONNECT_MES] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GREEN128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_GREEN128];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+
+		if ((pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK1L5_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK2L5_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK3L5_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK4L5_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK5L5_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH1) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH3) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH5) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH7) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH9) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH11) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH13) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH15) || (pWnd->GetDlgCtrlID() == IDC_STT_RACK6L5_CH16)
+			)
+		{
+			int chStt;
+			chStt = Lf_getChannelInfo(pWnd->GetDlgCtrlID());
+			if (chStt == STATUS_IDLE)
 			{
 				pDC->SetBkColor(COLOR_GRAY128);
 				pDC->SetTextColor(COLOR_BLACK);
 				return m_Brush[COLOR_IDX_GRAY128];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_RUN)
+			else if (chStt == STATUS_RUN)
 			{
 				pDC->SetBkColor(COLOR_LIGHT_GREEN);
 				pDC->SetTextColor(COLOR_BLACK);
 				return m_Brush[COLOR_IDX_LIGHT_GREEN];
 			}
-
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_ERROR)
+			else if (chStt == STATUS_ERROR)
 			{
 				pDC->SetBkColor(COLOR_PURPLE);
 				pDC->SetTextColor(COLOR_BLACK);
 				return m_Brush[COLOR_IDX_PURPLE];
 			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_UNUSE)
+			else if (chStt == STATUS_UNUSE)
 			{
 				pDC->SetBkColor(COLOR_DARK_YELLOW);
 				pDC->SetTextColor(COLOR_BLACK);
 				return m_Brush[COLOR_IDX_DARK_YELLOW];
 			}
+			else
+			{
+				pDC->SetBkColor(COLOR_DARK_RED);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_DARK_RED];
+			}
+		}
 
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK1)
-			{
-				if (lpInspWorkInfo->m_nFwVerifyResult[RACK_1] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GRAY224);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY224];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK2)
-			{
-				if (lpInspWorkInfo->m_nFwVerifyResult[RACK_2] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GRAY224);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY224];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK3)
-			{
-				if (lpInspWorkInfo->m_nFwVerifyResult[RACK_3] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GRAY224);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY224];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK4)
-			{
-				if (lpInspWorkInfo->m_nFwVerifyResult[RACK_4] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GRAY224);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY224];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK5)
-			{
-				if (lpInspWorkInfo->m_nFwVerifyResult[RACK_5] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GRAY224);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY224];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK6)
-			{
-				if (lpInspWorkInfo->m_nFwVerifyResult[RACK_6] == TRUE)
-				{
-					pDC->SetBkColor(COLOR_GRAY224);
-					pDC->SetTextColor(COLOR_BLACK);
-					return m_Brush[COLOR_IDX_GRAY224];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-			}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_NOT_CONN)
+		{
+			pDC->SetBkColor(COLOR_DARK_RED);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_DARK_RED];
+		}
 
-			break;
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_IDLE)
+		{
+			pDC->SetBkColor(COLOR_GRAY128);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_GRAY128];
+		}
+
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_RUN)
+		{
+			pDC->SetBkColor(COLOR_LIGHT_GREEN);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_LIGHT_GREEN];
+		}
+
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_ERROR)
+		{
+			pDC->SetBkColor(COLOR_PURPLE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_PURPLE];
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_DESC_UNUSE)
+		{
+			pDC->SetBkColor(COLOR_DARK_YELLOW);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_DARK_YELLOW];
+		}
+
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK1)
+		{
+			if (lpInspWorkInfo->m_nFwVerifyResult[RACK_1] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_GRAY224];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK2)
+		{
+			if (lpInspWorkInfo->m_nFwVerifyResult[RACK_2] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_GRAY224];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK3)
+		{
+			if (lpInspWorkInfo->m_nFwVerifyResult[RACK_3] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_GRAY224];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK4)
+		{
+			if (lpInspWorkInfo->m_nFwVerifyResult[RACK_4] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_GRAY224];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK5)
+		{
+			if (lpInspWorkInfo->m_nFwVerifyResult[RACK_5] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_GRAY224];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_MA_FW_VER_RACK6)
+		{
+			if (lpInspWorkInfo->m_nFwVerifyResult[RACK_6] == TRUE)
+			{
+				pDC->SetBkColor(COLOR_GRAY224);
+				pDC->SetTextColor(COLOR_BLACK);
+				return m_Brush[COLOR_IDX_GRAY224];
+			}
+			else
+			{
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
+			}
+		}
+
+		break;
 	}
 	// TODO:  기본값이 적당하지 않으면 다른 브러시를 반환합니다.
 	return hbr;
@@ -1618,12 +1619,12 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		int nowTick;
 		nowTick = (int)::GetTickCount();
 
-		if((nowTick - m_nAgingStatusTick) > (lpSystemInfo->m_fRefreshPowerMeasureTime * 1000))
+		if ((nowTick - m_nAgingStatusTick) > (lpSystemInfo->m_fRefreshPowerMeasureTime * 1000))
 		{
 			m_nAgingStatusTick = nowTick;
 			Lf_getMeasurePower();
 		}
-		else if((nowTick - m_nPowerMeasureTick) > (lpSystemInfo->m_fRefreshAgingStatusTime * 1000))
+		else if ((nowTick - m_nPowerMeasureTick) > (lpSystemInfo->m_fRefreshAgingStatusTime * 1000))
 		{
 			m_nPowerMeasureTick = nowTick;
 			Lf_getAgingStatus();
@@ -1651,7 +1652,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 			// Aging Complete RACK에 대하여 UI 깜빡임
 			Lf_flickerCompleteRackNumber();
 
-			
+
 		}
 		//if ((nowTick - m_nFirmwareTick) >= (0.1 * 60 * 1000) && m_nFirmwareTick_d <= 1.1)
 		//{
@@ -1684,12 +1685,12 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 		AfxBeginThread(ThreadHandBcrSearch, this);
 		AfxBeginThread(ThreadFwVersionRead, this);
 		AfxBeginThread(ThreadTempST590_1, this);
-		
+
 
 		/*for (int i = 0; i < 6; i++)
 		{
 			if(i == 0)
-			{ 
+			{
 				lpInspWorkInfo->m_fTempReadVal[i] = 45 + lpInspWorkInfo->TempTest;
 			}
 			if (i == 1)
@@ -1718,7 +1719,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 	}
 
 	if (nIDEvent == 8)
-	{	
+	{
 		if (lpInspWorkInfo->m_bAlarmOccur == TRUE)
 		{
 			KillTimer(8);
@@ -1733,7 +1734,7 @@ void CHseAgingDlg::OnTimer(UINT_PTR nIDEvent)
 
 	if (nIDEvent == 115) // EWOQ 전송 (5분 주기)
 	{
-		
+
 		if (m_pApp->m_bIsGmesConnect == FALSE)
 		{
 			return;
@@ -2131,86 +2132,86 @@ void CHseAgingDlg::OnStnClickedChEnableDisable(UINT nID)
 	{
 		switch (nID)
 		{
-		case IDC_STT_RACK1L1_CH1: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_1);	break; }
-		case IDC_STT_RACK1L1_CH2: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_2);	break; }
-		case IDC_STT_RACK1L1_CH3: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_3);	break; }
-		case IDC_STT_RACK1L1_CH4: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_4);	break; }
-		case IDC_STT_RACK1L1_CH5: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_5);	break; }
-		case IDC_STT_RACK1L1_CH6: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_6);	break; }
-		case IDC_STT_RACK1L1_CH7: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_7);	break; }
-		case IDC_STT_RACK1L1_CH8: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_8);	break; }
-		case IDC_STT_RACK1L1_CH9: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_9);	break; }
-		case IDC_STT_RACK1L1_CH10: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_10);	break; }
-		case IDC_STT_RACK1L1_CH11: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_11);	break; }
-		case IDC_STT_RACK1L1_CH12: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_12);	break; }
-		case IDC_STT_RACK1L1_CH13: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_13);	break; }
-		case IDC_STT_RACK1L1_CH14: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_14);	break; }
-		case IDC_STT_RACK1L1_CH15: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_15);	break; }
-		case IDC_STT_RACK1L1_CH16: {Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_16);	break; }
-		case IDC_STT_RACK1L2_CH1: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_1);	break; }
-		case IDC_STT_RACK1L2_CH2: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_2);	break; }
-		case IDC_STT_RACK1L2_CH3: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_3);	break; }
-		case IDC_STT_RACK1L2_CH4: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_4);	break; }
-		case IDC_STT_RACK1L2_CH5: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_5);	break; }
-		case IDC_STT_RACK1L2_CH6: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_6);	break; }
-		case IDC_STT_RACK1L2_CH7: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_7);	break; }
-		case IDC_STT_RACK1L2_CH8: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_8);	break; }
-		case IDC_STT_RACK1L2_CH9: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_9);	break; }
-		case IDC_STT_RACK1L2_CH10: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_10);	break; }
-		case IDC_STT_RACK1L2_CH11: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_11);	break; }
-		case IDC_STT_RACK1L2_CH12: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_12);	break; }
-		case IDC_STT_RACK1L2_CH13: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_13);	break; }
-		case IDC_STT_RACK1L2_CH14: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_14);	break; }
-		case IDC_STT_RACK1L2_CH15: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_15);	break; }
-		case IDC_STT_RACK1L2_CH16: {Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_16);	break; }
-		case IDC_STT_RACK1L3_CH1: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_1);	break; }
-		case IDC_STT_RACK1L3_CH2: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_2);	break; }
-		case IDC_STT_RACK1L3_CH3: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_3);	break; }
-		case IDC_STT_RACK1L3_CH4: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_4);	break; }
-		case IDC_STT_RACK1L3_CH5: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_5);	break; }
-		case IDC_STT_RACK1L3_CH6: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_6);	break; }
-		case IDC_STT_RACK1L3_CH7: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_7);	break; }
-		case IDC_STT_RACK1L3_CH8: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_8);	break; }
-		case IDC_STT_RACK1L3_CH9: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_9);	break; }
-		case IDC_STT_RACK1L3_CH10: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_10);	break; }
-		case IDC_STT_RACK1L3_CH11: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_11);	break; }
-		case IDC_STT_RACK1L3_CH12: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_12);	break; }
-		case IDC_STT_RACK1L3_CH13: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_13);	break; }
-		case IDC_STT_RACK1L3_CH14: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_14);	break; }
-		case IDC_STT_RACK1L3_CH15: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_15);	break; }
-		case IDC_STT_RACK1L3_CH16: {Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_16);	break; }
-		case IDC_STT_RACK1L4_CH1: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_1);	break; }
-		case IDC_STT_RACK1L4_CH2: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_2);	break; }
-		case IDC_STT_RACK1L4_CH3: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_3);	break; }
-		case IDC_STT_RACK1L4_CH4: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_4);	break; }
-		case IDC_STT_RACK1L4_CH5: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_5);	break; }
-		case IDC_STT_RACK1L4_CH6: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_6);	break; }
-		case IDC_STT_RACK1L4_CH7: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_7);	break; }
-		case IDC_STT_RACK1L4_CH8: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_8);	break; }
-		case IDC_STT_RACK1L4_CH9: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_9);	break; }
-		case IDC_STT_RACK1L4_CH10: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_10);	break; }
-		case IDC_STT_RACK1L4_CH11: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_11);	break; }
-		case IDC_STT_RACK1L4_CH12: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_12);	break; }
-		case IDC_STT_RACK1L4_CH13: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_13);	break; }
-		case IDC_STT_RACK1L4_CH14: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_14);	break; }
-		case IDC_STT_RACK1L4_CH15: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_15);	break; }
-		case IDC_STT_RACK1L4_CH16: {Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_16);	break; }
-		case IDC_STT_RACK1L5_CH1: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_1);	break; }
-		case IDC_STT_RACK1L5_CH2: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_2);	break; }
-		case IDC_STT_RACK1L5_CH3: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_3);	break; }
-		case IDC_STT_RACK1L5_CH4: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_4);	break; }
-		case IDC_STT_RACK1L5_CH5: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_5);	break; }
-		case IDC_STT_RACK1L5_CH6: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_6);	break; }
-		case IDC_STT_RACK1L5_CH7: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_7);	break; }
-		case IDC_STT_RACK1L5_CH8: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_8);	break; }
-		case IDC_STT_RACK1L5_CH9: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_9);	break; }
-		case IDC_STT_RACK1L5_CH10: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_10);	break; }
-		case IDC_STT_RACK1L5_CH11: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_11);	break; }
-		case IDC_STT_RACK1L5_CH12: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_12);	break; }
-		case IDC_STT_RACK1L5_CH13: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_13);	break; }
-		case IDC_STT_RACK1L5_CH14: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_14);	break; }
-		case IDC_STT_RACK1L5_CH15: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_15);	break; }
-		case IDC_STT_RACK1L5_CH16: {Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_16);	break; }
+		case IDC_STT_RACK1L1_CH1: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_1);	break; }
+		case IDC_STT_RACK1L1_CH2: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_2);	break; }
+		case IDC_STT_RACK1L1_CH3: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_3);	break; }
+		case IDC_STT_RACK1L1_CH4: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_4);	break; }
+		case IDC_STT_RACK1L1_CH5: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_5);	break; }
+		case IDC_STT_RACK1L1_CH6: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_6);	break; }
+		case IDC_STT_RACK1L1_CH7: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_7);	break; }
+		case IDC_STT_RACK1L1_CH8: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_8);	break; }
+		case IDC_STT_RACK1L1_CH9: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_9);	break; }
+		case IDC_STT_RACK1L1_CH10: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_10);	break; }
+		case IDC_STT_RACK1L1_CH11: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_11);	break; }
+		case IDC_STT_RACK1L1_CH12: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_12);	break; }
+		case IDC_STT_RACK1L1_CH13: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_13);	break; }
+		case IDC_STT_RACK1L1_CH14: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_14);	break; }
+		case IDC_STT_RACK1L1_CH15: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_15);	break; }
+		case IDC_STT_RACK1L1_CH16: { Lf_toggleChUseUnuse(RACK_1, LAYER_1, CH_16);	break; }
+		case IDC_STT_RACK1L2_CH1: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_1);	break; }
+		case IDC_STT_RACK1L2_CH2: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_2);	break; }
+		case IDC_STT_RACK1L2_CH3: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_3);	break; }
+		case IDC_STT_RACK1L2_CH4: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_4);	break; }
+		case IDC_STT_RACK1L2_CH5: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_5);	break; }
+		case IDC_STT_RACK1L2_CH6: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_6);	break; }
+		case IDC_STT_RACK1L2_CH7: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_7);	break; }
+		case IDC_STT_RACK1L2_CH8: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_8);	break; }
+		case IDC_STT_RACK1L2_CH9: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_9);	break; }
+		case IDC_STT_RACK1L2_CH10: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_10);	break; }
+		case IDC_STT_RACK1L2_CH11: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_11);	break; }
+		case IDC_STT_RACK1L2_CH12: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_12);	break; }
+		case IDC_STT_RACK1L2_CH13: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_13);	break; }
+		case IDC_STT_RACK1L2_CH14: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_14);	break; }
+		case IDC_STT_RACK1L2_CH15: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_15);	break; }
+		case IDC_STT_RACK1L2_CH16: { Lf_toggleChUseUnuse(RACK_1, LAYER_2, CH_16);	break; }
+		case IDC_STT_RACK1L3_CH1: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_1);	break; }
+		case IDC_STT_RACK1L3_CH2: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_2);	break; }
+		case IDC_STT_RACK1L3_CH3: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_3);	break; }
+		case IDC_STT_RACK1L3_CH4: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_4);	break; }
+		case IDC_STT_RACK1L3_CH5: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_5);	break; }
+		case IDC_STT_RACK1L3_CH6: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_6);	break; }
+		case IDC_STT_RACK1L3_CH7: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_7);	break; }
+		case IDC_STT_RACK1L3_CH8: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_8);	break; }
+		case IDC_STT_RACK1L3_CH9: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_9);	break; }
+		case IDC_STT_RACK1L3_CH10: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_10);	break; }
+		case IDC_STT_RACK1L3_CH11: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_11);	break; }
+		case IDC_STT_RACK1L3_CH12: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_12);	break; }
+		case IDC_STT_RACK1L3_CH13: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_13);	break; }
+		case IDC_STT_RACK1L3_CH14: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_14);	break; }
+		case IDC_STT_RACK1L3_CH15: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_15);	break; }
+		case IDC_STT_RACK1L3_CH16: { Lf_toggleChUseUnuse(RACK_1, LAYER_3, CH_16);	break; }
+		case IDC_STT_RACK1L4_CH1: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_1);	break; }
+		case IDC_STT_RACK1L4_CH2: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_2);	break; }
+		case IDC_STT_RACK1L4_CH3: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_3);	break; }
+		case IDC_STT_RACK1L4_CH4: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_4);	break; }
+		case IDC_STT_RACK1L4_CH5: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_5);	break; }
+		case IDC_STT_RACK1L4_CH6: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_6);	break; }
+		case IDC_STT_RACK1L4_CH7: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_7);	break; }
+		case IDC_STT_RACK1L4_CH8: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_8);	break; }
+		case IDC_STT_RACK1L4_CH9: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_9);	break; }
+		case IDC_STT_RACK1L4_CH10: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_10);	break; }
+		case IDC_STT_RACK1L4_CH11: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_11);	break; }
+		case IDC_STT_RACK1L4_CH12: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_12);	break; }
+		case IDC_STT_RACK1L4_CH13: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_13);	break; }
+		case IDC_STT_RACK1L4_CH14: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_14);	break; }
+		case IDC_STT_RACK1L4_CH15: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_15);	break; }
+		case IDC_STT_RACK1L4_CH16: { Lf_toggleChUseUnuse(RACK_1, LAYER_4, CH_16);	break; }
+		case IDC_STT_RACK1L5_CH1: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_1);	break; }
+		case IDC_STT_RACK1L5_CH2: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_2);	break; }
+		case IDC_STT_RACK1L5_CH3: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_3);	break; }
+		case IDC_STT_RACK1L5_CH4: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_4);	break; }
+		case IDC_STT_RACK1L5_CH5: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_5);	break; }
+		case IDC_STT_RACK1L5_CH6: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_6);	break; }
+		case IDC_STT_RACK1L5_CH7: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_7);	break; }
+		case IDC_STT_RACK1L5_CH8: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_8);	break; }
+		case IDC_STT_RACK1L5_CH9: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_9);	break; }
+		case IDC_STT_RACK1L5_CH10: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_10);	break; }
+		case IDC_STT_RACK1L5_CH11: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_11);	break; }
+		case IDC_STT_RACK1L5_CH12: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_12);	break; }
+		case IDC_STT_RACK1L5_CH13: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_13);	break; }
+		case IDC_STT_RACK1L5_CH14: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_14);	break; }
+		case IDC_STT_RACK1L5_CH15: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_15);	break; }
+		case IDC_STT_RACK1L5_CH16: { Lf_toggleChUseUnuse(RACK_1, LAYER_5, CH_16);	break; }
 		}
 	}
 
@@ -2218,86 +2219,86 @@ void CHseAgingDlg::OnStnClickedChEnableDisable(UINT nID)
 	{
 		switch (nID)
 		{
-		case IDC_STT_RACK2L1_CH1: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_1);	break; }
-		case IDC_STT_RACK2L1_CH2: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_2);	break; }
-		case IDC_STT_RACK2L1_CH3: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_3);	break; }
-		case IDC_STT_RACK2L1_CH4: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_4);	break; }
-		case IDC_STT_RACK2L1_CH5: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_5);	break; }
-		case IDC_STT_RACK2L1_CH6: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_6);	break; }
-		case IDC_STT_RACK2L1_CH7: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_7);	break; }
-		case IDC_STT_RACK2L1_CH8: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_8);	break; }
-		case IDC_STT_RACK2L1_CH9: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_9);	break; }
-		case IDC_STT_RACK2L1_CH10: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_10);	break; }
-		case IDC_STT_RACK2L1_CH11: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_11);	break; }
-		case IDC_STT_RACK2L1_CH12: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_12);	break; }
-		case IDC_STT_RACK2L1_CH13: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_13);	break; }
-		case IDC_STT_RACK2L1_CH14: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_14);	break; }
-		case IDC_STT_RACK2L1_CH15: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_15);	break; }
-		case IDC_STT_RACK2L1_CH16: {Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_16);	break; }
-		case IDC_STT_RACK2L2_CH1: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_1);	break; }
-		case IDC_STT_RACK2L2_CH2: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_2);	break; }
-		case IDC_STT_RACK2L2_CH3: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_3);	break; }
-		case IDC_STT_RACK2L2_CH4: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_4);	break; }
-		case IDC_STT_RACK2L2_CH5: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_5);	break; }
-		case IDC_STT_RACK2L2_CH6: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_6);	break; }
-		case IDC_STT_RACK2L2_CH7: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_7);	break; }
-		case IDC_STT_RACK2L2_CH8: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_8);	break; }
-		case IDC_STT_RACK2L2_CH9: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_9);	break; }
-		case IDC_STT_RACK2L2_CH10: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_10);	break; }
-		case IDC_STT_RACK2L2_CH11: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_11);	break; }
-		case IDC_STT_RACK2L2_CH12: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_12);	break; }
-		case IDC_STT_RACK2L2_CH13: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_13);	break; }
-		case IDC_STT_RACK2L2_CH14: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_14);	break; }
-		case IDC_STT_RACK2L2_CH15: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_15);	break; }
-		case IDC_STT_RACK2L2_CH16: {Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_16);	break; }
-		case IDC_STT_RACK2L3_CH1: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_1);	break; }
-		case IDC_STT_RACK2L3_CH2: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_2);	break; }
-		case IDC_STT_RACK2L3_CH3: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_3);	break; }
-		case IDC_STT_RACK2L3_CH4: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_4);	break; }
-		case IDC_STT_RACK2L3_CH5: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_5);	break; }
-		case IDC_STT_RACK2L3_CH6: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_6);	break; }
-		case IDC_STT_RACK2L3_CH7: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_7);	break; }
-		case IDC_STT_RACK2L3_CH8: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_8);	break; }
-		case IDC_STT_RACK2L3_CH9: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_9);	break; }
-		case IDC_STT_RACK2L3_CH10: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_10);	break; }
-		case IDC_STT_RACK2L3_CH11: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_11);	break; }
-		case IDC_STT_RACK2L3_CH12: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_12);	break; }
-		case IDC_STT_RACK2L3_CH13: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_13);	break; }
-		case IDC_STT_RACK2L3_CH14: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_14);	break; }
-		case IDC_STT_RACK2L3_CH15: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_15);	break; }
-		case IDC_STT_RACK2L3_CH16: {Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_16);	break; }
-		case IDC_STT_RACK2L4_CH1: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_1);	break; }
-		case IDC_STT_RACK2L4_CH2: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_2);	break; }
-		case IDC_STT_RACK2L4_CH3: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_3);	break; }
-		case IDC_STT_RACK2L4_CH4: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_4);	break; }
-		case IDC_STT_RACK2L4_CH5: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_5);	break; }
-		case IDC_STT_RACK2L4_CH6: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_6);	break; }
-		case IDC_STT_RACK2L4_CH7: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_7);	break; }
-		case IDC_STT_RACK2L4_CH8: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_8);	break; }
-		case IDC_STT_RACK2L4_CH9: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_9);	break; }
-		case IDC_STT_RACK2L4_CH10: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_10);	break; }
-		case IDC_STT_RACK2L4_CH11: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_11);	break; }
-		case IDC_STT_RACK2L4_CH12: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_12);	break; }
-		case IDC_STT_RACK2L4_CH13: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_13);	break; }
-		case IDC_STT_RACK2L4_CH14: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_14);	break; }
-		case IDC_STT_RACK2L4_CH15: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_15);	break; }
-		case IDC_STT_RACK2L4_CH16: {Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_16);	break; }
-		case IDC_STT_RACK2L5_CH1: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_1);	break; }
-		case IDC_STT_RACK2L5_CH2: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_2);	break; }
-		case IDC_STT_RACK2L5_CH3: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_3);	break; }
-		case IDC_STT_RACK2L5_CH4: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_4);	break; }
-		case IDC_STT_RACK2L5_CH5: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_5);	break; }
-		case IDC_STT_RACK2L5_CH6: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_6);	break; }
-		case IDC_STT_RACK2L5_CH7: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_7);	break; }
-		case IDC_STT_RACK2L5_CH8: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_8);	break; }
-		case IDC_STT_RACK2L5_CH9: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_9);	break; }
-		case IDC_STT_RACK2L5_CH10: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_10);	break; }
-		case IDC_STT_RACK2L5_CH11: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_11);	break; }
-		case IDC_STT_RACK2L5_CH12: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_12);	break; }
-		case IDC_STT_RACK2L5_CH13: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_13);	break; }
-		case IDC_STT_RACK2L5_CH14: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_14);	break; }
-		case IDC_STT_RACK2L5_CH15: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_15);	break; }
-		case IDC_STT_RACK2L5_CH16: {Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_16);	break; }
+		case IDC_STT_RACK2L1_CH1: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_1);	break; }
+		case IDC_STT_RACK2L1_CH2: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_2);	break; }
+		case IDC_STT_RACK2L1_CH3: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_3);	break; }
+		case IDC_STT_RACK2L1_CH4: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_4);	break; }
+		case IDC_STT_RACK2L1_CH5: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_5);	break; }
+		case IDC_STT_RACK2L1_CH6: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_6);	break; }
+		case IDC_STT_RACK2L1_CH7: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_7);	break; }
+		case IDC_STT_RACK2L1_CH8: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_8);	break; }
+		case IDC_STT_RACK2L1_CH9: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_9);	break; }
+		case IDC_STT_RACK2L1_CH10: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_10);	break; }
+		case IDC_STT_RACK2L1_CH11: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_11);	break; }
+		case IDC_STT_RACK2L1_CH12: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_12);	break; }
+		case IDC_STT_RACK2L1_CH13: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_13);	break; }
+		case IDC_STT_RACK2L1_CH14: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_14);	break; }
+		case IDC_STT_RACK2L1_CH15: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_15);	break; }
+		case IDC_STT_RACK2L1_CH16: { Lf_toggleChUseUnuse(RACK_2, LAYER_1, CH_16);	break; }
+		case IDC_STT_RACK2L2_CH1: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_1);	break; }
+		case IDC_STT_RACK2L2_CH2: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_2);	break; }
+		case IDC_STT_RACK2L2_CH3: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_3);	break; }
+		case IDC_STT_RACK2L2_CH4: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_4);	break; }
+		case IDC_STT_RACK2L2_CH5: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_5);	break; }
+		case IDC_STT_RACK2L2_CH6: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_6);	break; }
+		case IDC_STT_RACK2L2_CH7: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_7);	break; }
+		case IDC_STT_RACK2L2_CH8: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_8);	break; }
+		case IDC_STT_RACK2L2_CH9: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_9);	break; }
+		case IDC_STT_RACK2L2_CH10: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_10);	break; }
+		case IDC_STT_RACK2L2_CH11: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_11);	break; }
+		case IDC_STT_RACK2L2_CH12: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_12);	break; }
+		case IDC_STT_RACK2L2_CH13: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_13);	break; }
+		case IDC_STT_RACK2L2_CH14: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_14);	break; }
+		case IDC_STT_RACK2L2_CH15: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_15);	break; }
+		case IDC_STT_RACK2L2_CH16: { Lf_toggleChUseUnuse(RACK_2, LAYER_2, CH_16);	break; }
+		case IDC_STT_RACK2L3_CH1: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_1);	break; }
+		case IDC_STT_RACK2L3_CH2: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_2);	break; }
+		case IDC_STT_RACK2L3_CH3: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_3);	break; }
+		case IDC_STT_RACK2L3_CH4: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_4);	break; }
+		case IDC_STT_RACK2L3_CH5: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_5);	break; }
+		case IDC_STT_RACK2L3_CH6: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_6);	break; }
+		case IDC_STT_RACK2L3_CH7: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_7);	break; }
+		case IDC_STT_RACK2L3_CH8: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_8);	break; }
+		case IDC_STT_RACK2L3_CH9: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_9);	break; }
+		case IDC_STT_RACK2L3_CH10: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_10);	break; }
+		case IDC_STT_RACK2L3_CH11: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_11);	break; }
+		case IDC_STT_RACK2L3_CH12: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_12);	break; }
+		case IDC_STT_RACK2L3_CH13: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_13);	break; }
+		case IDC_STT_RACK2L3_CH14: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_14);	break; }
+		case IDC_STT_RACK2L3_CH15: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_15);	break; }
+		case IDC_STT_RACK2L3_CH16: { Lf_toggleChUseUnuse(RACK_2, LAYER_3, CH_16);	break; }
+		case IDC_STT_RACK2L4_CH1: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_1);	break; }
+		case IDC_STT_RACK2L4_CH2: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_2);	break; }
+		case IDC_STT_RACK2L4_CH3: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_3);	break; }
+		case IDC_STT_RACK2L4_CH4: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_4);	break; }
+		case IDC_STT_RACK2L4_CH5: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_5);	break; }
+		case IDC_STT_RACK2L4_CH6: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_6);	break; }
+		case IDC_STT_RACK2L4_CH7: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_7);	break; }
+		case IDC_STT_RACK2L4_CH8: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_8);	break; }
+		case IDC_STT_RACK2L4_CH9: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_9);	break; }
+		case IDC_STT_RACK2L4_CH10: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_10);	break; }
+		case IDC_STT_RACK2L4_CH11: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_11);	break; }
+		case IDC_STT_RACK2L4_CH12: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_12);	break; }
+		case IDC_STT_RACK2L4_CH13: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_13);	break; }
+		case IDC_STT_RACK2L4_CH14: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_14);	break; }
+		case IDC_STT_RACK2L4_CH15: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_15);	break; }
+		case IDC_STT_RACK2L4_CH16: { Lf_toggleChUseUnuse(RACK_2, LAYER_4, CH_16);	break; }
+		case IDC_STT_RACK2L5_CH1: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_1);	break; }
+		case IDC_STT_RACK2L5_CH2: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_2);	break; }
+		case IDC_STT_RACK2L5_CH3: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_3);	break; }
+		case IDC_STT_RACK2L5_CH4: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_4);	break; }
+		case IDC_STT_RACK2L5_CH5: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_5);	break; }
+		case IDC_STT_RACK2L5_CH6: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_6);	break; }
+		case IDC_STT_RACK2L5_CH7: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_7);	break; }
+		case IDC_STT_RACK2L5_CH8: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_8);	break; }
+		case IDC_STT_RACK2L5_CH9: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_9);	break; }
+		case IDC_STT_RACK2L5_CH10: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_10);	break; }
+		case IDC_STT_RACK2L5_CH11: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_11);	break; }
+		case IDC_STT_RACK2L5_CH12: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_12);	break; }
+		case IDC_STT_RACK2L5_CH13: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_13);	break; }
+		case IDC_STT_RACK2L5_CH14: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_14);	break; }
+		case IDC_STT_RACK2L5_CH15: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_15);	break; }
+		case IDC_STT_RACK2L5_CH16: { Lf_toggleChUseUnuse(RACK_2, LAYER_5, CH_16);	break; }
 		}
 	}
 
@@ -2305,86 +2306,86 @@ void CHseAgingDlg::OnStnClickedChEnableDisable(UINT nID)
 	{
 		switch (nID)
 		{
-		case IDC_STT_RACK3L1_CH1: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_1);	break; }
-		case IDC_STT_RACK3L1_CH2: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_2);	break; }
-		case IDC_STT_RACK3L1_CH3: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_3);	break; }
-		case IDC_STT_RACK3L1_CH4: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_4);	break; }
-		case IDC_STT_RACK3L1_CH5: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_5);	break; }
-		case IDC_STT_RACK3L1_CH6: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_6);	break; }
-		case IDC_STT_RACK3L1_CH7: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_7);	break; }
-		case IDC_STT_RACK3L1_CH8: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_8);	break; }
-		case IDC_STT_RACK3L1_CH9: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_9);	break; }
-		case IDC_STT_RACK3L1_CH10: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_10);	break; }
-		case IDC_STT_RACK3L1_CH11: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_11);	break; }
-		case IDC_STT_RACK3L1_CH12: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_12);	break; }
-		case IDC_STT_RACK3L1_CH13: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_13);	break; }
-		case IDC_STT_RACK3L1_CH14: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_14);	break; }
-		case IDC_STT_RACK3L1_CH15: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_15);	break; }
-		case IDC_STT_RACK3L1_CH16: {Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_16);	break; }
-		case IDC_STT_RACK3L2_CH1: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_1);	break; }
-		case IDC_STT_RACK3L2_CH2: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_2);	break; }
-		case IDC_STT_RACK3L2_CH3: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_3);	break; }
-		case IDC_STT_RACK3L2_CH4: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_4);	break; }
-		case IDC_STT_RACK3L2_CH5: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_5);	break; }
-		case IDC_STT_RACK3L2_CH6: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_6);	break; }
-		case IDC_STT_RACK3L2_CH7: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_7);	break; }
-		case IDC_STT_RACK3L2_CH8: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_8);	break; }
-		case IDC_STT_RACK3L2_CH9: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_9);	break; }
-		case IDC_STT_RACK3L2_CH10: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_10);	break; }
-		case IDC_STT_RACK3L2_CH11: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_11);	break; }
-		case IDC_STT_RACK3L2_CH12: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_12);	break; }
-		case IDC_STT_RACK3L2_CH13: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_13);	break; }
-		case IDC_STT_RACK3L2_CH14: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_14);	break; }
-		case IDC_STT_RACK3L2_CH15: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_15);	break; }
-		case IDC_STT_RACK3L2_CH16: {Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_16);	break; }
-		case IDC_STT_RACK3L3_CH1: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_1);	break; }
-		case IDC_STT_RACK3L3_CH2: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_2);	break; }
-		case IDC_STT_RACK3L3_CH3: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_3);	break; }
-		case IDC_STT_RACK3L3_CH4: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_4);	break; }
-		case IDC_STT_RACK3L3_CH5: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_5);	break; }
-		case IDC_STT_RACK3L3_CH6: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_6);	break; }
-		case IDC_STT_RACK3L3_CH7: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_7);	break; }
-		case IDC_STT_RACK3L3_CH8: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_8);	break; }
-		case IDC_STT_RACK3L3_CH9: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_9);	break; }
-		case IDC_STT_RACK3L3_CH10: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_10);	break; }
-		case IDC_STT_RACK3L3_CH11: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_11);	break; }
-		case IDC_STT_RACK3L3_CH12: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_12);	break; }
-		case IDC_STT_RACK3L3_CH13: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_13);	break; }
-		case IDC_STT_RACK3L3_CH14: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_14);	break; }
-		case IDC_STT_RACK3L3_CH15: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_15);	break; }
-		case IDC_STT_RACK3L3_CH16: {Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_16);	break; }
-		case IDC_STT_RACK3L4_CH1: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_1);	break; }
-		case IDC_STT_RACK3L4_CH2: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_2);	break; }
-		case IDC_STT_RACK3L4_CH3: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_3);	break; }
-		case IDC_STT_RACK3L4_CH4: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_4);	break; }
-		case IDC_STT_RACK3L4_CH5: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_5);	break; }
-		case IDC_STT_RACK3L4_CH6: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_6);	break; }
-		case IDC_STT_RACK3L4_CH7: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_7);	break; }
-		case IDC_STT_RACK3L4_CH8: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_8);	break; }
-		case IDC_STT_RACK3L4_CH9: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_9);	break; }
-		case IDC_STT_RACK3L4_CH10: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_10);	break; }
-		case IDC_STT_RACK3L4_CH11: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_11);	break; }
-		case IDC_STT_RACK3L4_CH12: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_12);	break; }
-		case IDC_STT_RACK3L4_CH13: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_13);	break; }
-		case IDC_STT_RACK3L4_CH14: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_14);	break; }
-		case IDC_STT_RACK3L4_CH15: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_15);	break; }
-		case IDC_STT_RACK3L4_CH16: {Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_16);	break; }
-		case IDC_STT_RACK3L5_CH1: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_1);	break; }
-		case IDC_STT_RACK3L5_CH2: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_2);	break; }
-		case IDC_STT_RACK3L5_CH3: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_3);	break; }
-		case IDC_STT_RACK3L5_CH4: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_4);	break; }
-		case IDC_STT_RACK3L5_CH5: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_5);	break; }
-		case IDC_STT_RACK3L5_CH6: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_6);	break; }
-		case IDC_STT_RACK3L5_CH7: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_7);	break; }
-		case IDC_STT_RACK3L5_CH8: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_8);	break; }
-		case IDC_STT_RACK3L5_CH9: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_9);	break; }
-		case IDC_STT_RACK3L5_CH10: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_10);	break; }
-		case IDC_STT_RACK3L5_CH11: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_11);	break; }
-		case IDC_STT_RACK3L5_CH12: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_12);	break; }
-		case IDC_STT_RACK3L5_CH13: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_13);	break; }
-		case IDC_STT_RACK3L5_CH14: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_14);	break; }
-		case IDC_STT_RACK3L5_CH15: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_15);	break; }
-		case IDC_STT_RACK3L5_CH16: {Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_16);	break; }
+		case IDC_STT_RACK3L1_CH1: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_1);	break; }
+		case IDC_STT_RACK3L1_CH2: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_2);	break; }
+		case IDC_STT_RACK3L1_CH3: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_3);	break; }
+		case IDC_STT_RACK3L1_CH4: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_4);	break; }
+		case IDC_STT_RACK3L1_CH5: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_5);	break; }
+		case IDC_STT_RACK3L1_CH6: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_6);	break; }
+		case IDC_STT_RACK3L1_CH7: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_7);	break; }
+		case IDC_STT_RACK3L1_CH8: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_8);	break; }
+		case IDC_STT_RACK3L1_CH9: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_9);	break; }
+		case IDC_STT_RACK3L1_CH10: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_10);	break; }
+		case IDC_STT_RACK3L1_CH11: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_11);	break; }
+		case IDC_STT_RACK3L1_CH12: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_12);	break; }
+		case IDC_STT_RACK3L1_CH13: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_13);	break; }
+		case IDC_STT_RACK3L1_CH14: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_14);	break; }
+		case IDC_STT_RACK3L1_CH15: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_15);	break; }
+		case IDC_STT_RACK3L1_CH16: { Lf_toggleChUseUnuse(RACK_3, LAYER_1, CH_16);	break; }
+		case IDC_STT_RACK3L2_CH1: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_1);	break; }
+		case IDC_STT_RACK3L2_CH2: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_2);	break; }
+		case IDC_STT_RACK3L2_CH3: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_3);	break; }
+		case IDC_STT_RACK3L2_CH4: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_4);	break; }
+		case IDC_STT_RACK3L2_CH5: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_5);	break; }
+		case IDC_STT_RACK3L2_CH6: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_6);	break; }
+		case IDC_STT_RACK3L2_CH7: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_7);	break; }
+		case IDC_STT_RACK3L2_CH8: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_8);	break; }
+		case IDC_STT_RACK3L2_CH9: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_9);	break; }
+		case IDC_STT_RACK3L2_CH10: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_10);	break; }
+		case IDC_STT_RACK3L2_CH11: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_11);	break; }
+		case IDC_STT_RACK3L2_CH12: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_12);	break; }
+		case IDC_STT_RACK3L2_CH13: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_13);	break; }
+		case IDC_STT_RACK3L2_CH14: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_14);	break; }
+		case IDC_STT_RACK3L2_CH15: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_15);	break; }
+		case IDC_STT_RACK3L2_CH16: { Lf_toggleChUseUnuse(RACK_3, LAYER_2, CH_16);	break; }
+		case IDC_STT_RACK3L3_CH1: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_1);	break; }
+		case IDC_STT_RACK3L3_CH2: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_2);	break; }
+		case IDC_STT_RACK3L3_CH3: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_3);	break; }
+		case IDC_STT_RACK3L3_CH4: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_4);	break; }
+		case IDC_STT_RACK3L3_CH5: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_5);	break; }
+		case IDC_STT_RACK3L3_CH6: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_6);	break; }
+		case IDC_STT_RACK3L3_CH7: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_7);	break; }
+		case IDC_STT_RACK3L3_CH8: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_8);	break; }
+		case IDC_STT_RACK3L3_CH9: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_9);	break; }
+		case IDC_STT_RACK3L3_CH10: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_10);	break; }
+		case IDC_STT_RACK3L3_CH11: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_11);	break; }
+		case IDC_STT_RACK3L3_CH12: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_12);	break; }
+		case IDC_STT_RACK3L3_CH13: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_13);	break; }
+		case IDC_STT_RACK3L3_CH14: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_14);	break; }
+		case IDC_STT_RACK3L3_CH15: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_15);	break; }
+		case IDC_STT_RACK3L3_CH16: { Lf_toggleChUseUnuse(RACK_3, LAYER_3, CH_16);	break; }
+		case IDC_STT_RACK3L4_CH1: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_1);	break; }
+		case IDC_STT_RACK3L4_CH2: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_2);	break; }
+		case IDC_STT_RACK3L4_CH3: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_3);	break; }
+		case IDC_STT_RACK3L4_CH4: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_4);	break; }
+		case IDC_STT_RACK3L4_CH5: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_5);	break; }
+		case IDC_STT_RACK3L4_CH6: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_6);	break; }
+		case IDC_STT_RACK3L4_CH7: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_7);	break; }
+		case IDC_STT_RACK3L4_CH8: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_8);	break; }
+		case IDC_STT_RACK3L4_CH9: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_9);	break; }
+		case IDC_STT_RACK3L4_CH10: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_10);	break; }
+		case IDC_STT_RACK3L4_CH11: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_11);	break; }
+		case IDC_STT_RACK3L4_CH12: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_12);	break; }
+		case IDC_STT_RACK3L4_CH13: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_13);	break; }
+		case IDC_STT_RACK3L4_CH14: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_14);	break; }
+		case IDC_STT_RACK3L4_CH15: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_15);	break; }
+		case IDC_STT_RACK3L4_CH16: { Lf_toggleChUseUnuse(RACK_3, LAYER_4, CH_16);	break; }
+		case IDC_STT_RACK3L5_CH1: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_1);	break; }
+		case IDC_STT_RACK3L5_CH2: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_2);	break; }
+		case IDC_STT_RACK3L5_CH3: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_3);	break; }
+		case IDC_STT_RACK3L5_CH4: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_4);	break; }
+		case IDC_STT_RACK3L5_CH5: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_5);	break; }
+		case IDC_STT_RACK3L5_CH6: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_6);	break; }
+		case IDC_STT_RACK3L5_CH7: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_7);	break; }
+		case IDC_STT_RACK3L5_CH8: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_8);	break; }
+		case IDC_STT_RACK3L5_CH9: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_9);	break; }
+		case IDC_STT_RACK3L5_CH10: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_10);	break; }
+		case IDC_STT_RACK3L5_CH11: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_11);	break; }
+		case IDC_STT_RACK3L5_CH12: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_12);	break; }
+		case IDC_STT_RACK3L5_CH13: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_13);	break; }
+		case IDC_STT_RACK3L5_CH14: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_14);	break; }
+		case IDC_STT_RACK3L5_CH15: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_15);	break; }
+		case IDC_STT_RACK3L5_CH16: { Lf_toggleChUseUnuse(RACK_3, LAYER_5, CH_16);	break; }
 		}
 	}
 
@@ -2392,86 +2393,86 @@ void CHseAgingDlg::OnStnClickedChEnableDisable(UINT nID)
 	{
 		switch (nID)
 		{
-		case IDC_STT_RACK4L1_CH1: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_1);	break; }
-		case IDC_STT_RACK4L1_CH2: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_2);	break; }
-		case IDC_STT_RACK4L1_CH3: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_3);	break; }
-		case IDC_STT_RACK4L1_CH4: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_4);	break; }
-		case IDC_STT_RACK4L1_CH5: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_5);	break; }
-		case IDC_STT_RACK4L1_CH6: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_6);	break; }
-		case IDC_STT_RACK4L1_CH7: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_7);	break; }
-		case IDC_STT_RACK4L1_CH8: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_8);	break; }
-		case IDC_STT_RACK4L1_CH9: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_9);	break; }
-		case IDC_STT_RACK4L1_CH10: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_10);	break; }
-		case IDC_STT_RACK4L1_CH11: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_11);	break; }
-		case IDC_STT_RACK4L1_CH12: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_12);	break; }
-		case IDC_STT_RACK4L1_CH13: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_13);	break; }
-		case IDC_STT_RACK4L1_CH14: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_14);	break; }
-		case IDC_STT_RACK4L1_CH15: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_15);	break; }
-		case IDC_STT_RACK4L1_CH16: {Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_16);	break; }
-		case IDC_STT_RACK4L2_CH1: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_1);	break; }
-		case IDC_STT_RACK4L2_CH2: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_2);	break; }
-		case IDC_STT_RACK4L2_CH3: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_3);	break; }
-		case IDC_STT_RACK4L2_CH4: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_4);	break; }
-		case IDC_STT_RACK4L2_CH5: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_5);	break; }
-		case IDC_STT_RACK4L2_CH6: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_6);	break; }
-		case IDC_STT_RACK4L2_CH7: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_7);	break; }
-		case IDC_STT_RACK4L2_CH8: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_8);	break; }
-		case IDC_STT_RACK4L2_CH9: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_9);	break; }
-		case IDC_STT_RACK4L2_CH10: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_10);	break; }
-		case IDC_STT_RACK4L2_CH11: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_11);	break; }
-		case IDC_STT_RACK4L2_CH12: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_12);	break; }
-		case IDC_STT_RACK4L2_CH13: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_13);	break; }
-		case IDC_STT_RACK4L2_CH14: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_14);	break; }
-		case IDC_STT_RACK4L2_CH15: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_15);	break; }
-		case IDC_STT_RACK4L2_CH16: {Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_16);	break; }
-		case IDC_STT_RACK4L3_CH1: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_1);	break; }
-		case IDC_STT_RACK4L3_CH2: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_2);	break; }
-		case IDC_STT_RACK4L3_CH3: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_3);	break; }
-		case IDC_STT_RACK4L3_CH4: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_4);	break; }
-		case IDC_STT_RACK4L3_CH5: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_5);	break; }
-		case IDC_STT_RACK4L3_CH6: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_6);	break; }
-		case IDC_STT_RACK4L3_CH7: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_7);	break; }
-		case IDC_STT_RACK4L3_CH8: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_8);	break; }
-		case IDC_STT_RACK4L3_CH9: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_9);	break; }
-		case IDC_STT_RACK4L3_CH10: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_10);	break; }
-		case IDC_STT_RACK4L3_CH11: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_11);	break; }
-		case IDC_STT_RACK4L3_CH12: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_12);	break; }
-		case IDC_STT_RACK4L3_CH13: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_13);	break; }
-		case IDC_STT_RACK4L3_CH14: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_14);	break; }
-		case IDC_STT_RACK4L3_CH15: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_15);	break; }
-		case IDC_STT_RACK4L3_CH16: {Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_16);	break; }
-		case IDC_STT_RACK4L4_CH1: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_1);	break; }
-		case IDC_STT_RACK4L4_CH2: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_2);	break; }
-		case IDC_STT_RACK4L4_CH3: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_3);	break; }
-		case IDC_STT_RACK4L4_CH4: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_4);	break; }
-		case IDC_STT_RACK4L4_CH5: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_5);	break; }
-		case IDC_STT_RACK4L4_CH6: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_6);	break; }
-		case IDC_STT_RACK4L4_CH7: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_7);	break; }
-		case IDC_STT_RACK4L4_CH8: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_8);	break; }
-		case IDC_STT_RACK4L4_CH9: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_9);	break; }
-		case IDC_STT_RACK4L4_CH10: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_10);	break; }
-		case IDC_STT_RACK4L4_CH11: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_11);	break; }
-		case IDC_STT_RACK4L4_CH12: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_12);	break; }
-		case IDC_STT_RACK4L4_CH13: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_13);	break; }
-		case IDC_STT_RACK4L4_CH14: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_14);	break; }
-		case IDC_STT_RACK4L4_CH15: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_15);	break; }
-		case IDC_STT_RACK4L4_CH16: {Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_16);	break; }
-		case IDC_STT_RACK4L5_CH1: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_1);	break; }
-		case IDC_STT_RACK4L5_CH2: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_2);	break; }
-		case IDC_STT_RACK4L5_CH3: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_3);	break; }
-		case IDC_STT_RACK4L5_CH4: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_4);	break; }
-		case IDC_STT_RACK4L5_CH5: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_5);	break; }
-		case IDC_STT_RACK4L5_CH6: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_6);	break; }
-		case IDC_STT_RACK4L5_CH7: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_7);	break; }
-		case IDC_STT_RACK4L5_CH8: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_8);	break; }
-		case IDC_STT_RACK4L5_CH9: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_9);	break; }
-		case IDC_STT_RACK4L5_CH10: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_10);	break; }
-		case IDC_STT_RACK4L5_CH11: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_11);	break; }
-		case IDC_STT_RACK4L5_CH12: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_12);	break; }
-		case IDC_STT_RACK4L5_CH13: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_13);	break; }
-		case IDC_STT_RACK4L5_CH14: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_14);	break; }
-		case IDC_STT_RACK4L5_CH15: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_15);	break; }
-		case IDC_STT_RACK4L5_CH16: {Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_16);	break; }
+		case IDC_STT_RACK4L1_CH1: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_1);	break; }
+		case IDC_STT_RACK4L1_CH2: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_2);	break; }
+		case IDC_STT_RACK4L1_CH3: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_3);	break; }
+		case IDC_STT_RACK4L1_CH4: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_4);	break; }
+		case IDC_STT_RACK4L1_CH5: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_5);	break; }
+		case IDC_STT_RACK4L1_CH6: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_6);	break; }
+		case IDC_STT_RACK4L1_CH7: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_7);	break; }
+		case IDC_STT_RACK4L1_CH8: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_8);	break; }
+		case IDC_STT_RACK4L1_CH9: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_9);	break; }
+		case IDC_STT_RACK4L1_CH10: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_10);	break; }
+		case IDC_STT_RACK4L1_CH11: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_11);	break; }
+		case IDC_STT_RACK4L1_CH12: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_12);	break; }
+		case IDC_STT_RACK4L1_CH13: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_13);	break; }
+		case IDC_STT_RACK4L1_CH14: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_14);	break; }
+		case IDC_STT_RACK4L1_CH15: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_15);	break; }
+		case IDC_STT_RACK4L1_CH16: { Lf_toggleChUseUnuse(RACK_4, LAYER_1, CH_16);	break; }
+		case IDC_STT_RACK4L2_CH1: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_1);	break; }
+		case IDC_STT_RACK4L2_CH2: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_2);	break; }
+		case IDC_STT_RACK4L2_CH3: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_3);	break; }
+		case IDC_STT_RACK4L2_CH4: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_4);	break; }
+		case IDC_STT_RACK4L2_CH5: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_5);	break; }
+		case IDC_STT_RACK4L2_CH6: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_6);	break; }
+		case IDC_STT_RACK4L2_CH7: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_7);	break; }
+		case IDC_STT_RACK4L2_CH8: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_8);	break; }
+		case IDC_STT_RACK4L2_CH9: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_9);	break; }
+		case IDC_STT_RACK4L2_CH10: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_10);	break; }
+		case IDC_STT_RACK4L2_CH11: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_11);	break; }
+		case IDC_STT_RACK4L2_CH12: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_12);	break; }
+		case IDC_STT_RACK4L2_CH13: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_13);	break; }
+		case IDC_STT_RACK4L2_CH14: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_14);	break; }
+		case IDC_STT_RACK4L2_CH15: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_15);	break; }
+		case IDC_STT_RACK4L2_CH16: { Lf_toggleChUseUnuse(RACK_4, LAYER_2, CH_16);	break; }
+		case IDC_STT_RACK4L3_CH1: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_1);	break; }
+		case IDC_STT_RACK4L3_CH2: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_2);	break; }
+		case IDC_STT_RACK4L3_CH3: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_3);	break; }
+		case IDC_STT_RACK4L3_CH4: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_4);	break; }
+		case IDC_STT_RACK4L3_CH5: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_5);	break; }
+		case IDC_STT_RACK4L3_CH6: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_6);	break; }
+		case IDC_STT_RACK4L3_CH7: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_7);	break; }
+		case IDC_STT_RACK4L3_CH8: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_8);	break; }
+		case IDC_STT_RACK4L3_CH9: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_9);	break; }
+		case IDC_STT_RACK4L3_CH10: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_10);	break; }
+		case IDC_STT_RACK4L3_CH11: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_11);	break; }
+		case IDC_STT_RACK4L3_CH12: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_12);	break; }
+		case IDC_STT_RACK4L3_CH13: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_13);	break; }
+		case IDC_STT_RACK4L3_CH14: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_14);	break; }
+		case IDC_STT_RACK4L3_CH15: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_15);	break; }
+		case IDC_STT_RACK4L3_CH16: { Lf_toggleChUseUnuse(RACK_4, LAYER_3, CH_16);	break; }
+		case IDC_STT_RACK4L4_CH1: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_1);	break; }
+		case IDC_STT_RACK4L4_CH2: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_2);	break; }
+		case IDC_STT_RACK4L4_CH3: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_3);	break; }
+		case IDC_STT_RACK4L4_CH4: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_4);	break; }
+		case IDC_STT_RACK4L4_CH5: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_5);	break; }
+		case IDC_STT_RACK4L4_CH6: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_6);	break; }
+		case IDC_STT_RACK4L4_CH7: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_7);	break; }
+		case IDC_STT_RACK4L4_CH8: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_8);	break; }
+		case IDC_STT_RACK4L4_CH9: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_9);	break; }
+		case IDC_STT_RACK4L4_CH10: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_10);	break; }
+		case IDC_STT_RACK4L4_CH11: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_11);	break; }
+		case IDC_STT_RACK4L4_CH12: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_12);	break; }
+		case IDC_STT_RACK4L4_CH13: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_13);	break; }
+		case IDC_STT_RACK4L4_CH14: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_14);	break; }
+		case IDC_STT_RACK4L4_CH15: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_15);	break; }
+		case IDC_STT_RACK4L4_CH16: { Lf_toggleChUseUnuse(RACK_4, LAYER_4, CH_16);	break; }
+		case IDC_STT_RACK4L5_CH1: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_1);	break; }
+		case IDC_STT_RACK4L5_CH2: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_2);	break; }
+		case IDC_STT_RACK4L5_CH3: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_3);	break; }
+		case IDC_STT_RACK4L5_CH4: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_4);	break; }
+		case IDC_STT_RACK4L5_CH5: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_5);	break; }
+		case IDC_STT_RACK4L5_CH6: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_6);	break; }
+		case IDC_STT_RACK4L5_CH7: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_7);	break; }
+		case IDC_STT_RACK4L5_CH8: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_8);	break; }
+		case IDC_STT_RACK4L5_CH9: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_9);	break; }
+		case IDC_STT_RACK4L5_CH10: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_10);	break; }
+		case IDC_STT_RACK4L5_CH11: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_11);	break; }
+		case IDC_STT_RACK4L5_CH12: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_12);	break; }
+		case IDC_STT_RACK4L5_CH13: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_13);	break; }
+		case IDC_STT_RACK4L5_CH14: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_14);	break; }
+		case IDC_STT_RACK4L5_CH15: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_15);	break; }
+		case IDC_STT_RACK4L5_CH16: { Lf_toggleChUseUnuse(RACK_4, LAYER_5, CH_16);	break; }
 		}
 	}
 
@@ -2479,86 +2480,86 @@ void CHseAgingDlg::OnStnClickedChEnableDisable(UINT nID)
 	{
 		switch (nID)
 		{
-		case IDC_STT_RACK5L1_CH1: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_1);	break; }
-		case IDC_STT_RACK5L1_CH2: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_2);	break; }
-		case IDC_STT_RACK5L1_CH3: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_3);	break; }
-		case IDC_STT_RACK5L1_CH4: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_4);	break; }
-		case IDC_STT_RACK5L1_CH5: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_5);	break; }
-		case IDC_STT_RACK5L1_CH6: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_6);	break; }
-		case IDC_STT_RACK5L1_CH7: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_7);	break; }
-		case IDC_STT_RACK5L1_CH8: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_8);	break; }
-		case IDC_STT_RACK5L1_CH9: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_9);	break; }
-		case IDC_STT_RACK5L1_CH10: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_10);	break; }
-		case IDC_STT_RACK5L1_CH11: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_11);	break; }
-		case IDC_STT_RACK5L1_CH12: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_12);	break; }
-		case IDC_STT_RACK5L1_CH13: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_13);	break; }
-		case IDC_STT_RACK5L1_CH14: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_14);	break; }
-		case IDC_STT_RACK5L1_CH15: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_15);	break; }
-		case IDC_STT_RACK5L1_CH16: {Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_16);	break; }
-		case IDC_STT_RACK5L2_CH1: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_1);	break; }
-		case IDC_STT_RACK5L2_CH2: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_2);	break; }
-		case IDC_STT_RACK5L2_CH3: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_3);	break; }
-		case IDC_STT_RACK5L2_CH4: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_4);	break; }
-		case IDC_STT_RACK5L2_CH5: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_5);	break; }
-		case IDC_STT_RACK5L2_CH6: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_6);	break; }
-		case IDC_STT_RACK5L2_CH7: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_7);	break; }
-		case IDC_STT_RACK5L2_CH8: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_8);	break; }
-		case IDC_STT_RACK5L2_CH9: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_9);	break; }
-		case IDC_STT_RACK5L2_CH10: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_10);	break; }
-		case IDC_STT_RACK5L2_CH11: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_11);	break; }
-		case IDC_STT_RACK5L2_CH12: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_12);	break; }
-		case IDC_STT_RACK5L2_CH13: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_13);	break; }
-		case IDC_STT_RACK5L2_CH14: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_14);	break; }
-		case IDC_STT_RACK5L2_CH15: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_15);	break; }
-		case IDC_STT_RACK5L2_CH16: {Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_16);	break; }
-		case IDC_STT_RACK5L3_CH1: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_1);	break; }
-		case IDC_STT_RACK5L3_CH2: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_2);	break; }
-		case IDC_STT_RACK5L3_CH3: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_3);	break; }
-		case IDC_STT_RACK5L3_CH4: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_4);	break; }
-		case IDC_STT_RACK5L3_CH5: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_5);	break; }
-		case IDC_STT_RACK5L3_CH6: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_6);	break; }
-		case IDC_STT_RACK5L3_CH7: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_7);	break; }
-		case IDC_STT_RACK5L3_CH8: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_8);	break; }
-		case IDC_STT_RACK5L3_CH9: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_9);	break; }
-		case IDC_STT_RACK5L3_CH10: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_10);	break; }
-		case IDC_STT_RACK5L3_CH11: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_11);	break; }
-		case IDC_STT_RACK5L3_CH12: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_12);	break; }
-		case IDC_STT_RACK5L3_CH13: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_13);	break; }
-		case IDC_STT_RACK5L3_CH14: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_14);	break; }
-		case IDC_STT_RACK5L3_CH15: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_15);	break; }
-		case IDC_STT_RACK5L3_CH16: {Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_16);	break; }
-		case IDC_STT_RACK5L4_CH1: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_1);	break; }
-		case IDC_STT_RACK5L4_CH2: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_2);	break; }
-		case IDC_STT_RACK5L4_CH3: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_3);	break; }
-		case IDC_STT_RACK5L4_CH4: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_4);	break; }
-		case IDC_STT_RACK5L4_CH5: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_5);	break; }
-		case IDC_STT_RACK5L4_CH6: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_6);	break; }
-		case IDC_STT_RACK5L4_CH7: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_7);	break; }
-		case IDC_STT_RACK5L4_CH8: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_8);	break; }
-		case IDC_STT_RACK5L4_CH9: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_9);	break; }
-		case IDC_STT_RACK5L4_CH10: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_10);	break; }
-		case IDC_STT_RACK5L4_CH11: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_11);	break; }
-		case IDC_STT_RACK5L4_CH12: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_12);	break; }
-		case IDC_STT_RACK5L4_CH13: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_13);	break; }
-		case IDC_STT_RACK5L4_CH14: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_14);	break; }
-		case IDC_STT_RACK5L4_CH15: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_15);	break; }
-		case IDC_STT_RACK5L4_CH16: {Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_16);	break; }
-		case IDC_STT_RACK5L5_CH1: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_1);	break; }
-		case IDC_STT_RACK5L5_CH2: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_2);	break; }
-		case IDC_STT_RACK5L5_CH3: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_3);	break; }
-		case IDC_STT_RACK5L5_CH4: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_4);	break; }
-		case IDC_STT_RACK5L5_CH5: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_5);	break; }
-		case IDC_STT_RACK5L5_CH6: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_6);	break; }
-		case IDC_STT_RACK5L5_CH7: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_7);	break; }
-		case IDC_STT_RACK5L5_CH8: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_8);	break; }
-		case IDC_STT_RACK5L5_CH9: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_9);	break; }
-		case IDC_STT_RACK5L5_CH10: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_10);	break; }
-		case IDC_STT_RACK5L5_CH11: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_11);	break; }
-		case IDC_STT_RACK5L5_CH12: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_12);	break; }
-		case IDC_STT_RACK5L5_CH13: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_13);	break; }
-		case IDC_STT_RACK5L5_CH14: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_14);	break; }
-		case IDC_STT_RACK5L5_CH15: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_15);	break; }
-		case IDC_STT_RACK5L5_CH16: {Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_16);	break; }
+		case IDC_STT_RACK5L1_CH1: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_1);	break; }
+		case IDC_STT_RACK5L1_CH2: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_2);	break; }
+		case IDC_STT_RACK5L1_CH3: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_3);	break; }
+		case IDC_STT_RACK5L1_CH4: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_4);	break; }
+		case IDC_STT_RACK5L1_CH5: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_5);	break; }
+		case IDC_STT_RACK5L1_CH6: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_6);	break; }
+		case IDC_STT_RACK5L1_CH7: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_7);	break; }
+		case IDC_STT_RACK5L1_CH8: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_8);	break; }
+		case IDC_STT_RACK5L1_CH9: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_9);	break; }
+		case IDC_STT_RACK5L1_CH10: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_10);	break; }
+		case IDC_STT_RACK5L1_CH11: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_11);	break; }
+		case IDC_STT_RACK5L1_CH12: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_12);	break; }
+		case IDC_STT_RACK5L1_CH13: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_13);	break; }
+		case IDC_STT_RACK5L1_CH14: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_14);	break; }
+		case IDC_STT_RACK5L1_CH15: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_15);	break; }
+		case IDC_STT_RACK5L1_CH16: { Lf_toggleChUseUnuse(RACK_5, LAYER_1, CH_16);	break; }
+		case IDC_STT_RACK5L2_CH1: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_1);	break; }
+		case IDC_STT_RACK5L2_CH2: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_2);	break; }
+		case IDC_STT_RACK5L2_CH3: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_3);	break; }
+		case IDC_STT_RACK5L2_CH4: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_4);	break; }
+		case IDC_STT_RACK5L2_CH5: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_5);	break; }
+		case IDC_STT_RACK5L2_CH6: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_6);	break; }
+		case IDC_STT_RACK5L2_CH7: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_7);	break; }
+		case IDC_STT_RACK5L2_CH8: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_8);	break; }
+		case IDC_STT_RACK5L2_CH9: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_9);	break; }
+		case IDC_STT_RACK5L2_CH10: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_10);	break; }
+		case IDC_STT_RACK5L2_CH11: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_11);	break; }
+		case IDC_STT_RACK5L2_CH12: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_12);	break; }
+		case IDC_STT_RACK5L2_CH13: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_13);	break; }
+		case IDC_STT_RACK5L2_CH14: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_14);	break; }
+		case IDC_STT_RACK5L2_CH15: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_15);	break; }
+		case IDC_STT_RACK5L2_CH16: { Lf_toggleChUseUnuse(RACK_5, LAYER_2, CH_16);	break; }
+		case IDC_STT_RACK5L3_CH1: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_1);	break; }
+		case IDC_STT_RACK5L3_CH2: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_2);	break; }
+		case IDC_STT_RACK5L3_CH3: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_3);	break; }
+		case IDC_STT_RACK5L3_CH4: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_4);	break; }
+		case IDC_STT_RACK5L3_CH5: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_5);	break; }
+		case IDC_STT_RACK5L3_CH6: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_6);	break; }
+		case IDC_STT_RACK5L3_CH7: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_7);	break; }
+		case IDC_STT_RACK5L3_CH8: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_8);	break; }
+		case IDC_STT_RACK5L3_CH9: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_9);	break; }
+		case IDC_STT_RACK5L3_CH10: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_10);	break; }
+		case IDC_STT_RACK5L3_CH11: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_11);	break; }
+		case IDC_STT_RACK5L3_CH12: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_12);	break; }
+		case IDC_STT_RACK5L3_CH13: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_13);	break; }
+		case IDC_STT_RACK5L3_CH14: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_14);	break; }
+		case IDC_STT_RACK5L3_CH15: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_15);	break; }
+		case IDC_STT_RACK5L3_CH16: { Lf_toggleChUseUnuse(RACK_5, LAYER_3, CH_16);	break; }
+		case IDC_STT_RACK5L4_CH1: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_1);	break; }
+		case IDC_STT_RACK5L4_CH2: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_2);	break; }
+		case IDC_STT_RACK5L4_CH3: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_3);	break; }
+		case IDC_STT_RACK5L4_CH4: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_4);	break; }
+		case IDC_STT_RACK5L4_CH5: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_5);	break; }
+		case IDC_STT_RACK5L4_CH6: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_6);	break; }
+		case IDC_STT_RACK5L4_CH7: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_7);	break; }
+		case IDC_STT_RACK5L4_CH8: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_8);	break; }
+		case IDC_STT_RACK5L4_CH9: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_9);	break; }
+		case IDC_STT_RACK5L4_CH10: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_10);	break; }
+		case IDC_STT_RACK5L4_CH11: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_11);	break; }
+		case IDC_STT_RACK5L4_CH12: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_12);	break; }
+		case IDC_STT_RACK5L4_CH13: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_13);	break; }
+		case IDC_STT_RACK5L4_CH14: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_14);	break; }
+		case IDC_STT_RACK5L4_CH15: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_15);	break; }
+		case IDC_STT_RACK5L4_CH16: { Lf_toggleChUseUnuse(RACK_5, LAYER_4, CH_16);	break; }
+		case IDC_STT_RACK5L5_CH1: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_1);	break; }
+		case IDC_STT_RACK5L5_CH2: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_2);	break; }
+		case IDC_STT_RACK5L5_CH3: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_3);	break; }
+		case IDC_STT_RACK5L5_CH4: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_4);	break; }
+		case IDC_STT_RACK5L5_CH5: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_5);	break; }
+		case IDC_STT_RACK5L5_CH6: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_6);	break; }
+		case IDC_STT_RACK5L5_CH7: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_7);	break; }
+		case IDC_STT_RACK5L5_CH8: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_8);	break; }
+		case IDC_STT_RACK5L5_CH9: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_9);	break; }
+		case IDC_STT_RACK5L5_CH10: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_10);	break; }
+		case IDC_STT_RACK5L5_CH11: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_11);	break; }
+		case IDC_STT_RACK5L5_CH12: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_12);	break; }
+		case IDC_STT_RACK5L5_CH13: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_13);	break; }
+		case IDC_STT_RACK5L5_CH14: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_14);	break; }
+		case IDC_STT_RACK5L5_CH15: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_15);	break; }
+		case IDC_STT_RACK5L5_CH16: { Lf_toggleChUseUnuse(RACK_5, LAYER_5, CH_16);	break; }
 		}
 	}
 
@@ -2566,86 +2567,86 @@ void CHseAgingDlg::OnStnClickedChEnableDisable(UINT nID)
 	{
 		switch (nID)
 		{
-		case IDC_STT_RACK6L1_CH1: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_1);	break; }
-		case IDC_STT_RACK6L1_CH2: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_2);	break; }
-		case IDC_STT_RACK6L1_CH3: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_3);	break; }
-		case IDC_STT_RACK6L1_CH4: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_4);	break; }
-		case IDC_STT_RACK6L1_CH5: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_5);	break; }
-		case IDC_STT_RACK6L1_CH6: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_6);	break; }
-		case IDC_STT_RACK6L1_CH7: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_7);	break; }
-		case IDC_STT_RACK6L1_CH8: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_8);	break; }
-		case IDC_STT_RACK6L1_CH9: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_9);	break; }
-		case IDC_STT_RACK6L1_CH10: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_10);	break; }
-		case IDC_STT_RACK6L1_CH11: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_11);	break; }
-		case IDC_STT_RACK6L1_CH12: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_12);	break; }
-		case IDC_STT_RACK6L1_CH13: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_13);	break; }
-		case IDC_STT_RACK6L1_CH14: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_14);	break; }
-		case IDC_STT_RACK6L1_CH15: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_15);	break; }
-		case IDC_STT_RACK6L1_CH16: {Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_16);	break; }
-		case IDC_STT_RACK6L2_CH1: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_1);	break; }
-		case IDC_STT_RACK6L2_CH2: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_2);	break; }
-		case IDC_STT_RACK6L2_CH3: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_3);	break; }
-		case IDC_STT_RACK6L2_CH4: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_4);	break; }
-		case IDC_STT_RACK6L2_CH5: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_5);	break; }
-		case IDC_STT_RACK6L2_CH6: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_6);	break; }
-		case IDC_STT_RACK6L2_CH7: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_7);	break; }
-		case IDC_STT_RACK6L2_CH8: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_8);	break; }
-		case IDC_STT_RACK6L2_CH9: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_9);	break; }
-		case IDC_STT_RACK6L2_CH10: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_10);	break; }
-		case IDC_STT_RACK6L2_CH11: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_11);	break; }
-		case IDC_STT_RACK6L2_CH12: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_12);	break; }
-		case IDC_STT_RACK6L2_CH13: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_13);	break; }
-		case IDC_STT_RACK6L2_CH14: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_14);	break; }
-		case IDC_STT_RACK6L2_CH15: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_15);	break; }
-		case IDC_STT_RACK6L2_CH16: {Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_16);	break; }
-		case IDC_STT_RACK6L3_CH1: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_1);	break; }
-		case IDC_STT_RACK6L3_CH2: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_2);	break; }
-		case IDC_STT_RACK6L3_CH3: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_3);	break; }
-		case IDC_STT_RACK6L3_CH4: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_4);	break; }
-		case IDC_STT_RACK6L3_CH5: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_5);	break; }
-		case IDC_STT_RACK6L3_CH6: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_6);	break; }
-		case IDC_STT_RACK6L3_CH7: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_7);	break; }
-		case IDC_STT_RACK6L3_CH8: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_8);	break; }
-		case IDC_STT_RACK6L3_CH9: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_9);	break; }
-		case IDC_STT_RACK6L3_CH10: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_10);	break; }
-		case IDC_STT_RACK6L3_CH11: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_11);	break; }
-		case IDC_STT_RACK6L3_CH12: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_12);	break; }
-		case IDC_STT_RACK6L3_CH13: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_13);	break; }
-		case IDC_STT_RACK6L3_CH14: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_14);	break; }
-		case IDC_STT_RACK6L3_CH15: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_15);	break; }
-		case IDC_STT_RACK6L3_CH16: {Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_16);	break; }
-		case IDC_STT_RACK6L4_CH1: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_1);	break; }
-		case IDC_STT_RACK6L4_CH2: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_2);	break; }
-		case IDC_STT_RACK6L4_CH3: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_3);	break; }
-		case IDC_STT_RACK6L4_CH4: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_4);	break; }
-		case IDC_STT_RACK6L4_CH5: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_5);	break; }
-		case IDC_STT_RACK6L4_CH6: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_6);	break; }
-		case IDC_STT_RACK6L4_CH7: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_7);	break; }
-		case IDC_STT_RACK6L4_CH8: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_8);	break; }
-		case IDC_STT_RACK6L4_CH9: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_9);	break; }
-		case IDC_STT_RACK6L4_CH10: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_10);	break; }
-		case IDC_STT_RACK6L4_CH11: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_11);	break; }
-		case IDC_STT_RACK6L4_CH12: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_12);	break; }
-		case IDC_STT_RACK6L4_CH13: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_13);	break; }
-		case IDC_STT_RACK6L4_CH14: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_14);	break; }
-		case IDC_STT_RACK6L4_CH15: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_15);	break; }
-		case IDC_STT_RACK6L4_CH16: {Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_16);	break; }
-		case IDC_STT_RACK6L5_CH1: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_1);	break; }
-		case IDC_STT_RACK6L5_CH2: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_2);	break; }
-		case IDC_STT_RACK6L5_CH3: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_3);	break; }
-		case IDC_STT_RACK6L5_CH4: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_4);	break; }
-		case IDC_STT_RACK6L5_CH5: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_5);	break; }
-		case IDC_STT_RACK6L5_CH6: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_6);	break; }
-		case IDC_STT_RACK6L5_CH7: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_7);	break; }
-		case IDC_STT_RACK6L5_CH8: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_8);	break; }
-		case IDC_STT_RACK6L5_CH9: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_9);	break; }
-		case IDC_STT_RACK6L5_CH10: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_10);	break; }
-		case IDC_STT_RACK6L5_CH11: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_11);	break; }
-		case IDC_STT_RACK6L5_CH12: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_12);	break; }
-		case IDC_STT_RACK6L5_CH13: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_13);	break; }
-		case IDC_STT_RACK6L5_CH14: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_14);	break; }
-		case IDC_STT_RACK6L5_CH15: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_15);	break; }
-		case IDC_STT_RACK6L5_CH16: {Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_16);	break; }
+		case IDC_STT_RACK6L1_CH1: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_1);	break; }
+		case IDC_STT_RACK6L1_CH2: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_2);	break; }
+		case IDC_STT_RACK6L1_CH3: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_3);	break; }
+		case IDC_STT_RACK6L1_CH4: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_4);	break; }
+		case IDC_STT_RACK6L1_CH5: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_5);	break; }
+		case IDC_STT_RACK6L1_CH6: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_6);	break; }
+		case IDC_STT_RACK6L1_CH7: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_7);	break; }
+		case IDC_STT_RACK6L1_CH8: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_8);	break; }
+		case IDC_STT_RACK6L1_CH9: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_9);	break; }
+		case IDC_STT_RACK6L1_CH10: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_10);	break; }
+		case IDC_STT_RACK6L1_CH11: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_11);	break; }
+		case IDC_STT_RACK6L1_CH12: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_12);	break; }
+		case IDC_STT_RACK6L1_CH13: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_13);	break; }
+		case IDC_STT_RACK6L1_CH14: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_14);	break; }
+		case IDC_STT_RACK6L1_CH15: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_15);	break; }
+		case IDC_STT_RACK6L1_CH16: { Lf_toggleChUseUnuse(RACK_6, LAYER_1, CH_16);	break; }
+		case IDC_STT_RACK6L2_CH1: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_1);	break; }
+		case IDC_STT_RACK6L2_CH2: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_2);	break; }
+		case IDC_STT_RACK6L2_CH3: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_3);	break; }
+		case IDC_STT_RACK6L2_CH4: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_4);	break; }
+		case IDC_STT_RACK6L2_CH5: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_5);	break; }
+		case IDC_STT_RACK6L2_CH6: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_6);	break; }
+		case IDC_STT_RACK6L2_CH7: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_7);	break; }
+		case IDC_STT_RACK6L2_CH8: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_8);	break; }
+		case IDC_STT_RACK6L2_CH9: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_9);	break; }
+		case IDC_STT_RACK6L2_CH10: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_10);	break; }
+		case IDC_STT_RACK6L2_CH11: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_11);	break; }
+		case IDC_STT_RACK6L2_CH12: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_12);	break; }
+		case IDC_STT_RACK6L2_CH13: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_13);	break; }
+		case IDC_STT_RACK6L2_CH14: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_14);	break; }
+		case IDC_STT_RACK6L2_CH15: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_15);	break; }
+		case IDC_STT_RACK6L2_CH16: { Lf_toggleChUseUnuse(RACK_6, LAYER_2, CH_16);	break; }
+		case IDC_STT_RACK6L3_CH1: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_1);	break; }
+		case IDC_STT_RACK6L3_CH2: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_2);	break; }
+		case IDC_STT_RACK6L3_CH3: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_3);	break; }
+		case IDC_STT_RACK6L3_CH4: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_4);	break; }
+		case IDC_STT_RACK6L3_CH5: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_5);	break; }
+		case IDC_STT_RACK6L3_CH6: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_6);	break; }
+		case IDC_STT_RACK6L3_CH7: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_7);	break; }
+		case IDC_STT_RACK6L3_CH8: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_8);	break; }
+		case IDC_STT_RACK6L3_CH9: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_9);	break; }
+		case IDC_STT_RACK6L3_CH10: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_10);	break; }
+		case IDC_STT_RACK6L3_CH11: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_11);	break; }
+		case IDC_STT_RACK6L3_CH12: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_12);	break; }
+		case IDC_STT_RACK6L3_CH13: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_13);	break; }
+		case IDC_STT_RACK6L3_CH14: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_14);	break; }
+		case IDC_STT_RACK6L3_CH15: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_15);	break; }
+		case IDC_STT_RACK6L3_CH16: { Lf_toggleChUseUnuse(RACK_6, LAYER_3, CH_16);	break; }
+		case IDC_STT_RACK6L4_CH1: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_1);	break; }
+		case IDC_STT_RACK6L4_CH2: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_2);	break; }
+		case IDC_STT_RACK6L4_CH3: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_3);	break; }
+		case IDC_STT_RACK6L4_CH4: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_4);	break; }
+		case IDC_STT_RACK6L4_CH5: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_5);	break; }
+		case IDC_STT_RACK6L4_CH6: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_6);	break; }
+		case IDC_STT_RACK6L4_CH7: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_7);	break; }
+		case IDC_STT_RACK6L4_CH8: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_8);	break; }
+		case IDC_STT_RACK6L4_CH9: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_9);	break; }
+		case IDC_STT_RACK6L4_CH10: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_10);	break; }
+		case IDC_STT_RACK6L4_CH11: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_11);	break; }
+		case IDC_STT_RACK6L4_CH12: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_12);	break; }
+		case IDC_STT_RACK6L4_CH13: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_13);	break; }
+		case IDC_STT_RACK6L4_CH14: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_14);	break; }
+		case IDC_STT_RACK6L4_CH15: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_15);	break; }
+		case IDC_STT_RACK6L4_CH16: { Lf_toggleChUseUnuse(RACK_6, LAYER_4, CH_16);	break; }
+		case IDC_STT_RACK6L5_CH1: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_1);	break; }
+		case IDC_STT_RACK6L5_CH2: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_2);	break; }
+		case IDC_STT_RACK6L5_CH3: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_3);	break; }
+		case IDC_STT_RACK6L5_CH4: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_4);	break; }
+		case IDC_STT_RACK6L5_CH5: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_5);	break; }
+		case IDC_STT_RACK6L5_CH6: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_6);	break; }
+		case IDC_STT_RACK6L5_CH7: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_7);	break; }
+		case IDC_STT_RACK6L5_CH8: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_8);	break; }
+		case IDC_STT_RACK6L5_CH9: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_9);	break; }
+		case IDC_STT_RACK6L5_CH10: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_10);	break; }
+		case IDC_STT_RACK6L5_CH11: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_11);	break; }
+		case IDC_STT_RACK6L5_CH12: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_12);	break; }
+		case IDC_STT_RACK6L5_CH13: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_13);	break; }
+		case IDC_STT_RACK6L5_CH14: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_14);	break; }
+		case IDC_STT_RACK6L5_CH15: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_15);	break; }
+		case IDC_STT_RACK6L5_CH16: { Lf_toggleChUseUnuse(RACK_6, LAYER_5, CH_16);	break; }
 		}
 	}
 }
@@ -4061,7 +4062,7 @@ void CHseAgingDlg::Lf_InitDialogDesign()
 	SetWindowTheme(GetDlgItem(IDC_CHK_MA_SELECT_RACK6)->GetSafeHwnd(), L"", L"");
 
 	m_mbtBuzzOff.EnableWindowsTheming(FALSE);
-	m_mbtBuzzOff.SetFaceColor(RGB(236,28,66));
+	m_mbtBuzzOff.SetFaceColor(RGB(236, 28, 66));
 	m_mbtBuzzOff.SetTextColor(COLOR_WHITE);
 
 	for (int rack = 0; rack < MAX_RACK; rack++)
@@ -4435,14 +4436,14 @@ void CHseAgingDlg::Lf_setDoorOnOff(int rack)
 	}
 
 	//lpInspWorkInfo->m_ast_AgingChErrorResult[0][1][0] = LIMIT_HIGH;
-	
+
 
 	//memset(lpInspWorkInfo->m_nDoorOpenClose, 1, sizeof(lpInspWorkInfo->m_nDoorOpenClose));
 }
 
 void CHseAgingDlg::Lf_setAgingSTART_PID(int rack, int ch)
 {
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR_IP(rack, POWER_ON,1,ch,1);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR_IP(rack, POWER_ON, 1, ch, 1);
 	lpInspWorkInfo->m_StopRackID.Format(_T("%d"), rack);
 	lpInspWorkInfo->m_PidFlag = true;
 }
@@ -4450,7 +4451,7 @@ void CHseAgingDlg::Lf_setAgingSTART_PID(int rack, int ch)
 void CHseAgingDlg::Lf_setAgingSTOP_PID(int rack)
 {
 	//m_pApp->pCommand->Gf_setPowerSequenceOnOff(rack, POWER_OFF);
-	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_OFF,1,0, 1);
+	m_pApp->pCommand->Gf_setPowerSequenceOnOff_BCR(rack, POWER_OFF, 1, 0, 1);
 }
 
 void CHseAgingDlg::Lf_setChannelUseUnuse_PID_ON(int rack, int Ch)
@@ -4505,7 +4506,7 @@ void CHseAgingDlg::Lf_setChannelUseUnuse_PID_OFF(int rack)
 
 
 
-void CHseAgingDlg::Lf_setAgingSTART(int rack) 
+void CHseAgingDlg::Lf_setAgingSTART(int rack)
 {
 	if (m_pCmbMaModel[rack]->GetCurSel() == 0)
 	{
@@ -4514,6 +4515,7 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 	}
 
 	CMessageQuestion msg_dlg;
+	BOOL bAgingContinue = FALSE;
 
 	CString sModelName, sdata, sLog, sTimeOut;
 
@@ -4552,6 +4554,7 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 		msg_dlg.m_strQMessage.Format(_T("Aging Continue ? [%d]Minute"), lpSystemInfo->m_sLastTimeOut[rack]);
 		if (msg_dlg.DoModal() == IDOK)
 		{
+			bAgingContinue = TRUE;
 			CString Msg;
 			Msg.Format(_T("Start From [%d]Minute"), lpSystemInfo->m_sLastTimeOut[rack]);
 			Lf_writeRackMLog(rack, Msg);
@@ -4580,6 +4583,32 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 		m_pChkChSelect[rack]->EnableWindow(TRUE);
 
 		return;
+	}
+
+	// On a new aging run, reset only this rack's previous MES block history.
+	// On CONTINUE, retain NG history from earlier segments of the same run.
+	for (int layer = 0; layer < MAX_LAYER; ++layer)
+	{
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
+		{
+			if (bAgingContinue == FALSE)
+			{
+				lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = FALSE;
+				// Reset per-product MES ACK only for a NEW Aging run.
+				// CONTINUE must preserve the prior AGN_IN confirmation.
+				lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch].Empty();
+				lpInspWorkInfo->m_sAgnOutOkPid[rack][layer][ch].Empty();
+			}
+
+			// Only an explicit OK returned by a connected layer is valid.
+			// N/C, failed/missing response and NG remain blocked for this aging run.
+			if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0 ||
+				lpInspWorkInfo->m_bCableCheckValid[rack][layer] == FALSE ||
+				lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] != CABLE_CHECK_OK)
+			{
+				lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = TRUE;
+			}
+		}
 	}
 
 	// Aging START 및 Panel Power ON
@@ -4717,7 +4746,7 @@ void CHseAgingDlg::Lf_setAgingSTOP(int rack)
 	sLog.Format(_T("Aging STOP"));
 	Lf_writeRackMLog(rack, sLog);
 
-	sLog.Format(_T("<MESSAGE> AGING STOP CLICK [RACK %d]"),rack+1);
+	sLog.Format(_T("<MESSAGE> AGING STOP CLICK [RACK %d]"), rack + 1);
 
 	m_pApp->Gf_writeMLog(sLog);
 
@@ -4761,7 +4790,7 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 	for (int layer = 0; layer < MAX_LAYER; layer++)
 	{
 		if ((lpInspWorkInfo->m_nMainEthConnect[rack][layer]) != 0)
-		//if (true)
+			//if (true)
 		{
 			bFusing = TRUE;
 			break;
@@ -5194,9 +5223,9 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 						lpSystemInfo->m_Aging_Month_Count++;
 						m_pApp->Gf_gmesSendHost(HOST_APDR, rack, layer, ch);
 
-						
 
-						
+
+
 
 						///////////////////////////////////////////////////////////////////////////////////////////////
 						///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5213,13 +5242,13 @@ void CHseAgingDlg::Lf_updateAgingStatus()
 
 				sLog.Format(_T("<MESSAGE> [RACK %d] PID Clear (Aging End)"), rack + 1);
 
-				sdata.Format(_T("RACK%d PID Clear"), rack+1);
+				sdata.Format(_T("RACK%d PID Clear"), rack + 1);
 				Lf_writeRackMLog(rack, sdata);
 
 				m_pApp->Gf_writeMLog(sLog);
 
 				// Time Out 값을 초기화 한다.
-				skey.Format(_T("LAST_TIMEOUT_RACK%d"), rack+1);
+				skey.Format(_T("LAST_TIMEOUT_RACK%d"), rack + 1);
 				Write_SysIniFile(_T("SYSTEM"), skey, 0);
 
 				Write_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), lpSystemInfo->m_Aging_Count);
@@ -5303,7 +5332,7 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 			/*Dxt.Format(_T("초록 노랑"));
 			OutputDebugString(Dxt);*/
 		}
-		if(towerStatus & TOWER_LAMP_READY)
+		if (towerStatus & TOWER_LAMP_READY)
 		{
 			outData = outData | DIO_OUT_YELLOW;
 			/*Dxt.Format(_T("노란색"));
@@ -5319,7 +5348,7 @@ void CHseAgingDlg::Lf_updateTowerLamp()
 				/*Dxt.Format(_T("초록반짝"));
 				OutputDebugString(Dxt);*/
 			}
-			
+
 		}
 
 		Lf_setDIOWrite(outData, blinkMode);
@@ -5372,7 +5401,7 @@ void CHseAgingDlg::Lf_readSummaryIni(int rack)
 	{
 		for (ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack+1, layer+1, (ch + 1));
+			skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, (ch + 1));
 			Read_SummaryInfo(_T("PID"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_PID]);
 			Read_SummaryInfo(_T("AGING_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_AGING_TIME]);
 			Read_SummaryInfo(_T("START_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME]);
@@ -5556,7 +5585,7 @@ void CHseAgingDlg::Lf_writeTempLog()
 				lastInitMonth = curMonth;
 			}
 		}
-		else                 
+		else
 		{
 			lastInitMonth = -1;
 		}
@@ -5583,7 +5612,7 @@ void CHseAgingDlg::Lf_writeTempLog()
 		}
 		sprintf_s(buff, "Hour,Minute,RACK1,RACK2,RACK3,RACK4,RACK5,RACK6,ZONE1,ZONE2,ZONE3,ZONE1_SET,ZONE2_SET,ZONE3_SET\n");
 		fprintf(fp, "%s", buff);
-			
+
 	}
 
 	fseek(fp, 0L, SEEK_END);
@@ -5783,50 +5812,50 @@ void CHseAgingDlg::Lf_parseSDR100Packet(char* szpacket)
 			memcpy(szCmd, &szpacket[3], 3);
 			memcpy(szRet, &szpacket[7], 2);
 
-		if (!strcmp(szRet, "OK"))
-		{
-			lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
-
-			if (!strcmp(szCmd, "RSD")) // 받는 패킷이 RSD
+			if (!strcmp(szRet, "OK"))
 			{
-				for (int tp = 1; tp < 7; tp++)
+				lpInspWorkInfo->m_nConnectInfo[CONNECT_TEMP] = 5;
+
+				if (!strcmp(szCmd, "RSD")) // 받는 패킷이 RSD
 				{
-					unsigned int nVal = 0;
-
-					// 온도 원시값 파싱
-					int result = sscanf_s(
-						&szpacket[10 + (tp - 1) * 5],
-						"%4X",
-						&nVal
-					);
-
-					// 파싱 실패 시 기존 온도 유지
-					if (result != 1)
+					for (int tp = 1; tp < 7; tp++)
 					{
-						TRACE(_T("[TEMP] RACK%d Parse Failed\n"), tp);
-						continue;
-					}
+						unsigned int nVal = 0;
 
-					// 기존 프로그램의 유효 범위 유지: 10.0 ~ 100.0°C
-					if (nVal < 100 || nVal > 1000)
-					{
-						TRACE(
-							_T("[TEMP] RACK%d Invalid Raw=%u\n"),
-							tp,
-							nVal
+						// 온도 원시값 파싱
+						int result = sscanf_s(
+							&szpacket[10 + (tp - 1) * 5],
+							"%4X",
+							&nVal
 						);
 
-						// 비정상 값을 0으로 저장하지 않는다.
-						// 마지막 정상 온도값을 유지한다.
-						continue;
-					}
+						// 파싱 실패 시 기존 온도 유지
+						if (result != 1)
+						{
+							TRACE(_T("[TEMP] RACK%d Parse Failed\n"), tp);
+							continue;
+						}
 
-					// 정상 온도만 저장
-					lpInspWorkInfo->m_fTempReadVal[tp - 1] =
-						static_cast<float>(nVal) / 10.0f;
+						// 기존 프로그램의 유효 범위 유지: 10.0 ~ 100.0°C
+						if (nVal < 100 || nVal > 1000)
+						{
+							TRACE(
+								_T("[TEMP] RACK%d Invalid Raw=%u\n"),
+								tp,
+								nVal
+							);
+
+							// 비정상 값을 0으로 저장하지 않는다.
+							// 마지막 정상 온도값을 유지한다.
+							continue;
+						}
+
+						// 정상 온도만 저장
+						lpInspWorkInfo->m_fTempReadVal[tp - 1] =
+							static_cast<float>(nVal) / 10.0f;
+					}
 				}
 			}
-		}
 		}
 		else if (addr == TEMPST590_ADDR2) // 온도 컨트롤러일 때(ADDR - 2)
 		{
@@ -6038,46 +6067,46 @@ int CHseAgingDlg::Lf_getAlarmChannel(int layer, int ch)
 			retChannel = ch + 32 * (i * 8);
 		}
 	}
-// 
-// 	if (layer == LAYER_1)
-// 	{
-// 		if (ch < 8)
-// 			retChannel = ch;
-// 		else
-// 			retChannel = ch + 32;
-// 	}
-// 
-// 	if (layer == LAYER_2)
-// 	{
-// 		if (ch < 8)
-// 			retChannel = ch + 8;
-// 		else
-// 			retChannel = ch + 40;
-// 	}
-// 
-// 	if (layer == LAYER_3)
-// 	{
-// 		if (ch < 8)
-// 			retChannel = ch + 16;
-// 		else
-// 			retChannel = ch + 48;
-// 	}
-// 
-// 	if (layer == LAYER_4)
-// 	{
-// 		if (ch < 8)
-// 			retChannel = ch + 24;
-// 		else
-// 			retChannel = ch + 56;
-// 	}
-// 
-// 	if (layer == LAYER_5)
-// 	{
-// 		if (ch < 8)
-// 			retChannel = ch + 32;
-// 		else
-// 			retChannel = ch + 64;
-// 	}
+	// 
+	// 	if (layer == LAYER_1)
+	// 	{
+	// 		if (ch < 8)
+	// 			retChannel = ch;
+	// 		else
+	// 			retChannel = ch + 32;
+	// 	}
+	// 
+	// 	if (layer == LAYER_2)
+	// 	{
+	// 		if (ch < 8)
+	// 			retChannel = ch + 8;
+	// 		else
+	// 			retChannel = ch + 40;
+	// 	}
+	// 
+	// 	if (layer == LAYER_3)
+	// 	{
+	// 		if (ch < 8)
+	// 			retChannel = ch + 16;
+	// 		else
+	// 			retChannel = ch + 48;
+	// 	}
+	// 
+	// 	if (layer == LAYER_4)
+	// 	{
+	// 		if (ch < 8)
+	// 			retChannel = ch + 24;
+	// 		else
+	// 			retChannel = ch + 56;
+	// 	}
+	// 
+	// 	if (layer == LAYER_5)
+	// 	{
+	// 		if (ch < 8)
+	// 			retChannel = ch + 32;
+	// 		else
+	// 			retChannel = ch + 64;
+	// 	}
 
 	return retChannel + 1;
 }
@@ -6101,7 +6130,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 				{
 					if (lpInspWorkInfo->m_ast_AgingChErrorType[rack][layer][ch] == ERR_INFO_TEMP)
 					{
-						sLog.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack+1, layer+1, ch+1);
+						sLog.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack + 1, layer + 1, ch + 1);
 						Lf_writeRackMLog(rack, sLog);
 
 						rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
@@ -6114,7 +6143,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 						//limitAlarm.Append(sdata);
 						if (!tempErrorLogged[rack])
 						{
-							sdata.Format(_T("TEMP ERROR (RACK%d) [CODE = %d]"), rack+1, TEMP_ERROR);
+							sdata.Format(_T("TEMP ERROR (RACK%d) [CODE = %d]"), rack + 1, TEMP_ERROR);
 							limitAlarm.Append(sdata);
 							tempErrorLogged[rack] = true;
 						}
@@ -6148,7 +6177,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 				if (lpInspWorkInfo->m_PidTestError[rack] == true)
 					continue;
-				
+
 				//////////////////////////////////////////////////////////////////////////////////////////////////
 				// Power Limit 정보를 생성한다.
 				//rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
@@ -6376,7 +6405,7 @@ BOOL CHseAgingDlg::Lf_checkAgingIDLEMode()
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
 		if (lpInspWorkInfo->m_nAgingOperatingMode[rack] != AGING_IDLE)
-		{ 
+		{
 			sdata.Format(_T("'RACK-%d' is not IDLE mode. Please stop Aging !!"), rack + 1);
 			m_pApp->Gf_ShowMessageBox(sdata);
 			return FALSE;
@@ -6484,7 +6513,7 @@ void CHseAgingDlg::Lf_channelUseButtonShowHide(int rack)
 BOOL CHseAgingDlg::Lf_checkCableOpen(int rack)
 {
 	CString sLog, sdata, sMessage;
-	
+
 	// Cable Open Check 옵션이 OFF 되어있으면 TRUE Return 한다.
 	if (lpModelInfo->m_nFuncCableOpen == FALSE)
 		return TRUE;
@@ -6604,7 +6633,7 @@ void CHseAgingDlg::Lf_checkBcrRackIDInput()
 
 	//OnBnClickedBtnMaPidInput();
 
-		AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)Value-1, NULL);
+	AfxGetApp()->GetMainWnd()->SendMessage(WM_BCR_RACK_ID_INPUT, (WPARAM)Value - 1, NULL);
 }
 
 void CHseAgingDlg::Lf_writeSensingLog()
@@ -6694,91 +6723,91 @@ void CHseAgingDlg::Lf_writeSensingLog()
 			//}
 
 			//fclose(fp);
-	}
+		}
 
-	// 시간을 계산하여 Sensing Log Write Interval 시간이 되면 로그를 기록한다.
-	/*CTime time = CTime::GetCurrentTime();
-	int currenthour = time.GetHour();
-	int currentminute = time.GetMinute();*/
-	//if ((time.GetMinute() - m_nSensingLogWriteMin) < lpSystemInfo->m_nSensingLogInterval) // m_nSensingLogWriteMin : 현재시간, m_nSensingLogInterval : 설정시간
-	//{
-	//	return;
-	//}
-	//if (currenthour != m_nSensingLogWriteHour ||
-	//	(currentminute - m_nSensingLogWriteMin) >= lpSystemInfo->m_nSensingLogInterval)
-	//{
-	//	m_nSensingLogWriteHour = currenthour;
-	//	m_nSensingLogWriteMin = currentminute;
+		// 시간을 계산하여 Sensing Log Write Interval 시간이 되면 로그를 기록한다.
+		/*CTime time = CTime::GetCurrentTime();
+		int currenthour = time.GetHour();
+		int currentminute = time.GetMinute();*/
+		//if ((time.GetMinute() - m_nSensingLogWriteMin) < lpSystemInfo->m_nSensingLogInterval) // m_nSensingLogWriteMin : 현재시간, m_nSensingLogInterval : 설정시간
+		//{
+		//	return;
+		//}
+		//if (currenthour != m_nSensingLogWriteHour ||
+		//	(currentminute - m_nSensingLogWriteMin) >= lpSystemInfo->m_nSensingLogInterval)
+		//{
+		//	m_nSensingLogWriteHour = currenthour;
+		//	m_nSensingLogWriteMin = currentminute;
 
-	//	// Sensing Log 기록한다.
-	//	FILE* fp;
-	//	char filepath[128] = { 0 };
-	//	char buff[256] = { 0 };
-	//	char dataline[1024] = { 0 };
+		//	// Sensing Log 기록한다.
+		//	FILE* fp;
+		//	char filepath[128] = { 0 };
+		//	char buff[256] = { 0 };
+		//	char dataline[1024] = { 0 };
 
-	//	sprintf_s(filepath, "./Logs/SensingLog/SensingLog_%04d%02d%02d.csv", time.GetYear(), time.GetMonth(), time.GetDay());
-	//	fopen_s(&fp, filepath, "r+");
-	//	if (fp == NULL)
-	//	{
-	//		if ((_access("./Logs/SensingLog", 0)) == -1)
-	//			_mkdir("./Logs/SensingLog");
+		//	sprintf_s(filepath, "./Logs/SensingLog/SensingLog_%04d%02d%02d.csv", time.GetYear(), time.GetMonth(), time.GetDay());
+		//	fopen_s(&fp, filepath, "r+");
+		//	if (fp == NULL)
+		//	{
+		//		if ((_access("./Logs/SensingLog", 0)) == -1)
+		//			_mkdir("./Logs/SensingLog");
 
-	//		delayMs(1);
-	//		fopen_s(&fp, filepath, "a+");
-	//		if (fp == NULL)
-	//		{
-	//			if ((_access(filepath, 2)) != -1)
-	//			{
-	//				delayMs(1);
-	//				fopen_s(&fp, filepath, "a+");
-	//				if (fp == NULL)
-	//				{
-	//					return;
-	//				}
-	//			}
-	//		}
-	//		sprintf_s(buff, "TIME,RACK,LAYER,CH,PID,VCC,ICC,VBL,IBL,TEMP\n");
-	//		fprintf(fp, "%s", buff);
-	//	}
+		//		delayMs(1);
+		//		fopen_s(&fp, filepath, "a+");
+		//		if (fp == NULL)
+		//		{
+		//			if ((_access(filepath, 2)) != -1)
+		//			{
+		//				delayMs(1);
+		//				fopen_s(&fp, filepath, "a+");
+		//				if (fp == NULL)
+		//				{
+		//					return;
+		//				}
+		//			}
+		//		}
+		//		sprintf_s(buff, "TIME,RACK,LAYER,CH,PID,VCC,ICC,VBL,IBL,TEMP\n");
+		//		fprintf(fp, "%s", buff);
+		//	}
 
-	//	fseek(fp, 0L, SEEK_END);
+		//	fseek(fp, 0L, SEEK_END);
 
-	//	char timeKey[100] = { 0, };
-	//	char panelID[100] = { 0, };
-	//	sprintf_s(timeKey, "%02d:%02d:%02d", time.GetHour(), time.GetMinute(), time.GetSecond());
-	//	for (int rack = 0; rack < MAX_RACK; rack++)
-	//	{
-	//		for (int layer = 0; layer < MAX_LAYER; layer++)
-	//		{
-	//			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
-	//			{
-	//				sprintf_s(panelID, "%S", lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetString());
+		//	char timeKey[100] = { 0, };
+		//	char panelID[100] = { 0, };
+		//	sprintf_s(timeKey, "%02d:%02d:%02d", time.GetHour(), time.GetMinute(), time.GetSecond());
+		//	for (int rack = 0; rack < MAX_RACK; rack++)
+		//	{
+		//		for (int layer = 0; layer < MAX_LAYER; layer++)
+		//		{
+		//			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+		//			{
+		//				sprintf_s(panelID, "%S", lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetString());
 
-	//				sprintf_s(buff, "%s,%d,%d,%d,%s,%.2fV,%.2fA,%.2fV,%.2fV,%.1f",
-	//					timeKey,
-	//					rack + 1,
-	//					layer + 1,
-	//					ch + 1,
-	//					panelID,
-	//					(float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f,
-	//					(float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f,
-	//					(float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f,
-	//					(float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f,
-	//					(lpInspWorkInfo->m_fTempReadVal[rack])
-	//				);
+		//				sprintf_s(buff, "%s,%d,%d,%d,%s,%.2fV,%.2fA,%.2fV,%.2fV,%.1f",
+		//					timeKey,
+		//					rack + 1,
+		//					layer + 1,
+		//					ch + 1,
+		//					panelID,
+		//					(float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.0f,
+		//					(float)lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f,
+		//					(float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.0f,
+		//					(float)lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f,
+		//					(lpInspWorkInfo->m_fTempReadVal[rack])
+		//				);
 
-	//				char* pos = dataline;
-	//				sprintf_s(dataline, "%s\n", buff);
-	//				fprintf(fp, "%s", pos);
+		//				char* pos = dataline;
+		//				sprintf_s(dataline, "%s\n", buff);
+		//				fprintf(fp, "%s", pos);
 
-	//				// Summary 및 실처리 전송을 위한 Min/Max/Avg 값을 저장한다.
-	//				Lf_savePowerMeasureMinMax(rack, layer, ch);
-	//			}
-	//		}
-	//		lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = lpInspWorkInfo->m_nAgingPowerMeasCount[rack] + 1;
-	//	}
+		//				// Summary 및 실처리 전송을 위한 Min/Max/Avg 값을 저장한다.
+		//				Lf_savePowerMeasureMinMax(rack, layer, ch);
+		//			}
+		//		}
+		//		lpInspWorkInfo->m_nAgingPowerMeasCount[rack] = lpInspWorkInfo->m_nAgingPowerMeasCount[rack] + 1;
+		//	}
 
-	//	fclose(fp);
+		//	fclose(fp);
 	}
 }
 
@@ -6805,7 +6834,7 @@ void CHseAgingDlg::Lf_checkComplete5MinOver()
 			if (lpInspWorkInfo->m_bAlarmOccur != TRUE)
 			{
 				lpInspWorkInfo->m_bAlarmOccur = TRUE;
-				lpInspWorkInfo->m_sAlarmMessage.Format(_T("RACK[%d] AGING Completed %d minutes have passed."), rack+1, lpInspWorkInfo->m_nAgingEndWaitTime[rack]);
+				lpInspWorkInfo->m_sAlarmMessage.Format(_T("RACK[%d] AGING Completed %d minutes have passed."), rack + 1, lpInspWorkInfo->m_nAgingEndWaitTime[rack]);
 			}
 		}
 	}
@@ -6908,7 +6937,7 @@ void CHseAgingDlg::Lf_flickerCompleteRackNumber()
 	for (int rack = 0; rack < MAX_RACK; rack++)
 	{
 		//if (lpInspWorkInfo->m_nAgingOperatingMode[rack] == AGING_COMPLETE)
-		if(lpInspWorkInfo->m_nAgingStatusS[rack] == 1)
+		if (lpInspWorkInfo->m_nAgingStatusS[rack] == 1)
 		{
 			Lf_updateTowerLamp();
 			if (m_pSttRackNo[rack]->IsWindowVisible() == TRUE)
@@ -6974,7 +7003,7 @@ void CHseAgingDlg::OnBnClickedButtonDoor5()
 	//Lf_setDoorOnOff(RACK_5);
 	//Lf_setRecipeMake(1);
 	m_pApp->Gf_gmesSendHost(HOST_EWOQ, NULL, NULL, NULL);
-	
+
 }
 
 
@@ -7876,7 +7905,7 @@ void CHseAgingDlg::Lf_rmsErcpSet(int rack)
 
 	try
 	{
-		m_pApp->pCimNet->m_strUnitName.Format(_T("%02d"), rack+1);
+		m_pApp->pCimNet->m_strUnitName.Format(_T("%02d"), rack + 1);
 		// rack index는 0~5로 들어오는 구조
 		if (rack < 0 || rack >= MAX_RACK)
 		{

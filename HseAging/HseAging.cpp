@@ -34,15 +34,15 @@ CHseAgingApp::CHseAgingApp()
 	// InitInstance에 모든 중요한 초기화 작업을 배치합니다.
 	m_pApp = (CHseAgingApp*)AfxGetApp();
 
-	lpModelInfo		= new MODELINFO;
-	lpSystemInfo	= new SYSTEMINFO;
-	lpInspWorkInfo	= new INSPWORKINFO;
-	pCommand		= new CCommand();
-	pCimNet			= new CCimNetCommApi;
-	m_pTemp2xxx		= new CTemp2xxx;
+	lpModelInfo = new MODELINFO;
+	lpSystemInfo = new SYSTEMINFO;
+	lpInspWorkInfo = new INSPWORKINFO;
+	pCommand = new CCommand();
+	pCimNet = new CCimNetCommApi;
+	m_pTemp2xxx = new CTemp2xxx;
 
 
-	m_pUDPSocket	= new CUDPSocket();
+	m_pUDPSocket = new CUDPSocket();
 }
 
 
@@ -79,7 +79,7 @@ BOOL CHseAgingApp::InitInstance()
 
 	// 대화 상자에 셸 트리 뷰 또는
 	// 셸 목록 뷰 컨트롤이 포함되어 있는 경우 셸 관리자를 만듭니다.
-	CShellManager *pShellManager = new CShellManager;
+	CShellManager* pShellManager = new CShellManager;
 
 	// MFC 컨트롤의 테마를 사용하기 위해 "Windows 원형" 비주얼 관리자 활성화
 	CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerWindows));
@@ -334,6 +334,8 @@ void CHseAgingApp::Lf_InitGlobalVariable()
 	memset(lpInspWorkInfo->m_ast_AgingChOnOff, 0, sizeof(lpInspWorkInfo->m_ast_AgingChOnOff));
 	memset(lpInspWorkInfo->m_ast_ChUseUnuse, 0, sizeof(lpInspWorkInfo->m_ast_ChUseUnuse));
 	memset(lpInspWorkInfo->m_ast_CableOpenCheck, 0, sizeof(lpInspWorkInfo->m_ast_CableOpenCheck));
+	memset(lpInspWorkInfo->m_bCableMesBlocked, 0, sizeof(lpInspWorkInfo->m_bCableMesBlocked));
+	memset(lpInspWorkInfo->m_bCableCheckValid, 0, sizeof(lpInspWorkInfo->m_bCableCheckValid));
 	memset(lpInspWorkInfo->m_ast_AgingChErrorResult, 0, sizeof(lpInspWorkInfo->m_ast_AgingChErrorResult));
 	memset(lpInspWorkInfo->m_ast_AgingChErrorType, 0, sizeof(lpInspWorkInfo->m_ast_AgingChErrorType));
 	memset(lpInspWorkInfo->m_ast_AgingChErrorValue, 0, sizeof(lpInspWorkInfo->m_ast_AgingChErrorValue));
@@ -840,23 +842,57 @@ BOOL CHseAgingApp::procWaitRecvACK_DIO(int cmd, DWORD waitTime)
 	return FALSE;
 }
 
-BOOL CHseAgingApp::procParseCableOpenCheck(int rack, int layer, CString packet)
+// All AGN_IN/AGN_OUT paths must use this shared gate.
+BOOL CHseAgingApp::Gf_isCableMesBlocked(int rack, int layer, int ch)
 {
-	int retcode;
+	// Invalid channel must never be sent to MES.
+	if (rack < 0 || rack >= MAX_RACK ||
+		layer < 0 || layer >= MAX_LAYER ||
+		ch < 0 || ch >= MAX_LAYER_CHANNEL)
+		return TRUE;
 
-	retcode = _tcstol(packet.Mid(PACKET_PT_RET, 1), NULL, 16);
-
-	if (retcode == 0)
+	// A zero-initialized cable status means OK, so checking it alone is unsafe.
+	// Only a connected layer with a valid test response and an explicit OK
+	// may send AGN_IN/AGN_OUT. Keep the earlier NG/N/A history latched.
+	if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0 ||
+		lpInspWorkInfo->m_bCableCheckValid[rack][layer] == FALSE ||
+		lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] != CABLE_CHECK_OK)
 	{
-		int ptr = PACKET_PT_DATA;
-
-		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
-		{
-			int idx = ptr + ch;
-			lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] = _ttoi(packet.Mid(idx, 1));
-		}
+		lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = TRUE;
 	}
 
+	return lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch];
+}
+
+BOOL CHseAgingApp::procParseCableOpenCheck(int rack, int layer, CString packet)
+{
+	if (rack < 0 || rack >= MAX_RACK || layer < 0 || layer >= MAX_LAYER)
+		return FALSE;
+
+	lpInspWorkInfo->m_bCableCheckValid[rack][layer] = FALSE;
+
+	int retcode = _tcstol(packet.Mid(PACKET_PT_RET, 1), NULL, 16);
+	if (retcode != 0 || packet.GetLength() < PACKET_PT_DATA + MAX_LAYER_CHANNEL)
+		return FALSE;
+
+	// Reject invalid or incomplete results rather than treating them as zero/OK.
+	for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
+	{
+		CString code = packet.Mid(PACKET_PT_DATA + ch, 1);
+		if (code != _T("0") && code != _T("1"))
+			return FALSE;
+	}
+
+	for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
+	{
+		lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] =
+			(packet.GetAt(PACKET_PT_DATA + ch) == _T('1')) ? CABLE_CHECK_NG : CABLE_CHECK_OK;
+
+		if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] == CABLE_CHECK_NG)
+			lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = TRUE;
+	}
+
+	lpInspWorkInfo->m_bCableCheckValid[rack][layer] = TRUE;
 	return TRUE;
 }
 
@@ -927,9 +963,11 @@ BOOL CHseAgingApp::procParseAgingStatus(int rack, int layer, CString packet)
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
 			lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] = (nVal >> ch) & 0x0001;
+			if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] == CABLE_CHECK_NG)
+				lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = TRUE;
 		}
 
-		for(int i = 0; i < errCnt; i++)
+		for (int i = 0; i < errCnt; i++)
 		{
 			int errResult, errGroup, errCh, errValue;
 			sdata = packet.Mid(ptr, 1);		errResult = _ttoi(sdata);		ptr += 1;
@@ -1009,7 +1047,7 @@ BOOL CHseAgingApp::procParseMeasurePower(int rack, int layer, CString packet)
 		ptr = PACKET_PT_DATA;
 
 		CString debugStr;
-		
+
 
 		/********************************************************************************/
 		//전압전류
@@ -1236,13 +1274,13 @@ BOOL CHseAgingApp::udp_sendPacketUDPRack(int rack, int nCommand, int nSize, char
 {
 	BOOL bRet = TRUE;
 	CString ipaddr = _T("");
-	int baseip = (rack*MAX_LAYER) + 1;
+	int baseip = (rack * MAX_LAYER) + 1;
 
 	ZeroMemory(lpInspWorkInfo->m_nRecvACK_Rack[rack], sizeof(lpInspWorkInfo->m_nRecvACK_Rack[rack]));
 
 	for (int layer = 0; layer < MAX_LAYER; layer++)
 	{
-		if(lpInspWorkInfo->m_nMainEthConnect[rack][layer] != 0)
+		if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] != 0)
 			lpInspWorkInfo->m_nMainEthConnect[rack][layer]--;
 
 		ipaddr.Format(_T("192.168.10.%d"), (baseip + layer));
@@ -1327,11 +1365,11 @@ BOOL CHseAgingApp::udp_sendPacketUDPRack_Pid(int ChID, int rack, int nCommand, i
 		IpAddr = 4;
 	}
 
-		if (lpInspWorkInfo->m_nMainEthConnect[rack][IpAddr] != 0)
-			lpInspWorkInfo->m_nMainEthConnect[rack][IpAddr]--;
+	if (lpInspWorkInfo->m_nMainEthConnect[rack][IpAddr] != 0)
+		lpInspWorkInfo->m_nMainEthConnect[rack][IpAddr]--;
 
-		ipaddr.Format(_T("192.168.10.%d"), (baseip + IpAddr));
-		udp_sendPacketUDP(ipaddr, nCommand, nSize, pdata, NACK);
+	ipaddr.Format(_T("192.168.10.%d"), (baseip + IpAddr));
+	udp_sendPacketUDP(ipaddr, nCommand, nSize, pdata, NACK);
 
 	// ACK를 Check한다.
 	if (recvACK == ACK)
@@ -1387,8 +1425,8 @@ void CHseAgingApp::udp_processPacket(CString strPacket)
 	IPaddr = _ttoi(recvIP.Right(recvIP.GetLength() - recvIP.ReverseFind(_T('.')) - 1));
 	if (IPaddr == 0xFF)	return;
 
-	rack = (IPaddr-1) / MAX_LAYER;
-	layer = (IPaddr-1) % MAX_LAYER;
+	rack = (IPaddr - 1) / MAX_LAYER;
+	layer = (IPaddr - 1) % MAX_LAYER;
 
 	target = _tcstol(recvPacket.Mid(PACKET_PT_SOURCE, 2), NULL, 16);
 	cmd = _tcstol(recvPacket.Mid(PACKET_PT_CMD, 2), NULL, 16);
@@ -1401,108 +1439,108 @@ void CHseAgingApp::udp_processPacket(CString strPacket)
 	// Message 처리
 	switch (cmd)
 	{
-		case CMD_SET_CABLE_OPEN_CHECK:	// 0xA5
-		{
-			procParseCableOpenCheck(rack, layer, recvPacket);
-			break;
-		}
-		case CMD_GET_AGING_STATUS:		// 0xAB
-		{
-			procParseAgingStatus(rack, layer, recvPacket);
-			break;
-		}
-		case CMD_GET_POWER_MEASURE:		// 0xBD
-		{
-			procParseMeasurePower(rack, layer, recvPacket);
-			break;
-		}
-		case CMD_GET_FW_VERSION:		// 0xFE
-		{
-			procParseFWVersion(rack, layer, recvPacket);
-			break;
-		}
-		case CMD_GOTOBOOT_DSECTION:
-		{
-			procParseGotoBootSection(rack, layer, recvPacket);
-			break;
-		}
+	case CMD_SET_CABLE_OPEN_CHECK:	// 0xA5
+	{
+		procParseCableOpenCheck(rack, layer, recvPacket);
+		break;
+	}
+	case CMD_GET_AGING_STATUS:		// 0xAB
+	{
+		procParseAgingStatus(rack, layer, recvPacket);
+		break;
+	}
+	case CMD_GET_POWER_MEASURE:		// 0xBD
+	{
+		procParseMeasurePower(rack, layer, recvPacket);
+		break;
+	}
+	case CMD_GET_FW_VERSION:		// 0xFE
+	{
+		procParseFWVersion(rack, layer, recvPacket);
+		break;
+	}
+	case CMD_GOTOBOOT_DSECTION:
+	{
+		procParseGotoBootSection(rack, layer, recvPacket);
+		break;
+	}
 #if 0
-		case CMD_GET_CAL_ALL_POWER_MEASURE:
-		{
-			procParseMeasurePower(grp, ma, ch1, ch2, recvPacket);
-			break;
-		}
-		case CMD_SET_BMP_DONE_CHECK:
-		{
-			procParseDoneCheck(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_SRUN_STATUS_READ:
-		{
-			procParseSRunnerStatus(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_SRUN_DATA_WRITE:
-		{
-			procParseSRunnerWriteRet(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_SET_FUSINGSYSTEMINFO:
-		{
-			procParseFusingSystem(grp, ma, recvPacket);
-			break;
-		}
-		case  CMD_GET_TCON_ABD_RESULT:
-		{
-			procParseTconABDResult(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_GET_CAL_READ_ADC:
-		{
-			procParseCalibrationReadADC(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_SET_CAL_ERASE_DATA:
-		{
-			procParseCalibrationErase(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_SET_CAL_VOLTAGE:
-		{
-			procParseCalibrationVoltage(grp, ma, recvPacket);
-			break;
-		}
-		case CMD_SET_CAL_CURRENT:
-		{
-			procParseCalibrationCurrent(grp, ma, recvPacket);
-			break;
-		}
-		case  CMD_GET_PANEL_SYNC_MEASURE:
-		{
-			procParsePanelSyncMeasure(grp, ma, recvPacket);
-			break;
-		}
+	case CMD_GET_CAL_ALL_POWER_MEASURE:
+	{
+		procParseMeasurePower(grp, ma, ch1, ch2, recvPacket);
+		break;
+	}
+	case CMD_SET_BMP_DONE_CHECK:
+	{
+		procParseDoneCheck(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_SRUN_STATUS_READ:
+	{
+		procParseSRunnerStatus(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_SRUN_DATA_WRITE:
+	{
+		procParseSRunnerWriteRet(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_SET_FUSINGSYSTEMINFO:
+	{
+		procParseFusingSystem(grp, ma, recvPacket);
+		break;
+	}
+	case  CMD_GET_TCON_ABD_RESULT:
+	{
+		procParseTconABDResult(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_GET_CAL_READ_ADC:
+	{
+		procParseCalibrationReadADC(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_SET_CAL_ERASE_DATA:
+	{
+		procParseCalibrationErase(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_SET_CAL_VOLTAGE:
+	{
+		procParseCalibrationVoltage(grp, ma, recvPacket);
+		break;
+	}
+	case CMD_SET_CAL_CURRENT:
+	{
+		procParseCalibrationCurrent(grp, ma, recvPacket);
+		break;
+	}
+	case  CMD_GET_PANEL_SYNC_MEASURE:
+	{
+		procParsePanelSyncMeasure(grp, ma, recvPacket);
+		break;
+	}
 
-		case CMD_GET_FPGA_VERSION:
-		{
-			procParseFpgaVersion(grp, ma, recvPacket);
-			break;
-		}
+	case CMD_GET_FPGA_VERSION:
+	{
+		procParseFpgaVersion(grp, ma, recvPacket);
+		break;
+	}
 
-		case CMD_TIME_OUT:
-		{
-			m_nAckCmd = cmd;
-			lpWorkInfo->m_nRecvCmdACK[ma] = FALSE;
-			if (grp == GROUP_A) { m_nAckCmd_A = cmd;		lpWorkInfo->m_nRecvACK_A[ma] = FALSE; }
-			else if (grp == GROUP_B) { m_nAckCmd_B = cmd;		lpWorkInfo->m_nRecvACK_B[ma] = FALSE; }
-			else if (grp == GROUP_C) { m_nAckCmd_C = cmd;		lpWorkInfo->m_nRecvACK_C[ma] = FALSE; }
-			else if (grp == GROUP_D) { m_nAckCmd_D = cmd;		lpWorkInfo->m_nRecvACK_D[ma] = FALSE; }
-			else if (grp == GROUP_E) { m_nAckCmd_E = cmd;		lpWorkInfo->m_nRecvACK_E[ma] = FALSE; }
-			else if (grp == GROUP_F) { m_nAckCmd_F = cmd;		lpWorkInfo->m_nRecvACK_F[ma] = FALSE; }
-			else if (grp == GROUP_G) { m_nAckCmd_G = cmd;		lpWorkInfo->m_nRecvACK_G[ma] = FALSE; }
-			else if (grp == GROUP_H) { m_nAckCmd_H = cmd;		lpWorkInfo->m_nRecvACK_H[ma] = FALSE; }
-			return;
-		}
+	case CMD_TIME_OUT:
+	{
+		m_nAckCmd = cmd;
+		lpWorkInfo->m_nRecvCmdACK[ma] = FALSE;
+		if (grp == GROUP_A) { m_nAckCmd_A = cmd;		lpWorkInfo->m_nRecvACK_A[ma] = FALSE; }
+		else if (grp == GROUP_B) { m_nAckCmd_B = cmd;		lpWorkInfo->m_nRecvACK_B[ma] = FALSE; }
+		else if (grp == GROUP_C) { m_nAckCmd_C = cmd;		lpWorkInfo->m_nRecvACK_C[ma] = FALSE; }
+		else if (grp == GROUP_D) { m_nAckCmd_D = cmd;		lpWorkInfo->m_nRecvACK_D[ma] = FALSE; }
+		else if (grp == GROUP_E) { m_nAckCmd_E = cmd;		lpWorkInfo->m_nRecvACK_E[ma] = FALSE; }
+		else if (grp == GROUP_F) { m_nAckCmd_F = cmd;		lpWorkInfo->m_nRecvACK_F[ma] = FALSE; }
+		else if (grp == GROUP_G) { m_nAckCmd_G = cmd;		lpWorkInfo->m_nRecvACK_G[ma] = FALSE; }
+		else if (grp == GROUP_H) { m_nAckCmd_H = cmd;		lpWorkInfo->m_nRecvACK_H[ma] = FALSE; }
+		return;
+	}
 #endif
 	}
 
@@ -1535,7 +1573,7 @@ void CHseAgingApp::procDioParseInputRead(CString packet)
 	{
 		for (int i = 0; i < 10; i++)
 		{
-			int ptr = (PACKET_PT_DATA+1) + i;
+			int ptr = (PACKET_PT_DATA + 1) + i;
 			lpInspWorkInfo->m_nDioInputData[i] = _ttoi(packet.Mid(ptr, 1));
 		}
 	}
@@ -1591,30 +1629,30 @@ void CHseAgingApp::udp_processDioPacket(CString strPacket)
 	// Message 처리
 	switch (cmd)
 	{
-		case CMD_DIO_OUTPUT:		// LAMP Set
-		{
-			break;
-		}
-		case CMD_DIO_BOARD_INITIAL:	// DIO Board Initial 응답
-		{
-			procDioParseBoardInitial(recvPacket);
-			break;
-		}
-		case CMD_DIO_INPUT:			// DIO Read
-		{
-			procDioParseInputRead(recvPacket);
-			break;
-		}
-		case CMD_GET_FW_VERSION:
-		{
-			procDioParseFWVersion(recvPacket);
-			break;
-		}
-		case CMD_GOTOBOOT_DSECTION:
-		{
-			procDioParseGotoBootSection(recvPacket);
-			break;
-		}
+	case CMD_DIO_OUTPUT:		// LAMP Set
+	{
+		break;
+	}
+	case CMD_DIO_BOARD_INITIAL:	// DIO Board Initial 응답
+	{
+		procDioParseBoardInitial(recvPacket);
+		break;
+	}
+	case CMD_DIO_INPUT:			// DIO Read
+	{
+		procDioParseInputRead(recvPacket);
+		break;
+	}
+	case CMD_GET_FW_VERSION:
+	{
+		procDioParseFWVersion(recvPacket);
+		break;
+	}
+	case CMD_GOTOBOOT_DSECTION:
+	{
+		procDioParseGotoBootSection(recvPacket);
+		break;
+	}
 	}
 	// ============================================================
 	// DIO ACK Receive
@@ -1720,9 +1758,9 @@ void CHseAgingApp::Gf_LoadSystemData()
 	Read_SysIniFile(_T("RMS"), _T("RMS_LOCAL_SUBJECT"), &lpSystemInfo->m_sRmsLocalSubject);
 	Read_SysIniFile(_T("RMS"), _T("RMS_REMOTE_SUBJECT"), &lpSystemInfo->m_sRmsRemoteSubject);
 	Read_SysIniFile(_T("RMS"), _T("RMS_EQP"), &lpSystemInfo->m_sRmsEqp);
-	
+
 	Read_SysIniFile(_T("SW_VERSION"), _T("SW_VERSION"), &lpSystemInfo->m_SwVersion);
-	
+
 	Read_SysIniFile(_T("COUNT"), _T("AGING_COUNT"), &lpSystemInfo->m_Aging_Count);
 	Read_SysIniFile(_T("COUNT"), _T("AGING_NG_COUNT"), &lpSystemInfo->m_Aging_Ng_Count);
 	Read_SysIniFile(_T("COUNT"), _T("AGING_MONTH_COUNT"), &lpSystemInfo->m_Aging_Month_Count);
@@ -2472,13 +2510,79 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		fprintf(fp, "%s", buff);
 	}
 
-	if (m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE].IsEmpty())
+	// ============================================================
+	// 2026-10-13: Summary must reflect actual MES processing.
+	// PID EMPTY or CABLE NG/N/A => RESULT blank; other failures => NG.
+	// Preserve any existing Power/Temp failed message from Summary.ini.
+	// ============================================================
+	CString mesFail;
+	CString currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
+	currentPid.Trim();
+
+	if (currentPid.IsEmpty())
 	{
-		sResult.Format(_T("OK"));
+		mesFail = _T("PID EMPTY (AGN_IN/AGN_OUT NOT SENT)");
 	}
+	else
+	{
+		// Read the latched cable result, not the live Ethernet state:
+		// the power may already be OFF when SummaryLog is generated.
+		if (lpInspWorkInfo->m_bCableMesBlocked[rack][layer][channel] == TRUE)
+			mesFail = _T("CABLE CHECK NG/N/A");
+
+		if (lpInspWorkInfo->m_sAgnInOkPid[rack][layer][channel] != currentPid)
+		{
+			if (!mesFail.IsEmpty()) mesFail += _T(" | ");
+			mesFail += _T("AGN_IN NOT OK");
+		}
+
+		if (lpInspWorkInfo->m_sAgnOutOkPid[rack][layer][channel] != currentPid)
+		{
+			if (!mesFail.IsEmpty()) mesFail += _T(" | ");
+			mesFail += _T("AGN_OUT NOT OK");
+		}
+	}
+
+	CString& failMessage = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE];
+	CString& failTime = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE_TIME];
+
+	if (!mesFail.IsEmpty())
+	{
+		// Existing error is kept. New MES reason is appended once.
+		if (failMessage.Find(mesFail) < 0)
+		{
+			if (!failMessage.IsEmpty()) failMessage += _T(" | ");
+			failMessage += mesFail;
+		}
+
+		// No earlier error time: use the Summary decision time.
+		if (failTime.IsEmpty())
+			failTime = time.Format(_T("%Y%m%d %H:%M:%S"));
+
+		CString log;
+		log.Format(_T("<SUMMARY> R%d-L%d-C%d MES: %s"),
+			rack + 1, layer + 1, channel + 1, mesFail.GetString());
+		Gf_writeMLog(log);
+	}
+
+	// PID EMPTY or CABLE CHECK NG/N/A channels are excluded from production
+	// yield. Keep the cause in FAILED_MESSAGE, but leave RESULT empty and
+	// do not count them as NG (even when earlier equipment errors exist).
+	// Use the latched Cable Check result rather than the live connection state:
+	// the equipment may have been powered off before SummaryLog is written.
+	const BOOL bExcludedFromCount = currentPid.IsEmpty() ||
+		(lpInspWorkInfo->m_bCableMesBlocked[rack][layer][channel] == TRUE);
+
+	if (bExcludedFromCount)
+		sResult.Empty();
+	else if (failMessage.IsEmpty())
+		sResult = _T("OK");
+	else
+		sResult = _T("NG");
+
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_RESULT] = sResult;
 
-	if (sResult == "NG")
+	if (sResult == _T("NG"))
 	{
 		lpSystemInfo->m_Aging_Ng_Count++;
 		lpSystemInfo->m_Aging_Month_Ng_Count++;
@@ -2529,7 +2633,7 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MIN].GetBuffer(0),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_MAX].GetBuffer(0),
 		m_summaryInfo[rack][layer][channel].m_sumData[SUM_IBL_AVG].GetBuffer(0)
-		);
+	);
 
 	fseek(fp, 0L, SEEK_END);
 	fprintf(fp, "%s", buff);
@@ -2561,7 +2665,7 @@ void CHseAgingApp::Gf_sumWriteSummaryLog_Rack(int rack, int layer, int ch, CTime
 	sprintf_s(filePath, "%s\\Summary%d_%s.csv", rackDir, rack + 1, dateStr);
 
 	FILE* fpRack;
-	
+
 	bool isNewFile = (_access(filePath, 0) == -1);
 
 	fopen_s(&fpRack, filePath, "a+");   // ★ append 모드 매우 중요 ★
@@ -2582,42 +2686,42 @@ void CHseAgingApp::Gf_sumWriteSummaryLog_Rack(int rack, int layer, int ch, CTime
 			"AGING_IBL_MIN,AGING_IBL_MAX,AGING_IBL_AVG\n");
 	}
 
-		fprintf(fpRack, "%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S",
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_SW_VER].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_FW_VER].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MODEL].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_EQP_NAME].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_PID].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_RACK].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_LAYER].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_CHANNEL].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_USER_ID].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_AGING_TIME].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_END_TIME].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_RESULT].GetBuffer(0),
-			FailMessage.GetBuffer(),
-			FailTime.GetBuffer(),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_VCC].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_ICC].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_VBL].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_IBL].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_MIN].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_MAX].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_AVG].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_MIN].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_MAX].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_AVG].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_MIN].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_MAX].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_AVG].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_MIN].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_MAX].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_AVG].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_MIN].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_MAX].GetBuffer(0),
-			m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_AVG].GetBuffer(0)
-		);
+	fprintf(fpRack, "%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S,%S",
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_SW_VER].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_FW_VER].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_MODEL].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_EQP_NAME].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_PID].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_RACK].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_LAYER].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_CHANNEL].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_USER_ID].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_AGING_TIME].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_END_TIME].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_RESULT].GetBuffer(0),
+		FailMessage.GetBuffer(),
+		FailTime.GetBuffer(),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_VCC].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_ICC].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_VBL].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_MEAS_IBL].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_MIN].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_MAX].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_TEMP_AVG].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_MIN].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_MAX].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_VCC_AVG].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_MIN].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_MAX].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_ICC_AVG].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_MIN].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_MAX].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_VBL_AVG].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_MIN].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_MAX].GetBuffer(0),
+		m_summaryInfo[rack][layer][ch].m_sumData[SUM_IBL_AVG].GetBuffer(0)
+	);
 	//}
 	// 데이터 라인 추가
 	fprintf(fpRack, "%s\n", Buff);
@@ -2640,7 +2744,7 @@ void CHseAgingApp::Gf_sumInitSummaryInfo(int rack)
 				m_summaryInfo[rack][layer][ch].m_sumData[sumIndex].Empty();
 			}
 
-			skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack+1,  layer+1, ch+1);
+			skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
 			Write_SummaryInfo(_T("PID"), skey, _T(""));
 			Write_SummaryInfo(_T("AGING_TIME"), skey, _T(""));
 			Write_SummaryInfo(_T("START_TIME"), skey, _T(""));
@@ -3282,6 +3386,20 @@ BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 	}
 
 
+	// Cable Check NG / N/A / Comm NG is an interlock even when PID exists or Admin is logged in.
+	if (hostCMD == HOST_AGN_IN || hostCMD == HOST_AGN_OUT)
+	{
+		if (Gf_isCableMesBlocked(rack, layer, ch) == TRUE)
+		{
+			CString blockLog;
+			blockLog.Format(_T("<MES> %s BLOCK (Cable Check NG/N/A/Comm NG) - R%d-L%d-C%d"),
+				(hostCMD == HOST_AGN_IN) ? _T("AGN_IN") : _T("AGN_OUT"),
+				rack + 1, layer + 1, ch + 1);
+			Gf_writeMLog(blockLog);
+			return FALSE; // Not sent; must not be reported as MES OK
+		}
+	}
+
 	// 기존 Admin의 MES/EAS Bypass는 유지
 	// 단, RMS Command는 실제로 전송 가능하도록 한다.
 	if (m_pApp->m_bUserIdAdmin == TRUE &&
@@ -3587,8 +3705,11 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
 			nRtnCD = pCimNet->AGN_IN();
 
-			if (nRtnCD == 0)
+			if (nRtnCD == RTN_OK)
 			{
+				// Store ACK only after a real AGN_IN success from the MES server.
+				lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch] =
+					lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
 				sdata.Format(_T("[MES] CH%02d AGN_IN OK"), displayChNo);
 				pMain->Lf_writeRackMLog(rack, sdata);
 			}
@@ -3618,10 +3739,13 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
 			nRtnCD = pCimNet->AGN_OUT();
 
-			
 
-			if (nRtnCD == 0)
+
+			if (nRtnCD == RTN_OK)
 			{
+				// Store ACK only after a real AGN_OUT success from the MES server.
+				lpInspWorkInfo->m_sAgnOutOkPid[rack][layer][ch] =
+					lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
 				sdata.Format(_T("[MES] CH%02d AGN_OUT OK"), displayChNo);
 				pMain->Lf_writeRackMLog(rack, sdata);
 			}

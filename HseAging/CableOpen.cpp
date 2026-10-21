@@ -70,7 +70,7 @@ BOOL CCableOpen::OnInitDialog()
 	//PostMessage(WM_CLOSE);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
-				  // 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
+	// 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
 }
 
 
@@ -104,12 +104,12 @@ BOOL CCableOpen::PreTranslateMessage(MSG* pMsg)
 	{
 		switch (pMsg->wParam)
 		{
-			case VK_ESCAPE:
-				return 1;
-			case VK_RETURN:
-				return 1;
-			case VK_SPACE:
-				return 1;
+		case VK_ESCAPE:
+			return 1;
+		case VK_RETURN:
+			return 1;
+		case VK_SPACE:
+			return 1;
 		}
 	}
 
@@ -124,134 +124,134 @@ HBRUSH CCableOpen::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	// TODO:  여기서 DC의 특성을 변경합니다.
 	switch (nCtlColor)
 	{
-		case CTLCOLOR_MSGBOX:
-			break;
-		case CTLCOLOR_EDIT:
-			break;
-		case CTLCOLOR_LISTBOX:
-			break;
-		case CTLCOLOR_SCROLLBAR:
-			break;
-		case CTLCOLOR_BTN:
-			break;
-		case CTLCOLOR_STATIC:		// Static, CheckBox control
-			if (pWnd->GetDlgCtrlID() == IDC_STATIC)
+	case CTLCOLOR_MSGBOX:
+		break;
+	case CTLCOLOR_EDIT:
+		break;
+	case CTLCOLOR_LISTBOX:
+		break;
+	case CTLCOLOR_SCROLLBAR:
+		break;
+	case CTLCOLOR_BTN:
+		break;
+	case CTLCOLOR_STATIC:		// Static, CheckBox control
+		if (pWnd->GetDlgCtrlID() == IDC_STATIC)
+		{
+			pDC->SetBkColor(COLOR_SKYBLUE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_SKYBLUE];
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_CO_TITLE)
+		{
+			pDC->SetBkColor(COLOR_DARK_NAVY);
+			pDC->SetTextColor(COLOR_WHITE);
+			return m_Brush[COLOR_IDX_DARK_NAVY];
+		}
+		if ((pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH16)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH1)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH2)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH3)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH4)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH5)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH6)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH7)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH8)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH9)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH10)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH11)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH12)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH13)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH14)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH15)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH16)
+			)
+		{
+			CString strResult;
+			GetDlgItem(pWnd->GetDlgCtrlID())->GetWindowText(strResult);
+			if (strResult == _T("OK"))
 			{
-				pDC->SetBkColor(COLOR_SKYBLUE);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_SKYBLUE];
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_CO_TITLE)
-			{
-				pDC->SetBkColor(COLOR_DARK_NAVY);
+				pDC->SetBkColor(COLOR_GREEN128);
 				pDC->SetTextColor(COLOR_WHITE);
-				return m_Brush[COLOR_IDX_DARK_NAVY];
+				return m_Brush[COLOR_IDX_GREEN128];
 			}
-			if ((pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER1_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER2_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER3_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER4_CH16)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH1)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH2)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH3)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH4)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH5)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH6)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH7)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH8)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH9)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH10)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH11)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH12)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH13)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH14)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH15)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_CO_LAYER5_CH16)
-				)
+			else if (strResult == _T("NG"))
 			{
-				CString strResult;
-				GetDlgItem(pWnd->GetDlgCtrlID())->GetWindowText(strResult);
-				if (strResult == _T("OK"))
-				{
-					pDC->SetBkColor(COLOR_GREEN128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GREEN128];
-				}
-				else if (strResult == _T("NG"))
-				{
-					pDC->SetBkColor(COLOR_RED128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_RED128];
-				}
-				else
-				{
-					pDC->SetBkColor(COLOR_GRAY128);
-					pDC->SetTextColor(COLOR_WHITE);
-					return m_Brush[COLOR_IDX_GRAY128];
-				}
-
+				pDC->SetBkColor(COLOR_RED128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_RED128];
 			}
-			break;
+			else
+			{
+				pDC->SetBkColor(COLOR_GRAY128);
+				pDC->SetTextColor(COLOR_WHITE);
+				return m_Brush[COLOR_IDX_GRAY128];
+			}
+
+		}
+		break;
 	}
 	// TODO:  기본값이 적당하지 않으면 다른 브러시를 반환합니다.
 	return hbr;
@@ -261,8 +261,8 @@ HBRUSH CCableOpen::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 void CCableOpen::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: 여기에 메시지 처리기 코드를 추가합니다.
-					   // 그리기 메시지에 대해서는 CDialog::OnPaint()을(를) 호출하지 마십시오.
+	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+	// 그리기 메시지에 대해서는 CDialog::OnPaint()을(를) 호출하지 마십시오.
 
 	CRect rect, rectOri;
 	GetClientRect(&rect);
@@ -285,7 +285,7 @@ void CCableOpen::OnTimer(UINT_PTR nIDEvent)
 		KillTimer(1);
 
 		// Cable Open Check 결과 값을 기준으로 Use/Unuse 채널 정보와 매칭검사 한다.
-		if(m_pApp->pCommand->Gf_getCableOpenCheck(m_nRackNo) == TRUE)
+		if (m_pApp->pCommand->Gf_getCableOpenCheck(m_nRackNo) == TRUE)
 		{
 			Lf_updateCableOpenResult();
 		}
@@ -518,12 +518,17 @@ void CCableOpen::Lf_updateCableOpenResult()
 				m_pSttCableOpen[layer][ch]->SetWindowText(_T("Unuse"));
 				sLog.Format(_T("<TEST> RACK[%d] LAYER[%d] CH[%d] Cable Check : SKIP (Channel Unuse)\r\n"), m_nRackNo + 1, layer + 1, ch + 1);
 			}
+			else if (lpInspWorkInfo->m_bCableCheckValid[m_nRackNo][layer] == FALSE)
+			{
+				m_pSttCableOpen[layer][ch]->SetWindowText(_T("Comm NG"));
+				sLog.Format(_T("<TEST> RACK[%d] LAYER[%d] CH[%d] Cable Check : Comm NG (No valid response)\r\n"), m_nRackNo + 1, layer + 1, ch + 1);
+			}
 			else if (lpInspWorkInfo->m_ast_CableOpenCheck[m_nRackNo][layer][ch] == CABLE_CHECK_OK)
 			{
 				m_pSttCableOpen[layer][ch]->SetWindowText(_T("OK"));
 				sLog.Format(_T("<TEST> RACK[%d] LAYER[%d] CH[%d] Cable Check : OK\r\n"), m_nRackNo + 1, layer + 1, ch + 1);
 			}
-			else if(lpInspWorkInfo->m_ast_CableOpenCheck[m_nRackNo][layer][ch] == CABLE_CHECK_NG)
+			else if (lpInspWorkInfo->m_ast_CableOpenCheck[m_nRackNo][layer][ch] == CABLE_CHECK_NG)
 			{
 				m_pSttCableOpen[layer][ch]->SetWindowText(_T("NG"));
 				sLog.Format(_T("<TEST> RACK[%d] LAYER[%d] CH[%d] Cable Check : NG\r\n"), m_nRackNo + 1, layer + 1, ch + 1);

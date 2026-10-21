@@ -1588,64 +1588,64 @@ void CPidInput::OnBnClickedBtnPiSaveExit()
 		// ===========================
 		// ✅ 저장 전 검증 (체크된 것만, 비어있으면 OK, 값 있으면 14만)
 		// ===========================
-		for (int layer = 0; layer < MAX_LAYER; layer++)
+	for (int layer = 0; layer < MAX_LAYER; layer++)
+	{
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
+			// 체크된 채널만 검사
+			if (m_pChkChannelUse[layer][ch]->GetCheck() == BST_CHECKED)
 			{
-				// 체크된 채널만 검사
-				if (m_pChkChannelUse[layer][ch]->GetCheck() == BST_CHECKED)
+				CString pid;
+				m_pedtPannelID[layer][ch]->GetWindowText(pid);
+				pid.Trim(); // 앞뒤 공백 제거
+
+				// 비어있으면 OK, 값이 있으면 길이 14만 허용
+				if (!pid.IsEmpty() && pid.GetLength() != 14)
 				{
-					CString pid;
-					m_pedtPannelID[layer][ch]->GetWindowText(pid);
-					pid.Trim(); // 앞뒤 공백 제거
+					CString msg;
+					msg.Format(_T("PID length must be 14.\r\n(LAYER %d, CH %d)\r\nCurrent: [%s]"),
+						layer + 1, ch + 1, pid);
 
-					// 비어있으면 OK, 값이 있으면 길이 14만 허용
-					if (!pid.IsEmpty() && pid.GetLength() != 14)
-					{
-						CString msg;
-						msg.Format(_T("PID length must be 14.\r\n(LAYER %d, CH %d)\r\nCurrent: [%s]"),
-							layer + 1, ch + 1, pid);
+					AfxMessageBox(msg, MB_ICONWARNING);
 
-						AfxMessageBox(msg, MB_ICONWARNING);
+					// 문제난 Edit로 이동 + 전체 선택
+					m_pedtPannelID[layer][ch]->SetFocus();
+					m_pedtPannelID[layer][ch]->SetSel(0, -1);
 
-						// 문제난 Edit로 이동 + 전체 선택
-						m_pedtPannelID[layer][ch]->SetFocus();
-						m_pedtPannelID[layer][ch]->SetSel(0, -1);
-
-						return; // ✅ 저장 중단
-					}
+					return; // ✅ 저장 중단
 				}
 			}
 		}
+	}
 
-		// ===========================
-		// ✅ 여기부터 기존 저장 로직 그대로
-		// ===========================
-		CString sSection, sKey, sValue;
-		sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
+	// ===========================
+	// ✅ 여기부터 기존 저장 로직 그대로
+	// ===========================
+	CString sSection, sKey, sValue;
+	sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
 
-		GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
+	GetDlgItem(IDC_EDT_PI_RACK_ID)->GetWindowText(sValue);
 
-		lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
-		sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
-		Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
+	lpInspWorkInfo->m_sRackID[m_nSelRack] = sValue;
+	sKey.Format(_T("RACK%d_BCR_ID"), m_nSelRack + 1);
+	Write_SysIniFile(_T("SYSTEM"), sKey, sValue);
 
-		for (int layer = 0; layer < MAX_LAYER; layer++)
+	for (int layer = 0; layer < MAX_LAYER; layer++)
+	{
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
-			{
-				sKey.Format(_T("RACK%d_LAYER%d_CH%d_USE"), m_nSelRack + 1, layer + 1, ch + 1);
-				lpInspWorkInfo->m_bMesChannelUse[m_nSelRack][layer][ch] = m_pChkChannelUse[layer][ch]->GetCheck();
-				sValue.Format(_T("%d"), m_pChkChannelUse[layer][ch]->GetCheck());
-				Write_MesPIDInfo(sSection, sKey, sValue);
+			sKey.Format(_T("RACK%d_LAYER%d_CH%d_USE"), m_nSelRack + 1, layer + 1, ch + 1);
+			lpInspWorkInfo->m_bMesChannelUse[m_nSelRack][layer][ch] = m_pChkChannelUse[layer][ch]->GetCheck();
+			sValue.Format(_T("%d"), m_pChkChannelUse[layer][ch]->GetCheck());
+			Write_MesPIDInfo(sSection, sKey, sValue);
 
-				sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
-				m_pedtPannelID[layer][ch]->GetWindowText(sValue);
-				lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch] = sValue;
-				Write_MesPIDInfo(sSection, sKey, sValue);
-			}
+			sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
+			m_pedtPannelID[layer][ch]->GetWindowText(sValue);
+			lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch] = sValue;
+			Write_MesPIDInfo(sSection, sKey, sValue);
 		}
-	
+	}
+
 }
 
 void CPidInput::OnBnClickedBtnPiSaveExit_B()
@@ -2729,6 +2729,18 @@ BOOL CPidInput::Lf_setExecuteMesAGNIN() // AGN_IN
 			if (lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch].IsEmpty() == TRUE)
 				continue;
 
+			// Cable Check NG channels must not generate AGN_IN requests.
+			if (m_pApp->Gf_isCableMesBlocked(m_nSelRack, layer, ch))
+			{
+				sdata.Format(_T("<MES> AGN_IN SKIP (Cable Check NG/N/A/Comm NG) - R%d-L%d-C%d PID=%s"),
+					m_nSelRack + 1, layer + 1, ch + 1,
+					lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch].GetString());
+				m_pApp->Gf_writeMLog(sdata);
+				Lf_addMessage(sdata);
+				continue;
+			}
+
+
 
 
 			sdata.Format(_T("Rack%d-Layer%d-Ch%d  PID:%s"), m_nSelRack + 1, layer + 1, ch + 1, lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch]);
@@ -2827,6 +2839,18 @@ BOOL CPidInput::Lf_setExecuteMesAGNOUT() // AGN_OUT
 			if (lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch].IsEmpty() == TRUE)
 				continue;
 
+			// Cable Check NG channels must not generate AGN_OUT requests.
+			if (m_pApp->Gf_isCableMesBlocked(m_nSelRack, layer, ch))
+			{
+				sdata.Format(_T("<MES> AGN_OUT SKIP (Cable Check NG/N/A/Comm NG) - R%d-L%d-C%d PID=%s"),
+					m_nSelRack + 1, layer + 1, ch + 1,
+					lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch].GetString());
+				m_pApp->Gf_writeMLog(sdata);
+				Lf_addMessage(sdata);
+				continue;
+			}
+
+
 			sdata.Format(_T("Rack%d-Layer%d-Ch%d PID=%s"), m_nSelRack + 1, layer + 1, ch + 1, lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch]);
 			if (m_pApp->Gf_gmesSendHost(HOST_AGN_OUT, m_nSelRack, layer, ch) == TRUE)
 			{
@@ -2899,7 +2923,7 @@ void CPidInput::Lf_checkBcrRackChIDInput(CString RackID, CString ChID)
 		m_pedtPannelID[row][col]->SetFocus();
 	}
 	else
-	{ 
+	{
 		TRACE(_T("Focus Error: ChID=%s → chNumber=%d → row=%d, col=%d\n"), ChID, chNumber, row, col);
 	}
 }
@@ -3072,7 +3096,7 @@ void CPidInput::OnBnClickedMbcPiLcmOn() // LCM 점등 ON 버튼
 	}
 	else
 	{
-		m_pApp->pCommand->Gf_setPowerSequenceOnOff(RackNo-1, POWER_ON);
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(RackNo - 1, POWER_ON);
 	}
 }
 
@@ -3090,9 +3114,9 @@ void CPidInput::OnBnClickedMbcPiLcmOff() // LCM 점등 OFF 버튼
 	}
 	else
 	{
-		m_pApp->pCommand->Gf_setPowerSequenceOnOff(RackNo-1, POWER_OFF);
+		m_pApp->pCommand->Gf_setPowerSequenceOnOff(RackNo - 1, POWER_OFF);
 	}
-	
+
 }
 
 BOOL CPidInput::HandlePIDScan()

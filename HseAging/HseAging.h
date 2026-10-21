@@ -5,7 +5,7 @@
 #pragma once
 
 #ifndef __AFXWIN_H__
-	#error "PCH에 대해 이 파일을 포함하기 전에 'pch.h'를 포함합니다."
+#error "PCH에 대해 이 파일을 포함하기 전에 'pch.h'를 포함합니다."
 #endif
 
 #include "resource.h"		// 주 기호입니다.
@@ -22,26 +22,26 @@ class CHseAgingApp : public CWinApp
 public:
 	CHseAgingApp();
 
-// 재정의입니다.
+	// 재정의입니다.
 public:
 	virtual BOOL InitInstance();
 
-// 구현입니다.
+	// 구현입니다.
 
 	DECLARE_MESSAGE_MAP()
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
 public:
 	LPMODELINFO				GetModelInfo();
 	LPSYSTEMINFO			GetSystemInfo();
 	LPINSPWORKINFO			GetInspWorkInfo();
 
-	CUDPSocket*			m_pUDPSocket;
-	CCommand*			pCommand;
+	CUDPSocket* m_pUDPSocket;
+	CCommand* pCommand;
 	SUMMARYINFO			m_summaryInfo[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
-	CCimNetCommApi*		pCimNet;
-	CTemp2xxx*			m_pTemp2xxx;
+	CCimNetCommApi* pCimNet;
+	CTemp2xxx* m_pTemp2xxx;
 
 	void Gf_SoftwareStartLog();
 	void Gf_writeMLog(CString sLogData);
@@ -70,6 +70,7 @@ public:
 	BOOL procWaitRecvACK_DIO(int cmd, DWORD waitTime);
 	BOOL procParseMeasurePower(int rack, int layer, CString packet);
 	BOOL procParseCableOpenCheck(int rack, int layer, CString packet);
+	BOOL Gf_isCableMesBlocked(int rack, int layer, int ch);
 	BOOL procParseAgingStatus(int rack, int layer, CString packet);
 	BOOL procParseFWVersion(int rack, int layer, CString packet);
 	BOOL procParseGotoBootSection(int rack, int layer, CString packet);
@@ -170,8 +171,8 @@ protected:
 	void Lf_initCreateFolder();
 
 
-/////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
 
 };
 

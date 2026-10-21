@@ -189,10 +189,10 @@ typedef struct _ST_MODELINFO_
 
 	CString m_sPanelIDCode;
 
-}MODELINFO, *LPMODELINFO;
+}MODELINFO, * LPMODELINFO;
 
 
-typedef struct _ST_SYSTEMINFO_{
+typedef struct _ST_SYSTEMINFO_ {
 	// STATION 정보 설정 //
 	CString m_sChamberNo;
 	CString m_sEqpName;
@@ -249,7 +249,7 @@ typedef struct _ST_SYSTEMINFO_{
 	// FALSE : MACHINE=W4AMAL02HV
 	int m_nErcpMachineFullName;
 
-}SYSTEMINFO, *LPSYSTEMINFO;
+}SYSTEMINFO, * LPSYSTEMINFO;
 
 
 typedef struct _ST_INSPWORKINFO_
@@ -351,6 +351,14 @@ typedef struct _ST_INSPWORKINFO_
 	BOOL m_ast_AgingChOnOff[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	BOOL m_ast_ChUseUnuse[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	BOOL m_ast_CableOpenCheck[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
+	// 1.3.9_B Cable Check NG: this aging run blocks AGN_IN/AGN_OUT per channel
+	BOOL m_bCableMesBlocked[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
+	// TRUE only if this layer returned a valid Cable Open Check (0xA5) result.
+	BOOL m_bCableCheckValid[MAX_RACK][MAX_LAYER];
+	// MES host RTN_OK confirmation, bound to the exact PID on this channel.
+	// Empty means AGN_IN / AGN_OUT was never confirmed for the current product.
+	CString m_sAgnInOkPid[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
+	CString m_sAgnOutOkPid[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	BOOL m_ast_AgingChErrorResult[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	BOOL m_ast_AgingChErrorType[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
 	int  m_ast_AgingChErrorValue[MAX_RACK][MAX_LAYER][MAX_LAYER_CHANNEL];
