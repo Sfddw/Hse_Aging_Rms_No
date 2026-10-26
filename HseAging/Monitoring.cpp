@@ -1033,7 +1033,8 @@ void CMonitoring::Lf_InitFontset()
 
 	m_Font[4].CreateFont(19, 8, 0, 0, FW_BOLD, TRUE, 0, 0, 0, 0, 0, 0, 0, DEFAULT_FONT);
 
-	m_Font[5].CreateFont(16, 7, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, DEFAULT_FONT);
+	/*m_Font[5].CreateFont(16, 7, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, DEFAULT_FONT);*/
+	m_Font[5].CreateFont(13, 5, 0, 0, FW_BOLD, 0, 0, 0, 0, 0, 0, 0, 0, DEFAULT_FONT);
 	GetDlgItem(IDC_LST_MT_RACK1)->SetFont(&m_Font[5]);
 	GetDlgItem(IDC_LST_MT_RACK2)->SetFont(&m_Font[5]);
 	GetDlgItem(IDC_LST_MT_RACK3)->SetFont(&m_Font[5]);
@@ -1144,20 +1145,22 @@ void CMonitoring::Lf_updatePowerMeasValue()
 				if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == FALSE)
 				{
 					// Ethernet 연결이 끊어지면 0으로 표시한다.
-					pListControl[rack]->SetItemText(i, 1, _T("0.00"));
-					pListControl[rack]->SetItemText(i, 2, _T("0.00"));
-					pListControl[rack]->SetItemText(i, 3, _T("0"));
-					pListControl[rack]->SetItemText(i, 4, _T("0"));
+					pListControl[rack]->SetItemText(i, 1, _T("0.000"));
+					pListControl[rack]->SetItemText(i, 2, _T("0.000"));
+					pListControl[rack]->SetItemText(i, 3, _T("0.000"));
+					pListControl[rack]->SetItemText(i, 4, _T("0.000"));
 				}
 				else
 				{
-					sdata.Format(_T("%.2f"), (float)((float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.f));
+					sdata.Format(_T("%.3f"), (float)((float)lpInspWorkInfo->m_nMeasVCC[rack][layer][ch] / 100.f));
 					pListControl[rack]->SetItemText(i, 1, sdata);
-					sdata.Format(_T("%.2f"), (float)((float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.f));
+					sdata.Format(_T("%.3f"), (float)((float)lpInspWorkInfo->m_nMeasVBL[rack][layer][ch] / 100.f));
 					pListControl[rack]->SetItemText(i, 2, sdata);
-					sdata.Format(_T("%d"), (lpInspWorkInfo->m_nMeasICC[rack][layer][ch] * 10));
+					/*sdata.Format(_T("%d"), (lpInspWorkInfo->m_nMeasICC[rack][layer][ch] * 10));*/
+					sdata.Format(_T("%.3f"), lpInspWorkInfo->m_nMeasICC[rack][layer][ch] / 100.0f);
 					pListControl[rack]->SetItemText(i, 3, sdata);
-					sdata.Format(_T("%d"), (lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] * 10));
+					//sdata.Format(_T("%d"), (lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] * 10));
+					sdata.Format(_T("%.3f"), lpInspWorkInfo->m_nMeasIBL[rack][layer][ch] / 100.0f);
 					pListControl[rack]->SetItemText(i, 4, sdata);
 
 					// Limit NG 발생한 위치에는 Limit NG 당시의 Value 값을 표시한다.
