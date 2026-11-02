@@ -2511,9 +2511,8 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	}
 
 	// ============================================================
-	// 2026-10-13: Summary must reflect actual MES processing.
-	// PID EMPTY or CABLE NG/N/A => RESULT blank; other failures => NG.
-	// Preserve any existing Power/Temp failed message from Summary.ini.
+	// 2026-10-13: 실제 MES 처리 내용 반영 요청
+	// PID가 비어 있거나 케이블이 NG 또는 N/A인 경우 -> 결과는 공ㅂ개으로 표시하고, 기타 오류는 NG로 표시
 	// ============================================================
 	CString mesFail;
 	CString currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
@@ -2565,10 +2564,9 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		Gf_writeMLog(log);
 	}
 
-	// PID EMPTY or CABLE CHECK NG/N/A channels are excluded from production
-	// yield. Keep the cause in FAILED_MESSAGE, but leave RESULT empty and
-	// do not count them as NG (even when earlier equipment errors exist).
-	// Use the latched Cable Check result rather than the live connection state:
+	// PID가 비어있거나 케이블 점검 결과가 NG, N/A인 채널은 제외
+	// FAILED_MESSAGE에는 실패 원인을 유지하고 RESULT는 공백처리 (이는 NG로 간주하지 않음)
+	// 실제 연결 상태 대신 고정된 케이블 점검 결과 사용
 	// the equipment may have been powered off before SummaryLog is written.
 	const BOOL bExcludedFromCount = currentPid.IsEmpty() ||
 		(lpInspWorkInfo->m_bCableMesBlocked[rack][layer][channel] == TRUE);
@@ -3397,6 +3395,24 @@ BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 				rack + 1, layer + 1, ch + 1);
 			Gf_writeMLog(blockLog);
 			return FALSE; // Not sent; must not be reported as MES OK
+		}
+	}
+
+	// Defense-in-depth: no duplicate AGN_IN for a PID already accepted by MES.
+	// The channel-level Cable Check gate above must still take precedence.
+	if (hostCMD == HOST_AGN_IN)
+	{
+		CString currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+		CString confirmedPid = lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch];
+		currentPid.Trim();
+		confirmedPid.Trim();
+		if (!currentPid.IsEmpty() && confirmedPid == currentPid)
+		{
+			CString skipLog;
+			skipLog.Format(_T("<MES> AGN_IN SKIP (Previously confirmed OK, host gate) - R%d-L%d-C%d PID=%s"),
+				rack + 1, layer + 1, ch + 1, currentPid.GetString());
+			Gf_writeMLog(skipLog);
+			return TRUE; // Prior confirmed ACK; no new AGN_IN is sent.
 		}
 	}
 

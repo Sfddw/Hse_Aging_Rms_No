@@ -2743,6 +2743,21 @@ BOOL CPidInput::Lf_setExecuteMesAGNIN() // AGN_IN
 
 
 
+			// Aging CONTINUE: this exact PID already received AGN_IN_R OK.
+			// Do not send a duplicate AGN_IN; MES may reply ALREADY for a valid product.
+			CString currentPid = lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch];
+			CString confirmedPid = lpInspWorkInfo->m_sAgnInOkPid[m_nSelRack][layer][ch];
+			currentPid.Trim();
+			confirmedPid.Trim();
+			if (!currentPid.IsEmpty() && confirmedPid == currentPid)
+			{
+				sLog.Format(_T("<MES> AGN_IN SKIP (Previously confirmed OK) - R%d-L%d-C%d PID=%s"),
+					m_nSelRack + 1, layer + 1, ch + 1, currentPid.GetString());
+				m_pApp->Gf_writeMLog(sLog);
+				Lf_addMessage(sLog);
+				continue;
+			}
+
 			sdata.Format(_T("Rack%d-Layer%d-Ch%d  PID:%s"), m_nSelRack + 1, layer + 1, ch + 1, lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch]);
 			if (m_pApp->Gf_gmesSendHost(HOST_AGN_IN, m_nSelRack, layer, ch) == TRUE)
 				//if (m_pApp->Gf_gmesSendHost(HOST_PCHK, m_nSelRack, layer, ch) == TRUE)
