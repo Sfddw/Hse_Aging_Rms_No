@@ -4585,28 +4585,110 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 		return;
 	}
 
-	// On a new aging run, reset only this rack's previous MES block history.
-	// On CONTINUE, retain NG history from earlier segments of the same run.
+	{
+		CString contLog;
+		contLog.Format(_T("[SUMMARY TIME] AGING START R%d continue=%d lastTimeout=%d"),
+			rack + 1, bAgingContinue, (int)lpSystemInfo->m_sLastTimeOut[rack]);
+		m_pApp->Gf_writeMLog(contLog);
+	}
+	// [142B-FIX] Reset Summary.ini only for a confirmed NEW Aging run.
+	// During CONTINUE, retain FIRST_AGN_IN_PID/TIME, START_TIME, previous
+	// AGN_IN state and FAIL_MESSAGE until PID-by-PID recovery has run.
+	// This reset is deliberately after a successful Cable Check: if START
+	// is cancelled/aborted, previously saved CONTINUE information survives.
+	if (bAgingContinue == FALSE)
+	{
+		m_pApp->Gf_sumInitSummaryInfo(rack);
+		CString resetLog;
+		resetLog.Format(_T("[AGN_IN RECOVERY] NEW START SUMMARY RESET R%d"), rack + 1);
+		m_pApp->Gf_writeMLog(resetLog);
+	}
+
+	// On CONTINUE, preserve the AGN_IN ACK and FIRST_AGN_IN_TIME for
+	// existing products, but re-evaluate cable eligibility after THIS START's
+	// Cable Check.  An old NG must not permanently block a channel that has
+	// been reconnected and explicitly confirmed OK.
 	for (int layer = 0; layer < MAX_LAYER; ++layer)
 	{
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
 		{
 			if (bAgingContinue == FALSE)
 			{
-				lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = FALSE;
+				// Fresh run: clear prior START/END timestamps.
+				// CONTINUE must preserve the original per-PID first AGN_IN time.
+				m_pApp->Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, _T(""));
+				m_pApp->Gf_sumSetSummaryInfo(rack, layer, ch, SUM_END_TIME, _T(""));
+				CString startKey;
+				startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+				Write_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, _T(""));
+				Write_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, _T(""));
+				Write_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), startKey, _T(""));
+
 				// Reset per-product MES ACK only for a NEW Aging run.
 				// CONTINUE must preserve the prior AGN_IN confirmation.
 				lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch].Empty();
 				lpInspWorkInfo->m_sAgnOutOkPid[rack][layer][ch].Empty();
 			}
-
-			// Only an explicit OK returned by a connected layer is valid.
-			// N/C, failed/missing response and NG remain blocked for this aging run.
-			if (lpInspWorkInfo->m_nMainEthConnect[rack][layer] == 0 ||
-				lpInspWorkInfo->m_bCableCheckValid[rack][layer] == FALSE ||
-				lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] != CABLE_CHECK_OK)
+			else
 			{
-				lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = TRUE;
+				// 1.4.2B fix: m_sAgnInOkPid is memory-only and disappears
+				// when the application restarts. Restore it ONLY for an
+				// operator-confirmed Aging CONTINUE and an exact saved PID.
+				CString resumeKey, savedPid, savedTime, currentPid;
+				resumeKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), resumeKey, &savedPid);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), resumeKey, &savedTime);
+				currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+				currentPid.Trim();
+				savedPid.Trim();
+				savedTime.Trim();
+
+				if (!currentPid.IsEmpty() && savedPid == currentPid &&
+					savedTime.GetLength() == 17) // YYYYMMDD HH:MM:SS
+				{
+					lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch] = currentPid;
+					m_pApp->Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, savedTime);
+					// This authorization is only for the CURRENT confirmed CONTINUE.
+					// It is cleared on fresh START and Aging completion.
+					Write_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), resumeKey, currentPid);
+
+					CString recoveryLog;
+					recoveryLog.Format(_T("[AGN_IN RECOVERY] CONTINUE RESTORED R%d-L%d-C%d PID=%s FIRST_START=%s"),
+						rack + 1, layer + 1, ch + 1, currentPid.GetString(), savedTime.GetString());
+					m_pApp->Gf_writeMLog(recoveryLog);
+				}
+				else
+				{
+					// New/unconfirmed PID in this slot: it must send its own AGN_IN.
+					Write_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), resumeKey, _T(""));
+					if (!currentPid.IsEmpty())
+					{
+						CString recoveryLog;
+						recoveryLog.Format(_T("[AGN_IN RECOVERY] CONTINUE NOT RESTORED R%d-L%d-C%d PID=%s SAVED_PID=%s SAVED_TIME=%s"),
+							rack + 1, layer + 1, ch + 1, currentPid.GetString(), savedPid.GetString(), savedTime.GetString());
+						m_pApp->Gf_writeMLog(recoveryLog);
+					}
+				}
+			}
+
+			// Recheck is authoritative only when this layer responded and says OK.
+			// N/C, missing/failed check, or NG must remain blocked.
+			const BOOL bCableOK =
+				(lpInspWorkInfo->m_nMainEthConnect[rack][layer] != 0 &&
+					lpInspWorkInfo->m_bCableCheckValid[rack][layer] == TRUE &&
+					lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] == CABLE_CHECK_OK);
+			lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = !bCableOK;
+
+			CString pid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+			pid.Trim();
+			if (!pid.IsEmpty())
+			{
+				CString cableLog;
+				cableLog.Format(_T("[CABLE START GATE] R%d-L%d-C%d CONTINUE=%d Cable=%s PID=%s"),
+					rack + 1, layer + 1, ch + 1, bAgingContinue,
+					bCableOK ? _T("OK (MES ALLOWED)") : _T("NG/N/A (MES BLOCKED)"),
+					pid.GetString());
+				m_pApp->Gf_writeMLog(cableLog);
 			}
 		}
 	}
@@ -4885,7 +4967,16 @@ void CHseAgingDlg::Lf_setAgingFUSING(int rack)
 
 	m_nAgnOutFlag[rack] = FALSE;
 
-	m_pApp->Gf_sumInitSummaryInfo(rack); // summary.ini 초기화
+	// [142B-FIX] Do NOT clear Summary.ini during FUSING.
+	// After an application restart, the operator may FUSE and then select
+	// AGING CONTINUE.  FIRST_AGN_IN_PID/TIME must remain available until
+	// Lf_setAgingSTART() knows whether this is a fresh run or CONTINUE.
+	// The previous unconditional reset here erased the AGN_IN ACK proof.
+	{
+		CString resumeLog;
+		resumeLog.Format(_T("[AGN_IN RECOVERY] FUSING PRESERVED SUMMARY R%d (reset deferred to NEW AGING START)"), rack + 1);
+		m_pApp->Gf_writeMLog(resumeLog);
+	}
 
 	//UpdateAllRackCurModelIni();
 
@@ -5404,7 +5495,17 @@ void CHseAgingDlg::Lf_readSummaryIni(int rack)
 			skey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, (ch + 1));
 			Read_SummaryInfo(_T("PID"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_PID]);
 			Read_SummaryInfo(_T("AGING_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_AGING_TIME]);
-			Read_SummaryInfo(_T("START_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME]);
+			// Preserve the first successful AGN_IN timestamp for the same current PID.
+			CString startStamp, startPid, earliestStamp, currentPid;
+			Read_SummaryInfo(_T("START_TIME"), skey, &startStamp);
+			Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), skey, &startPid);
+			Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), skey, &earliestStamp);
+			currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+			currentPid.Trim(); startPid.Trim(); earliestStamp.Trim();
+			if (!currentPid.IsEmpty() && startPid == currentPid && !earliestStamp.IsEmpty())
+				startStamp = earliestStamp;
+			if (!startStamp.IsEmpty())
+				m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME] = startStamp;
 			Read_SummaryInfo(_T("END_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_END_TIME]);
 			Read_SummaryInfo(_T("FAIL_MESSAGE"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_FAILED_MESSAGE]);
 			Read_SummaryInfo(_T("FAIL_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_FAILED_MESSAGE_TIME]);

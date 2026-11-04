@@ -888,8 +888,25 @@ BOOL CHseAgingApp::procParseCableOpenCheck(int rack, int layer, CString packet)
 		lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] =
 			(packet.GetAt(PACKET_PT_DATA + ch) == _T('1')) ? CABLE_CHECK_NG : CABLE_CHECK_OK;
 
-		if (lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] == CABLE_CHECK_NG)
-			lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = TRUE;
+		// 2026-11-02: The latest VALID Cable Check result supersedes the
+		// previous Cable Check NG history for this channel.
+		// OK -> allow MES again; NG -> keep MES blocked.
+		// Invalid / missing responses never reach this code.
+		const BOOL wasBlocked = lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch];
+		const BOOL isBlocked =
+			(lpInspWorkInfo->m_ast_CableOpenCheck[rack][layer][ch] != CABLE_CHECK_OK);
+		lpInspWorkInfo->m_bCableMesBlocked[rack][layer][ch] = isBlocked;
+
+		if (wasBlocked != isBlocked)
+		{
+			CString log;
+			log.Format(_T("[CABLE RECHECK] R%d-L%d-C%d %s -> %s PID=%s"),
+				rack + 1, layer + 1, ch + 1,
+				wasBlocked ? _T("BLOCKED") : _T("ALLOWED"),
+				isBlocked ? _T("BLOCKED") : _T("ALLOWED"),
+				lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetString());
+			Gf_writeMLog(log);
+		}
 	}
 
 	lpInspWorkInfo->m_bCableCheckValid[rack][layer] = TRUE;
@@ -2391,6 +2408,22 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		_mkdir(".\\Logs\\SummaryLog");
 
 	sprintf_s(filepath, ".\\Logs\\SummaryLog\\Summary_%04d%02d%02d.csv", time.GetYear(), time.GetMonth(), time.GetDay());
+	// Do not mix old 35-column CSV rows with the current 34-column format.
+	// If the daily file was already created with the old STOP_TIME column,
+	// write a separate no-stop CSV for the remainder of that day.
+	{
+		FILE* existing = nullptr;
+		fopen_s(&existing, filepath, "r");
+		if (existing != nullptr)
+		{
+			char header[2048] = { 0 };
+			fgets(header, sizeof(header), existing);
+			fclose(existing);
+			if (strstr(header, ",STOP_TIME,") != nullptr)
+				sprintf_s(filepath, ".\\Logs\\SummaryLog\\Summary_%04d%02d%02d_NoStopTime.csv",
+					time.GetYear(), time.GetMonth(), time.GetDay());
+		}
+	}
 	fopen_s(&fp, filepath, "r+");
 	if (fp == NULL)
 	{
@@ -2504,9 +2537,29 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	}
 
 
+	CString startKey, startPid, persistedFirstStart;
+	startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, channel + 1);
+	Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, &startPid);
+	Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, &persistedFirstStart);
+	startPid.Trim(); persistedFirstStart.Trim();
+	CString csvPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
+	csvPid.Trim();
+	if (!csvPid.IsEmpty() && startPid == csvPid && !persistedFirstStart.IsEmpty())
+	{
+		// Resolve a missing/overwritten START_TIME without touching RESULT or MES ACK state.
+		Gf_sumSetSummaryInfo(rack, layer, channel, SUM_START_TIME, persistedFirstStart);
+	}
+	else if (!csvPid.IsEmpty() && m_summaryInfo[rack][layer][channel].m_sumData[SUM_START_TIME].IsEmpty())
+	{
+		CString warn;
+		warn.Format(_T("[SUMMARY TIME] START_TIME MISSING at CSV R%d-L%d-C%d PID=%s"),
+			rack + 1, layer + 1, channel + 1, csvPid.GetString());
+		Gf_writeMLog(warn);
+	}
+
 	if (bNewCsv == TRUE)
 	{
-		sprintf_s(buff, "SW_VER,FW_VER,MODEL,EQP_NAME,PID,RACK,LAYER,CHANNEL,USER_ID,AGING_TIME,START_TIME,END_TIME,RESULT,FAILED_MESSAGE,FAILED_MESSAGE_TIME,VCC,ICC,VBL,IBL,AGING_TEMP_MIN,AGING_TEMP_MAX,AGING_TEMP_AVG,AGING_VCC_MIN,AGING_VCC_MAX,AGING_VCC_AVG,AGING_ICC_MIN,AGING_ICC_MAX,AGING_ICC_AVG,AGING_VBL_MIN,AGING_VBL_MAX,AGING_VBL_AVG,AGING_IBL_MIN,AGING_IBL_MAX,AGING_IBL_AVG\n");
+		sprintf_s(buff, "SW_VER,FW_VER,MODEL,EQP_NAME,PID,RACK,LAYER,CHANNEL,USER_ID,AGING_TIME,INITIAL START TIME,END_TIME,RESULT,FAILED_MESSAGE,FAILED_MESSAGE_TIME,VCC,ICC,VBL,IBL,AGING_TEMP_MIN,AGING_TEMP_MAX,AGING_TEMP_AVG,AGING_VCC_MIN,AGING_VCC_MAX,AGING_VCC_AVG,AGING_ICC_MIN,AGING_ICC_MAX,AGING_ICC_AVG,AGING_VBL_MIN,AGING_VBL_MAX,AGING_VBL_AVG,AGING_IBL_MIN,AGING_IBL_MAX,AGING_IBL_AVG\n");
 		fprintf(fp, "%s", buff);
 	}
 
@@ -2661,6 +2714,20 @@ void CHseAgingApp::Gf_sumWriteSummaryLog_Rack(int rack, int layer, int ch, CTime
 
 	char filePath[256];
 	sprintf_s(filePath, "%s\\Summary%d_%s.csv", rackDir, rack + 1, dateStr);
+	// Keep the previous 35-column rack file intact; write 34-column
+	// records to a separate CSV if that day's original file has STOP_TIME.
+	{
+		FILE* existing = nullptr;
+		fopen_s(&existing, filePath, "r");
+		if (existing != nullptr)
+		{
+			char header[2048] = { 0 };
+			fgets(header, sizeof(header), existing);
+			fclose(existing);
+			if (strstr(header, ",STOP_TIME,") != nullptr)
+				sprintf_s(filePath, "%s\\Summary%d_%s_NoStopTime.csv", rackDir, rack + 1, dateStr);
+		}
+	}
 
 	FILE* fpRack;
 
@@ -2747,6 +2814,10 @@ void CHseAgingApp::Gf_sumInitSummaryInfo(int rack)
 			Write_SummaryInfo(_T("AGING_TIME"), skey, _T(""));
 			Write_SummaryInfo(_T("START_TIME"), skey, _T(""));
 			Write_SummaryInfo(_T("END_TIME"), skey, _T(""));
+			// Ended/cleared runs must not authorize future AGN_IN skips.
+			Write_SummaryInfo(_T("FIRST_AGN_IN_PID"), skey, _T(""));
+			Write_SummaryInfo(_T("FIRST_AGN_IN_TIME"), skey, _T(""));
+			Write_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), skey, _T(""));
 			Write_SummaryInfo(_T("AGN_IN_COMPLETE"), skey, _T(""));
 			Write_SummaryInfo(_T("FAIL_MESSAGE"), skey, _T(""));
 			Write_SummaryInfo(_T("FAIL_TIME"), skey, _T(""));
@@ -2788,7 +2859,8 @@ void CHseAgingApp::Gf_sumSetStartTime(int rack)
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
 			Gf_sumSetSummaryInfo(rack, layer, ch, SUM_AGING_TIME, agingTime);
-			Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, startTime);
+			// START_TIME must be recorded only by the first AGN_IN_R OK.
+			// Do not overwrite it on RUNNING / CONTINUE.
 		}
 	}
 }
@@ -3412,6 +3484,22 @@ BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 			skipLog.Format(_T("<MES> AGN_IN SKIP (Previously confirmed OK, host gate) - R%d-L%d-C%d PID=%s"),
 				rack + 1, layer + 1, ch + 1, currentPid.GetString());
 			Gf_writeMLog(skipLog);
+			CString startKey, savedPid, savedTime;
+			startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+			Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, &savedPid);
+			Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, &savedTime);
+			savedPid.Trim(); savedTime.Trim();
+			if (savedPid == currentPid && !savedTime.IsEmpty())
+			{
+				Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, savedTime);
+			}
+			else if (m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME].IsEmpty())
+			{
+				CString warn;
+				warn.Format(_T("[SUMMARY TIME] FIRST START UNKNOWN on AGN_IN SKIP R%d-L%d-C%d PID=%s"),
+					rack + 1, layer + 1, ch + 1, currentPid.GetString());
+				Gf_writeMLog(warn);
+			}
 			return TRUE; // Prior confirmed ACK; no new AGN_IN is sent.
 		}
 	}
@@ -3721,11 +3809,83 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
 			nRtnCD = pCimNet->AGN_IN();
 
+			// Recovery fallback: accept MES-3403 ALREADY only when this
+			// exact PID had a PREVIOUS successful AGN_IN and was verified
+			// in the current operator-confirmed CONTINUE session.
+			// An arbitrary ALREADY from another station remains NG.
+			if (nRtnCD != RTN_OK && nRtnCD != RTN_MSG_NOT_SEND &&
+				nRtnCD != RTN_RCV_TIMEOUT)
+			{
+				CString hostResponse = pCimNet->GetHostRecvMessage();
+				CString acceptedPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+				CString key, savedPid, savedTime, resumeProofPid, mesPanelToken;
+				acceptedPid.Trim();
+				key.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), key, &savedPid);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), key, &savedTime);
+				Read_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), key, &resumeProofPid);
+				savedPid.Trim();
+				savedTime.Trim();
+				resumeProofPid.Trim();
+				mesPanelToken.Format(_T("Panel(%s)"), acceptedPid.GetString());
+
+				// [142B-FIX] A response for a DIFFERENT panel (or station)
+				// is not proof of this channel's AGN_IN success.
+				if (hostResponse.Find(_T("ERR_CD=MES-3403")) >= 0 &&
+					hostResponse.Find(mesPanelToken) < 0)
+				{
+					CString mismatchLog;
+					mismatchLog.Format(_T("[MES RESPONSE MISMATCH] AGN_IN R%d-L%d-C%d REQUEST_PID=%s : ALREADY references a different PID; preserve NG"),
+						rack + 1, layer + 1, ch + 1, acceptedPid.GetString());
+					Gf_writeMLog(mismatchLog);
+				}
+
+				if (!acceptedPid.IsEmpty() &&
+					hostResponse.Find(_T("ERR_CD=MES-3403")) >= 0 &&
+					hostResponse.Find(mesPanelToken) >= 0 &&
+					savedPid == acceptedPid &&
+					resumeProofPid == acceptedPid &&
+					savedTime.GetLength() == 17)
+				{
+					CString recoveryLog;
+					recoveryLog.Format(_T("[AGN_IN RECOVERY] VERIFIED ALREADY R%d-L%d-C%d PID=%s FIRST_START=%s"),
+						rack + 1, layer + 1, ch + 1, acceptedPid.GetString(), savedTime.GetString());
+					Gf_writeMLog(recoveryLog);
+					// Treat ONLY this validated duplicate as successful.
+					nRtnCD = RTN_OK;
+				}
+			}
+
 			if (nRtnCD == RTN_OK)
 			{
 				// Store ACK only after a real AGN_IN success from the MES server.
 				lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch] =
 					lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+
+				// AGN_IN_R OK: store the FIRST successful timestamp for this exact PID.
+				// A separate INI section survives Summary START_TIME being accidentally cleared.
+				CString startKey, acceptedPid, savedPid, savedTime;
+				startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+				acceptedPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+				acceptedPid.Trim();
+				Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, &savedPid);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, &savedTime);
+				savedPid.Trim(); savedTime.Trim();
+				if (!acceptedPid.IsEmpty())
+				{
+					if (savedPid != acceptedPid || savedTime.IsEmpty())
+					{
+						savedTime = CTime::GetCurrentTime().Format(_T("%Y%m%d %H:%M:%S"));
+						Write_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, acceptedPid);
+						Write_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, savedTime);
+					}
+					Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, savedTime);
+					CString timeLog;
+					timeLog.Format(_T("[SUMMARY TIME] AGN_IN OK R%d-L%d-C%d PID=%s FIRST_START=%s"),
+						rack + 1, layer + 1, ch + 1, acceptedPid.GetString(), savedTime.GetString());
+					Gf_writeMLog(timeLog);
+				}
+
 				sdata.Format(_T("[MES] CH%02d AGN_IN OK"), displayChNo);
 				pMain->Lf_writeRackMLog(rack, sdata);
 			}
@@ -3755,7 +3915,21 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
 			nRtnCD = pCimNet->AGN_OUT();
 
-
+			// [142B-FIX] Diagnose stale/unrelated MES responses.  In the
+			// reported test an AGN_OUT request was answered with an AGN_IN_R
+			// for a different PID and station.  Do not convert such NG to OK.
+			if (nRtnCD != RTN_OK)
+			{
+				CString outResponse = pCimNet->GetHostRecvMessage();
+				if (outResponse.Find(_T("AGN_IN_R")) >= 0)
+				{
+					CString mismatchLog;
+					mismatchLog.Format(_T("[MES RESPONSE MISMATCH] AGN_OUT R%d-L%d-C%d PID=%s : received AGN_IN_R instead of AGN_OUT_R; check MES DLL/server"),
+						rack + 1, layer + 1, ch + 1,
+						lpInspWorkInfo->m_sMesPanelID[rack][layer][ch].GetString());
+					Gf_writeMLog(mismatchLog);
+				}
+			}
 
 			if (nRtnCD == RTN_OK)
 			{
