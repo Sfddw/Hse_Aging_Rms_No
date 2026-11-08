@@ -4548,10 +4548,58 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 
 	m_pApp->pCimNet->r_strmodelName = sModelName;
 
-	/*if (lpSystemInfo->m_sLastTimeOut[rack] != 0 && lpSystemInfo->m_sLastTimeOut[rack] <= 240)*/
-	if (lpSystemInfo->m_sLastTimeOut[rack] != 0 && lpInspWorkInfo->m_nAgingSetTime[rack] >= lpSystemInfo->m_sLastTimeOut[rack])
+	// [1.4.2_C / 0-MINUTE AGN_IN RECOVERY]
+	// LAST_TIMEOUT is a whole-minute value, so a panel can already have
+	// AGN_IN OK while LAST_TIMEOUT remains zero.  Check the persisted
+	// per-channel ACK evidence BEFORE treating this as a new aging job.
+	int nSavedAgnInOkPidCount = 0;
+	for (int layer = 0; layer < MAX_LAYER; ++layer)
 	{
-		msg_dlg.m_strQMessage.Format(_T("Aging Continue ? [%d]Minute"), lpSystemInfo->m_sLastTimeOut[rack]);
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
+		{
+			CString key, currentPid, savedPid, savedTime;
+			key.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+			currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+			Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), key, &savedPid);
+			Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), key, &savedTime);
+			currentPid.Trim();
+			savedPid.Trim();
+			savedTime.Trim();
+			if (!currentPid.IsEmpty() && savedPid == currentPid &&
+				savedTime.GetLength() == 17) // YYYYMMDD HH:MM:SS
+			{
+				++nSavedAgnInOkPidCount;
+			}
+		}
+	}
+
+	const BOOL bTimeBasedContinue =
+		(lpSystemInfo->m_sLastTimeOut[rack] > 0 &&
+			lpInspWorkInfo->m_nAgingSetTime[rack] >= lpSystemInfo->m_sLastTimeOut[rack]);
+	const BOOL bZeroMinutePidContinue =
+		(lpSystemInfo->m_sLastTimeOut[rack] == 0 && nSavedAgnInOkPidCount > 0);
+
+	{
+		CString checkLog;
+		checkLog.Format(_T("[AGN_IN RECOVERY] START CHECK R%d LAST_TIMEOUT=%d SAVED_AGN_IN_OK=%d CONTINUE_OFFER=%d"),
+			rack + 1, (int)lpSystemInfo->m_sLastTimeOut[rack],
+			nSavedAgnInOkPidCount, (bTimeBasedContinue || bZeroMinutePidContinue) ? 1 : 0);
+		m_pApp->Gf_writeMLog(checkLog);
+	}
+
+	if (bTimeBasedContinue || bZeroMinutePidContinue)
+	{
+		if (bZeroMinutePidContinue)
+		{
+			msg_dlg.m_strQMessage.Format(
+				_T("Aging Continue ? [0]Minute\r\nPrevious AGN_IN OK: %d panel(s)."),
+				nSavedAgnInOkPidCount);
+		}
+		else
+		{
+			msg_dlg.m_strQMessage.Format(_T("Aging Continue ? [%d]Minute"),
+				lpSystemInfo->m_sLastTimeOut[rack]);
+		}
 		if (msg_dlg.DoModal() == IDOK)
 		{
 			bAgingContinue = TRUE;
@@ -4563,8 +4611,8 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 		else
 		{
 			lpInspWorkInfo->m_nAgingRunTime[rack] = 0;
-			sTimeOut.Format(_T("LAST_TIMEOUT_RACK%d"), rack + 1);
-			Write_SysIniFile(_T("SYSTEM"), sLog, lpInspWorkInfo->m_nAgingRunTime[rack]);
+			// Reset the actual LAST_TIMEOUT key, not the descriptive log string.
+			Write_SysIniFile(_T("SYSTEM"), sTimeOut, 0);
 			lpSystemInfo->m_sLastTimeOut[rack] = 0;
 		}
 	}
