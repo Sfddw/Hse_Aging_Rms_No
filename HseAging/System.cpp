@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "HseAging.h"
+#include "HsePidLength.h"
 #include "System.h"
 #include "afxdialogex.h"
 #include "MessageQuestion.h"
@@ -76,7 +77,7 @@ BOOL CSystem::OnInitDialog()
 	Lf_InitDialogControl();
 
 	return TRUE;  // return TRUE unless you set the focus to a control
-				  // 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
+	// 예외: OCX 속성 페이지는 FALSE를 반환해야 합니다.
 }
 
 
@@ -110,12 +111,12 @@ BOOL CSystem::PreTranslateMessage(MSG* pMsg)
 	{
 		switch (pMsg->wParam)
 		{
-			case VK_ESCAPE:
-				return 1;
-			case VK_RETURN:
-				return 1;
-			case VK_SPACE:
-				return 1;
+		case VK_ESCAPE:
+			return 1;
+		case VK_RETURN:
+			return 1;
+		case VK_SPACE:
+			return 1;
 		}
 	}
 
@@ -130,43 +131,43 @@ HBRUSH CSystem::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	// TODO:  여기서 DC의 특성을 변경합니다.
 	switch (nCtlColor)
 	{
-		case CTLCOLOR_MSGBOX:
-			break;
-		case CTLCOLOR_EDIT:
-			break;
-		case CTLCOLOR_LISTBOX:
-			break;
-		case CTLCOLOR_SCROLLBAR:
-			break;
-		case CTLCOLOR_BTN:
-			break;
-		case CTLCOLOR_STATIC:		// Static, CheckBox control
-			if (pWnd->GetDlgCtrlID() == IDC_STATIC)
-			{
-				pDC->SetBkColor(COLOR_SKYBLUE);
-				pDC->SetTextColor(COLOR_BLACK);
-				return m_Brush[COLOR_IDX_SKYBLUE];
-			}
-			if (pWnd->GetDlgCtrlID() == IDC_STT_SY_TITLE)
-			{
-				pDC->SetBkColor(COLOR_DARK_NAVY);
-				pDC->SetTextColor(COLOR_WHITE);
-				return m_Brush[COLOR_IDX_DARK_NAVY];
-			}
-			if ((pWnd->GetDlgCtrlID() == IDC_STT_SY_STATION_TITLE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_PASSWORD_TITLE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_MES_TITLE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_EAS_TITLE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_REFRESH_TITLE)
-				|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_RMS_TITLE)
-				)
-			{
-				pDC->SetBkColor(COLOR_DARK_NAVY);
-				pDC->SetTextColor(COLOR_WHITE);
-				return m_Brush[COLOR_IDX_DARK_NAVY];
-			}
+	case CTLCOLOR_MSGBOX:
+		break;
+	case CTLCOLOR_EDIT:
+		break;
+	case CTLCOLOR_LISTBOX:
+		break;
+	case CTLCOLOR_SCROLLBAR:
+		break;
+	case CTLCOLOR_BTN:
+		break;
+	case CTLCOLOR_STATIC:		// Static, CheckBox control
+		if (pWnd->GetDlgCtrlID() == IDC_STATIC)
+		{
+			pDC->SetBkColor(COLOR_SKYBLUE);
+			pDC->SetTextColor(COLOR_BLACK);
+			return m_Brush[COLOR_IDX_SKYBLUE];
+		}
+		if (pWnd->GetDlgCtrlID() == IDC_STT_SY_TITLE)
+		{
+			pDC->SetBkColor(COLOR_DARK_NAVY);
+			pDC->SetTextColor(COLOR_WHITE);
+			return m_Brush[COLOR_IDX_DARK_NAVY];
+		}
+		if ((pWnd->GetDlgCtrlID() == IDC_STT_SY_STATION_TITLE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_PASSWORD_TITLE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_MES_TITLE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_EAS_TITLE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_REFRESH_TITLE)
+			|| (pWnd->GetDlgCtrlID() == IDC_STT_SY_RMS_TITLE)
+			)
+		{
+			pDC->SetBkColor(COLOR_DARK_NAVY);
+			pDC->SetTextColor(COLOR_WHITE);
+			return m_Brush[COLOR_IDX_DARK_NAVY];
+		}
 
-			break;
+		break;
 	}
 
 	// TODO:  기본값이 적당하지 않으면 다른 브러시를 반환합니다.
@@ -177,8 +178,8 @@ HBRUSH CSystem::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 void CSystem::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: 여기에 메시지 처리기 코드를 추가합니다.
-					   // 그리기 메시지에 대해서는 CDialog::OnPaint()을(를) 호출하지 마십시오.
+	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+	// 그리기 메시지에 대해서는 CDialog::OnPaint()을(를) 호출하지 마십시오.
 
 	CRect rect, rectOri;
 	GetClientRect(&rect);
@@ -228,7 +229,55 @@ void CSystem::OnBnClickedBtnSaveExit()
 	msg_dlg.m_strQMessage.Format(_T("System information Save ?"));
 	if (msg_dlg.DoModal() == IDOK)
 	{
+		// Validate before saving any system setting.
+		CString lengthText;
+		GetDlgItem(IDC_EDT_SY_PID_LENGTH)->GetWindowText(lengthText);
+		int length = 0;
+		if (!HsePidLength::ParseSetting(lengthText, length))
+		{
+			CString message;
+			message.Format(_T("PID LENGTH must be a number between %d and %d."),
+				HsePidLength::kMin, HsePidLength::kMax);
+			AfxMessageBox(message, MB_ICONWARNING);
+			GetDlgItem(IDC_EDT_SY_PID_LENGTH)->SetFocus();
+			return;
+		}
+		// Do not change a PID rule in the middle of an active Aging run.
+		if (length != HsePidLength::Required())
+		{
+			LPINSPWORKINFO pWork = m_pApp->GetInspWorkInfo();
+			if (pWork != nullptr)
+			{
+				for (int r = 0; r < MAX_RACK; ++r)
+				{
+					if (pWork->m_nAgingOperatingMode[r] == AGING_RUNNING ||
+						pWork->m_nAgingOperatingMode[r] == AGING_COMPLETE_DOORCLOSE)
+					{
+						AfxMessageBox(_T("Stop all active Aging racks before changing PID LENGTH."),
+							MB_ICONWARNING);
+						return;
+					}
+					// A stopped rack can still own a pending PID/AGN_IN history.
+					// Changing the rule then would invalidate its resume state.
+					for (int layer = 0; layer < MAX_LAYER; ++layer)
+					{
+						for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
+						{
+							CString existingPid = pWork->m_sMesPanelID[r][layer][ch];
+							existingPid.Trim();
+							if (!existingPid.IsEmpty())
+							{
+								AfxMessageBox(_T("Clear existing rack PIDs before changing PID LENGTH."),
+									MB_ICONWARNING);
+								return;
+							}
+						}
+					}
+				}
+			}
+		}
 		Lf_saveSystemInfo();
+		Write_SysIniFile(_T("SYSTEM"), _T("PID_LENGTH"), length);
 
 		CDialog::OnOK();
 	}
@@ -313,6 +362,17 @@ void CSystem::Lf_InitDialogControl()
 
 	GetDlgItem(IDC_EDT_SY_CHAMBER_NO)->SetWindowText(lpSystemInfo->m_sChamberNo);
 	GetDlgItem(IDC_EDT_SY_EQP_NAME)->SetWindowText(lpSystemInfo->m_sEqpName);
+
+	// PID LENGTH: default=14 for existing stations without an INI key.
+	CEdit* pLengthEdit = (CEdit*)GetDlgItem(IDC_EDT_SY_PID_LENGTH);
+	if (pLengthEdit != nullptr)
+	{
+		pLengthEdit->ModifyStyle(0, ES_NUMBER);
+		pLengthEdit->SetLimitText(3);
+		CString lengthText;
+		lengthText.Format(_T("%d"), HsePidLength::Required());
+		pLengthEdit->SetWindowText(lengthText);
+	}
 	m_cmbSyRecorderPort.SetCurSel(lpSystemInfo->m_nTempRecorderPort);
 
 	m_cmbSyControllerPort.SetCurSel(lpSystemInfo->m_nTempControllerPort);

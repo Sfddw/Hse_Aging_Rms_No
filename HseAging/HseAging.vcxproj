@@ -193,6 +193,7 @@
     <ClInclude Include="GradientStatic.h" />
     <ClInclude Include="HseAging.h" />
     <ClInclude Include="HseAgingDlg.h" />
+    <ClInclude Include="HsePidLength.h" />
     <ClInclude Include="IniProfileAPI.h" />
     <ClInclude Include="MessageError.h" />
     <ClInclude Include="MessageQuestion.h" />

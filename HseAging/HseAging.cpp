@@ -5,6 +5,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "HseAging.h"
+#include "HsePidLength.h"
 #include "HseAgingDlg.h"
 #include "MessageError.h"
 #include "MessageQuestion.h"
@@ -2455,7 +2456,21 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_FW_VER] = lpInspWorkInfo->m_sMainFWVersion[rack][layer];
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_MODEL] = lpSystemInfo->m_sLastModelName[rack];
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_EQP_NAME] = lpSystemInfo->m_sEqpName;
-	m_summaryInfo[rack][layer][channel].m_sumData[SUM_PID] = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
+	CString rawPidForSummary = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
+	rawPidForSummary.Trim();
+	const BOOL bBadPidLength = (!rawPidForSummary.IsEmpty() &&
+		!HsePidLength::Valid(rawPidForSummary));
+	if (bBadPidLength)
+	{
+		CString log;
+		log.Format(_T("[PID LENGTH BLOCK] SUMMARY R%d-L%d-C%d PID=[%s] expected=%d"),
+			rack + 1, layer + 1, channel + 1,
+			rawPidForSummary.GetString(), HsePidLength::Required());
+		Gf_writeMLog(log);
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_PID].Empty();
+	}
+	else
+		m_summaryInfo[rack][layer][channel].m_sumData[SUM_PID] = rawPidForSummary;
 	//m_summaryInfo[rack][layer][channel].m_sumData[SUM_PID] = m_pApp->m_summaryInfo[rack][layer][channel].m_sumData[SUM_PID];
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_RACK].Format(_T("%d"), rack + 1);
 	m_summaryInfo[rack][layer][channel].m_sumData[SUM_LAYER].Format(_T("%d"), layer + 1);
@@ -2571,7 +2586,11 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	CString currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
 	currentPid.Trim();
 
-	if (currentPid.IsEmpty())
+	if (bBadPidLength)
+	{
+		mesFail = _T("INVALID PID LENGTH (MES BLOCKED)");
+	}
+	else if (currentPid.IsEmpty())
 	{
 		mesFail = _T("PID EMPTY (AGN_IN/AGN_OUT NOT SENT)");
 	}
@@ -2621,7 +2640,7 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	// FAILED_MESSAGE에는 실패 원인을 유지하고 RESULT는 공백처리 (이는 NG로 간주하지 않음)
 	// 실제 연결 상태 대신 고정된 케이블 점검 결과 사용
 	// the equipment may have been powered off before SummaryLog is written.
-	const BOOL bExcludedFromCount = currentPid.IsEmpty() ||
+	const BOOL bExcludedFromCount = bBadPidLength || currentPid.IsEmpty() ||
 		(lpInspWorkInfo->m_bCableMesBlocked[rack][layer][channel] == TRUE);
 
 	if (bExcludedFromCount)
@@ -3275,6 +3294,14 @@ void CHseAgingApp::Gf_gmesShowLocalErrorMsg(int hostCMD)
 
 BOOL CHseAgingApp::Gf_gmesSendHost_PCHK(int hostCMD, CString PID)
 {
+	if (hostCMD == HOST_PCHK && !HsePidLength::Valid(PID))
+	{
+		CString log;
+		log.Format(_T("[PID LENGTH BLOCK] PCHK PID=%s expected=%d"),
+			PID.GetString(), HsePidLength::Required());
+		Gf_writeMLog(log);
+		return FALSE;
+	}
 	int nRtnCD;
 	CString sLog, sdata = _T("");
 	char Luc_PF = 0;
@@ -3420,6 +3447,27 @@ static CString NormalizePchkModelName(const CString& rawModelName)
 
 BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 {
+	// The final MES/EAS boundary must reject malformed PIDs regardless of input path.
+	if (hostCMD == HOST_PCHK || hostCMD == HOST_AGN_IN ||
+		hostCMD == HOST_AGN_OUT || hostCMD == HOST_APDR)
+	{
+		CString outgoingPid;
+		if (hostCMD == HOST_PCHK)
+			outgoingPid = lpInspWorkInfo->m_nPid;
+		else if (rack >= 0 && rack < MAX_RACK &&
+			layer >= 0 && layer < MAX_LAYER &&
+			ch >= 0 && ch < MAX_LAYER_CHANNEL)
+			outgoingPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+		if (!HsePidLength::Valid(outgoingPid))
+		{
+			CString log;
+			log.Format(_T("[PID LENGTH BLOCK] CMD=%d R%d-L%d-C%d PID=[%s] expected=%d"),
+				hostCMD, rack + 1, layer + 1, ch + 1,
+				outgoingPid.GetString(), HsePidLength::Required());
+			Gf_writeMLog(log);
+			return FALSE;
+		}
+	}
 	int nRtnCD;
 	CString sLog, sdata = _T("");
 	char Luc_PF = 0;

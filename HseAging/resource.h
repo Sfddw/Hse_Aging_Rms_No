@@ -1564,6 +1564,8 @@
 #define IDC_CMB_SY_RMS_SET              2036
 #define IDC_CMB_SY_RMS_USE              2036
 #define IDC_MBC_MA_FUSING_RACK5         2037
+#define IDC_EDT_SY_RMS_EQP2             2037
+#define IDC_EDT_SY_PID_LENGTH           2037
 #define IDC_MBC_MA_FUSING_RACK6         2038
 #define IDC_MBC_MA_START_RACK1          2039
 #define IDC_MBC_MA_START_RACK2          2040

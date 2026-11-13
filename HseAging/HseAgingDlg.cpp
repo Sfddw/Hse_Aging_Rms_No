@@ -6329,8 +6329,8 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 				//////////////////////////////////////////////////////////////////////////////////////////////////
 				// Power Limit 정보를 생성한다.
-				//rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
-				rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
+				rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
+				//rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
 				errString = Lf_getLimitErrorString(rack, layer, ch);
 
 				// UI Rack LOG에 기록한다.

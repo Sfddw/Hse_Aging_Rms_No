@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "HseAging.h"
+#include "HsePidLength.h"
 #include "PidInputBox.h"
 #include "afxdialogex.h"
 #include <UxTheme.h>
@@ -60,7 +61,8 @@ BOOL CPidInputBox::OnInitDialog()
 	m_strKeyBuffer.Empty();
 
 	m_edtPid.SetWindowText(_T(""));
-	m_edtPid.SetLimitText(PID_LENGTH);
+	// Do NOT truncate to the configured PID length: overflow must be rejected.
+	m_edtPid.SetLimitText(HsePidLength::kMax + 1);
 	m_edtPid.SetFont(&m_Font[2]);
 	m_edtPid.SetFocus();
 
@@ -271,7 +273,8 @@ BOOL CPidInputBox::PreTranslateMessage(MSG* pMsg)
 
 void CPidInputBox::AppendScannedKey(MSG* pMsg)
 {
-	if (m_strKeyBuffer.GetLength() >= PID_LENGTH)
+	// One extra character marks an overlength scan as invalid.
+	if (m_strKeyBuffer.GetLength() > HsePidLength::Required())
 		return;
 
 	CString s;
@@ -288,12 +291,12 @@ BOOL CPidInputBox::CompletePidInput()
 	m_edtPid.GetWindowText(pid);
 	pid.Trim();
 
-	if (pid.GetLength() != PID_LENGTH)
+	if (!HsePidLength::Valid(pid))
 	{
 		CString msg;
 		msg.Format(
 			_T("PID length must be %d.\r\nCurrent PID: [%s]"),
-			PID_LENGTH,
+			HsePidLength::Required(),
 			pid.GetString()
 		);
 

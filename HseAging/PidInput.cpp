@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "HseAging.h"
+#include "HsePidLength.h"
 #include "PidInput.h"
 #include "afxdialogex.h"
 #include "MessageError.h"
@@ -1592,28 +1593,19 @@ void CPidInput::OnBnClickedBtnPiSaveExit()
 	{
 		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ch++)
 		{
-			// 체크된 채널만 검사
-			if (m_pChkChannelUse[layer][ch]->GetCheck() == BST_CHECKED)
+			// Every PID edit is persisted, including unchecked channels.
+			CString pid;
+			m_pedtPannelID[layer][ch]->GetWindowText(pid);
+			pid.Trim();
+			if (!pid.IsEmpty() && !HsePidLength::Valid(pid))
 			{
-				CString pid;
-				m_pedtPannelID[layer][ch]->GetWindowText(pid);
-				pid.Trim(); // 앞뒤 공백 제거
-
-				// 비어있으면 OK, 값이 있으면 길이 14만 허용
-				if (!pid.IsEmpty() && pid.GetLength() != 14)
-				{
-					CString msg;
-					msg.Format(_T("PID length must be 14.\r\n(LAYER %d, CH %d)\r\nCurrent: [%s]"),
-						layer + 1, ch + 1, pid);
-
-					AfxMessageBox(msg, MB_ICONWARNING);
-
-					// 문제난 Edit로 이동 + 전체 선택
-					m_pedtPannelID[layer][ch]->SetFocus();
-					m_pedtPannelID[layer][ch]->SetSel(0, -1);
-
-					return; // ✅ 저장 중단
-				}
+				CString msg;
+				msg.Format(_T("PID LENGTH ERROR (expected %d)\r\nLAYER %d / CH %d\r\nCurrent [%s]"),
+					HsePidLength::Required(), layer + 1, ch + 1, pid.GetString());
+				AfxMessageBox(msg, MB_ICONWARNING);
+				m_pedtPannelID[layer][ch]->SetFocus();
+				m_pedtPannelID[layer][ch]->SetSel(0, -1);
+				return;
 			}
 		}
 	}
@@ -1641,6 +1633,7 @@ void CPidInput::OnBnClickedBtnPiSaveExit()
 
 			sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
 			m_pedtPannelID[layer][ch]->GetWindowText(sValue);
+			sValue.Trim();
 			lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch] = sValue;
 			Write_MesPIDInfo(sSection, sKey, sValue);
 		}
@@ -1650,6 +1643,20 @@ void CPidInput::OnBnClickedBtnPiSaveExit()
 
 void CPidInput::OnBnClickedBtnPiSaveExit_B()
 {
+	// The alternate save path must not bypass the PID length rule.
+	for (int layer = 0; layer < MAX_LAYER; ++layer)
+		for (int ch = 0; ch < MAX_LAYER_CHANNEL; ++ch)
+		{
+			CString candidate;
+			m_pedtPannelID[layer][ch]->GetWindowText(candidate);
+			candidate.Trim();
+			if (!candidate.IsEmpty() && !HsePidLength::Valid(candidate))
+			{
+				AfxMessageBox(_T("Invalid PID LENGTH: save cancelled."), MB_ICONWARNING);
+				m_pedtPannelID[layer][ch]->SetFocus();
+				return;
+			}
+		}
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	// 
 	// CString sSection, sKey, sValue;
@@ -1679,6 +1686,7 @@ void CPidInput::OnBnClickedBtnPiSaveExit_B()
 			// Channel PID Save
 			sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, layer + 1, ch + 1);
 			m_pedtPannelID[layer][ch]->GetWindowText(sValue);
+			sValue.Trim();
 			lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch] = sValue;
 			Write_MesPIDInfo(sSection, sKey, sValue);
 		}
@@ -1717,6 +1725,14 @@ void CPidInput::OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid)
 
 	CString sSection, sKey, sValue;
 
+	// Validate the selected channel before writing PID or RACK ID.
+	m_pedtPannelID[Pid_Layer - 1][Pid_Ch - 1]->GetWindowText(sValue);
+	sValue.Trim();
+	if (!sValue.IsEmpty() && !HsePidLength::Valid(sValue))
+	{
+		AfxMessageBox(_T("Invalid PID LENGTH: channel save cancelled."), MB_ICONWARNING);
+		return;
+	}
 	sSection.Format(_T("MES_PID_RACK%d"), m_nSelRack + 1);
 
 	// RACK ID 저장
@@ -1728,6 +1744,7 @@ void CPidInput::OnBnClickedBtnPiSaveExitSelect(int Rackid, int Chid)
 
 	sKey.Format(_T("RACK%d_LAYER%d_CH%d"), m_nSelRack + 1, Pid_Layer, Pid_Ch);
 	m_pedtPannelID[Pid_Layer - 1][Pid_Ch - 1]->GetWindowText(sValue);
+	sValue.Trim();
 	lpInspWorkInfo->m_sMesPanelID[m_nSelRack][Pid_Layer - 1][Pid_Ch - 1] = sValue;
 	Write_MesPIDInfo(sSection, sKey, sValue);
 }
@@ -3155,7 +3172,9 @@ BOOL CPidInput::HandlePIDScan()
 	// ============================================================
 	// 1) PID 14자리 스캔 처리
 	// ============================================================
-	if (m_nMainKeyInData.GetLength() == PID_LENGTH)
+	if (m_nMainKeyInData.GetLength() == HsePidLength::Required() &&
+		!(m_nMainKeyInData.GetLength() == 10 &&
+			m_nMainKeyInData.Left(4).CompareNoCase(_T("RACK")) == 0))
 	{
 		CWnd* pFocusedWnd = GetFocus();
 
@@ -3169,8 +3188,9 @@ BOOL CPidInput::HandlePIDScan()
 
 		CString scannedPid = m_nMainKeyInData;
 		scannedPid.Trim();
-
 		m_nMainKeyInData.Empty();
+		if (!HsePidLength::Valid(scannedPid))
+			return TRUE;
 
 		// 같은 PID가 너무 빠르게 중복 입력되는 것 방지
 		DWORD nowTick = ::GetTickCount();
@@ -3391,7 +3411,7 @@ BOOL CPidInput::HandlePIDScan()
 				CString pid = pidBox.m_strPid;
 				pid.Trim();
 
-				if (pid.GetLength() == PID_LENGTH)
+				if (HsePidLength::Valid(pid))
 				{
 					ProcessScannedPid(pid);
 				}
@@ -3434,7 +3454,10 @@ void CPidInput::AppendScannedKey(MSG* pMsg)
 		return;
 
 	// RACK BCR은 10자리, PID는 14자리이므로 최대 14까지만 받음
-	if (m_nMainKeyInData.GetLength() >= PID_LENGTH)
+	// Capture ONE extra char to detect overflow, never silently truncate a long scan.
+	const int captureLimit = (HsePidLength::Required() > 10 ?
+		HsePidLength::Required() : 10) + 1;
+	if (m_nMainKeyInData.GetLength() >= captureLimit)
 		return;
 
 	CString sdata;
@@ -3466,7 +3489,7 @@ BOOL CPidInput::ProcessScannedPid(const CString& scannedPid)
 	CString pid = scannedPid;
 	pid.Trim();
 
-	if (pid.GetLength() != PID_LENGTH)
+	if (!HsePidLength::Valid(pid))
 		return FALSE;
 
 	if (m_bPidScanBusy == TRUE)
