@@ -30,10 +30,29 @@ namespace HsePidLength
         return kDefault;
     }
 
+    // PID length alone does not prevent mixed RACK/PID barcode data.
+    // Do not truncate invalid scans; reject them before PID save/PCHK/MES/Summary.
     inline bool Valid(const CString& value)
     {
         CString pid(value);
         pid.Trim();
-        return !pid.IsEmpty() && pid.GetLength() == Required();
+        if (pid.IsEmpty() || pid.GetLength() != Required())
+            return false;
+
+        CString upper(pid);
+        upper.MakeUpper();
+        // RACK01CH64P88S can be 14 characters, but it is never a product PID.
+        if (upper.Find(_T("RACK")) >= 0)
+            return false;
+
+        // Reject pasted spaces, separators, control characters, etc.
+        for (int i = 0; i < upper.GetLength(); ++i)
+        {
+            const TCHAR c = upper[i];
+            if (!((c >= _T('A') && c <= _T('Z')) ||
+                (c >= _T('0') && c <= _T('9'))))
+                return false;
+        }
+        return true;
     }
 }

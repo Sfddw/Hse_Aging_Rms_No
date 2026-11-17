@@ -178,6 +178,7 @@ BOOL CPidInput::OnInitDialog()
 	Lf_updatePanelID();
 
 	m_bPidScanBusy = FALSE;
+	m_bScanSawRackPrefix = FALSE;
 	m_strLastScanPid.Empty();
 	m_dwLastScanTick = 0;
 	m_dwInputBlockUntilTick = 0;
@@ -2760,20 +2761,10 @@ BOOL CPidInput::Lf_setExecuteMesAGNIN() // AGN_IN
 
 
 
-			// Aging CONTINUE: this exact PID already received AGN_IN_R OK.
-			// Do not send a duplicate AGN_IN; MES may reply ALREADY for a valid product.
-			CString currentPid = lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch];
-			CString confirmedPid = lpInspWorkInfo->m_sAgnInOkPid[m_nSelRack][layer][ch];
-			currentPid.Trim();
-			confirmedPid.Trim();
-			if (!currentPid.IsEmpty() && confirmedPid == currentPid)
-			{
-				sLog.Format(_T("<MES> AGN_IN SKIP (Previously confirmed OK) - R%d-L%d-C%d PID=%s"),
-					m_nSelRack + 1, layer + 1, ch + 1, currentPid.GetString());
-				m_pApp->Gf_writeMLog(sLog);
-				Lf_addMessage(sLog);
-				continue;
-			}
+			// [1.4.3 MES POLICY] Always attempt AGN_IN on every Aging START,
+			// including CONTINUE for a previously confirmed PID.  The real
+			// MES response is logged, but no AGN_IN ACK is required for the
+			// final Summary RESULT (AGN_OUT and other checks still apply).
 
 			sdata.Format(_T("Rack%d-Layer%d-Ch%d  PID:%s"), m_nSelRack + 1, layer + 1, ch + 1, lpInspWorkInfo->m_sMesPanelID[m_nSelRack][layer][ch]);
 			if (m_pApp->Gf_gmesSendHost(HOST_AGN_IN, m_nSelRack, layer, ch) == TRUE)
@@ -3159,11 +3150,30 @@ BOOL CPidInput::HandlePIDScan()
 	if (m_bPidScanBusy == TRUE)
 	{
 		m_nMainKeyInData.Empty();
+		m_bScanSawRackPrefix = FALSE;
 		return TRUE;
 	}
 
-	// Rack ID 칸에 포커스가 있으면 첫 PID 칸으로 이동
-	if (GetDlgItem(IDC_EDT_PI_RACK_ID) == GetFocus())
+	// Preserve the prior RACK/PID mix guard even after the rolling buffer
+	// has discarded the leading RACK barcode characters.
+	const BOOL sawRackPrefix = m_bScanSawRackPrefix;
+	m_bScanSawRackPrefix = FALSE;
+	if (sawRackPrefix &&
+		!(m_nMainKeyInData.GetLength() == 10 &&
+			m_nMainKeyInData.Left(4).CompareNoCase(_T("RACK")) == 0))
+	{
+		CString warning;
+		warning.Format(_T("[PID SCAN REJECT] RACK/PID combined in one scan: [%s]"),
+			m_nMainKeyInData.GetString());
+		m_pApp->Gf_writeMLog(warning);
+		m_nMainKeyInData.Empty();
+		return TRUE;
+	}
+
+	// An empty Enter in the Rack edit may move focus. Never swallow a real
+	// RACK01CH64 scan here: the unconsumed buffer would be joined to the next PID.
+	if (GetDlgItem(IDC_EDT_PI_RACK_ID) == GetFocus() &&
+		m_nMainKeyInData.IsEmpty())
 	{
 		m_pedtPannelID[LAYER_1][CH_1]->SetFocus();
 		return TRUE;
@@ -3172,7 +3182,7 @@ BOOL CPidInput::HandlePIDScan()
 	// ============================================================
 	// 1) PID 14자리 스캔 처리
 	// ============================================================
-	if (m_nMainKeyInData.GetLength() == HsePidLength::Required() &&
+	if (m_nMainKeyInData.GetLength() >= HsePidLength::Required() &&
 		!(m_nMainKeyInData.GetLength() == 10 &&
 			m_nMainKeyInData.Left(4).CompareNoCase(_T("RACK")) == 0))
 	{
@@ -3186,11 +3196,40 @@ BOOL CPidInput::HandlePIDScan()
 			return TRUE;
 		}
 
-		CString scannedPid = m_nMainKeyInData;
+		// Direct PID scans must target a PID channel, never the Rack ID edit.
+		bool bPidEditFocused = false;
+		for (int li = 0; li < MAX_LAYER && !bPidEditFocused; ++li)
+		{
+			for (int ci = 0; ci < MAX_LAYER_CHANNEL; ++ci)
+			{
+				if (m_pedtPannelID[li][ci] != nullptr &&
+					m_pedtPannelID[li][ci]->GetSafeHwnd() == pFocusedWnd->GetSafeHwnd())
+				{
+					bPidEditFocused = true;
+					break;
+				}
+			}
+		}
+		if (!bPidEditFocused)
+		{
+			m_pApp->Gf_writeMLog(_T("[PID SCAN REJECT] PID scan without channel focus"));
+			m_nMainKeyInData.Empty();
+			return TRUE;
+		}
+
+		// RACK barcodes need 10 characters; for shorter PID_LENGTH settings,
+		// use only the newest PID_LENGTH characters as the PID candidate.
+		CString scannedPid = m_nMainKeyInData.Right(HsePidLength::Required());
 		scannedPid.Trim();
 		m_nMainKeyInData.Empty();
 		if (!HsePidLength::Valid(scannedPid))
+		{
+			CString warning;
+			warning.Format(_T("[PID SCAN REJECT] Invalid PID barcode: [%s]"),
+				scannedPid.GetString());
+			m_pApp->Gf_writeMLog(warning);
 			return TRUE;
+		}
 
 		// 같은 PID가 너무 빠르게 중복 입력되는 것 방지
 		DWORD nowTick = ::GetTickCount();
@@ -3203,12 +3242,8 @@ BOOL CPidInput::HandlePIDScan()
 		m_strLastScanPid = scannedPid;
 		m_dwLastScanTick = nowTick;
 
-		// 현재 포커스 Edit에 PID 표시
+		// Keep the selected channel unchanged until PCHK is successful.
 		CEdit* pEditControl = reinterpret_cast<CEdit*>(pFocusedWnd);
-		if (pEditControl != nullptr)
-		{
-			pEditControl->SetWindowText(scannedPid);
-		}
 
 		m_bPidScanBusy = TRUE;
 
@@ -3242,6 +3277,9 @@ BOOL CPidInput::HandlePIDScan()
 
 		if (P_Chk == TRUE)
 		{
+			if (pEditControl != nullptr)
+				pEditControl->SetWindowText(scannedPid);
+
 			OnBnClickedBtnPiSaveExitSelect(
 				_ttoi(lpInspWorkInfo->m_RackID),
 				_ttoi(lpInspWorkInfo->m_ChID)
@@ -3302,25 +3340,8 @@ BOOL CPidInput::HandlePIDScan()
 			);
 
 
-			// PID Edit Clear
-			CWnd* pFocusedWnd =
-				GetFocus();
-
-			if (pFocusedWnd != nullptr)
-			{
-				CEdit* pEditControl =
-					reinterpret_cast<CEdit*>(
-						pFocusedWnd
-						);
-
-				if (pEditControl != nullptr)
-				{
-					pEditControl
-						->SetWindowText(
-							_T("")
-						);
-				}
-			}
+			// PCHK failed: keep the previously saved PID unchanged.
+			// No Edit change is needed because scans now commit only on PCHK OK.
 
 
 			// ========================================================
@@ -3374,10 +3395,22 @@ BOOL CPidInput::HandlePIDScan()
 		CString chTag = rackBarcode.Mid(6, 2);   // CH
 		CString chId = rackBarcode.Right(2);     // 33
 
+		const bool bDigitFields =
+			(rackBarcode[4] >= _T('0') && rackBarcode[4] <= _T('9')) &&
+			(rackBarcode[5] >= _T('0') && rackBarcode[5] <= _T('9')) &&
+			(rackBarcode[8] >= _T('0') && rackBarcode[8] <= _T('9')) &&
+			(rackBarcode[9] >= _T('0') && rackBarcode[9] <= _T('9'));
+
 		if (rackId.Left(4).CompareNoCase(_T("RACK")) == 0 &&
-			chTag.CompareNoCase(_T("CH")) == 0)
+			chTag.CompareNoCase(_T("CH")) == 0 && bDigitFields)
 		{
+			const int rackNo = _ttoi(rackId.Right(2));
 			int chNo = _ttoi(chId);
+			if (rackNo < 1 || rackNo > MAX_RACK)
+			{
+				m_pApp->Gf_ShowMessageBox(_T("RACK BARCODE RACK RANGE ERROR"));
+				return TRUE;
+			}
 
 			if (chNo < 1 || chNo > MAX_CHANNEL)
 			{
@@ -3402,7 +3435,8 @@ BOOL CPidInput::HandlePIDScan()
 			lpInspWorkInfo->m_LayerID.Format(_T("%d"), Pid_Layer);
 			lpInspWorkInfo->m_Layer_ChID.Format(_T("%d"), Pid_Ch);
 
-			// 새 PID 입력 Dialog Open
+			// Each barcode is a separate transaction, including during the modal dialog.
+			m_nMainKeyInData.Empty();
 			CPidInputBox pidBox;
 			pidBox.m_strTitle.Format(_T("%s PID INPUT"), rackBarcode.GetString());
 
@@ -3417,6 +3451,8 @@ BOOL CPidInput::HandlePIDScan()
 				}
 			}
 
+			// Do not carry any pending RACK/PID characters into the next scan.
+			m_nMainKeyInData.Empty();
 			// Dialog 닫힌 후에는 메인 PID 화면으로 다시 포커스
 			if (CWnd* pDummy = GetDlgItem(IDC_DUMMY_FOCUS))
 				pDummy->SetFocus();
@@ -3433,17 +3469,16 @@ BOOL CPidInput::HandlePIDScan()
 	}
 
 	// ============================================================
-	// 3) 길이가 맞지 않는 경우 초기화
+	// 3) Invalid or mixed barcode: discard ONLY the scan buffer.
+	// Do not erase an existing valid channel PID from its Edit Control.
 	// ============================================================
-	CWnd* pFocusedWnd = GetFocus();
-	if (pFocusedWnd != nullptr &&
-		pFocusedWnd->GetDlgCtrlID() != IDC_DUMMY_FOCUS)
+	if (!m_nMainKeyInData.IsEmpty())
 	{
-		CEdit* pEditControl = reinterpret_cast<CEdit*>(pFocusedWnd);
-		if (pEditControl != nullptr)
-			pEditControl->SetWindowText(_T(""));
+		CString warning;
+		warning.Format(_T("[PID SCAN REJECT] RACK/PID malformed or mixed barcode: [%s]"),
+			m_nMainKeyInData.GetString());
+		m_pApp->Gf_writeMLog(warning);
 	}
-
 	m_nMainKeyInData.Empty();
 	return TRUE;
 }
@@ -3453,33 +3488,24 @@ void CPidInput::AppendScannedKey(MSG* pMsg)
 	if (m_bPidScanBusy == TRUE)
 		return;
 
-	// RACK BCR은 10자리, PID는 14자리이므로 최대 14까지만 받음
-	// Capture ONE extra char to detect overflow, never silently truncate a long scan.
-	const int captureLimit = (HsePidLength::Required() > 10 ?
-		HsePidLength::Required() : 10) + 1;
-	if (m_nMainKeyInData.GetLength() >= captureLimit)
-		return;
+	// Keep the newest characters, rather than rejecting input beyond PID_LENGTH.
+	// RACK barcodes still require 10 characters (for example, RACK01CH64).
+	const int pidLength = HsePidLength::Required();
+	const int captureLimit = (pidLength > 10 ? pidLength : 10);
 
 	CString sdata;
 	sdata.Format(_T("%c"), pMsg->wParam);
-
 	m_nMainKeyInData.Append(sdata);
 
-	CWnd* pFocusedWnd = GetFocus();
-	CEdit* pEditControl = nullptr;
+	// A complete RACK barcode followed by PID without Enter is not one PID.
+	if (m_nMainKeyInData.GetLength() == 10 &&
+		m_nMainKeyInData.Left(4).CompareNoCase(_T("RACK")) == 0 &&
+		m_nMainKeyInData.Mid(6, 2).CompareNoCase(_T("CH")) == 0)
+		m_bScanSawRackPrefix = TRUE;
 
-	if (pFocusedWnd != nullptr)
-		pEditControl = reinterpret_cast<CEdit*>(pFocusedWnd);
+	if (m_nMainKeyInData.GetLength() > captureLimit)
+		m_nMainKeyInData = m_nMainKeyInData.Right(captureLimit);
 
-	// PID 14자리가 완성되었을 때 현재 포커스 칸에 표시
-	/*if (m_nMainKeyInData.GetLength() == PID_LENGTH)
-	{
-		if (pEditControl != nullptr &&
-			pFocusedWnd->GetDlgCtrlID() != IDC_DUMMY_FOCUS)
-		{
-			pEditControl->SetWindowText(m_nMainKeyInData);
-		}
-	}*/
 }
 
 

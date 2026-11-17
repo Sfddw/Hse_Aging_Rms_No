@@ -4670,6 +4670,8 @@ void CHseAgingDlg::Lf_setAgingSTART(int rack)
 				startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
 				Write_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, _T(""));
 				Write_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, _T(""));
+				Write_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), startKey, _T(""));
+				Write_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), startKey, _T(""));
 				Write_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), startKey, _T(""));
 
 				// Reset per-product MES ACK only for a NEW Aging run.
@@ -5552,6 +5554,13 @@ void CHseAgingDlg::Lf_readSummaryIni(int rack)
 			currentPid.Trim(); startPid.Trim(); earliestStamp.Trim();
 			if (!currentPid.IsEmpty() && startPid == currentPid && !earliestStamp.IsEmpty())
 				startStamp = earliestStamp;
+			// An AGN_IN attempt may have returned ALREADY/NG: this is not an OK proof.
+			CString attemptPid, attemptTime;
+			Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), skey, &attemptPid);
+			Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), skey, &attemptTime);
+			attemptPid.Trim(); attemptTime.Trim();
+			if (!currentPid.IsEmpty() && attemptPid == currentPid && attemptTime.GetLength() == 17)
+				startStamp = attemptTime;
 			if (!startStamp.IsEmpty())
 				m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME] = startStamp;
 			Read_SummaryInfo(_T("END_TIME"), skey, &m_pApp->m_summaryInfo[rack][layer][ch].m_sumData[SUM_END_TIME]);
@@ -6282,7 +6291,7 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 						sLog.Format(_T("Temp Error. Rack = [%d], Layer =[%d], Ch = [%d]"), rack + 1, layer + 1, ch + 1);
 						Lf_writeRackMLog(rack, sLog);
 
-						rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
+						rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
 						errString = Lf_getLimitErrorString(rack, layer, ch);
 						//Lf_writeRackMLog(rack, errString);
 
@@ -6329,8 +6338,8 @@ void CHseAgingDlg::Lf_checkPowerLimitAlarm()
 
 				//////////////////////////////////////////////////////////////////////////////////////////////////
 				// Power Limit 정보를 생성한다.
+				//rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
 				rackInfo.Format(_T("RACK[%d] LAYER[%d] CH[%d] - "), rack + 1, layer + 1, ch + 1);
-				//rackInfo.Format(_T("RACK[%d] CH[%d] - "), rack + 1, Lf_getAlarmChannel(layer, ch));
 				errString = Lf_getLimitErrorString(rack, layer, ch);
 
 				// UI Rack LOG에 기록한다.

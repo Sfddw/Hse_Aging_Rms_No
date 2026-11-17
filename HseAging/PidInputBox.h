@@ -1,11 +1,11 @@
-#pragma once
+ï»¿#pragma once
 
 #include "afxdialogex.h"
 #include <afxbutton.h>
 #include "resource.h"
 
-// FONT_IDX_MAX, COLOR_IDX_MAX, COLOR_WHITE °°Àº °ªÀÌ
-// _GlobalDefine.h¿¡ ÀÖÀ¸¸é ¾Æ·¡ include »ç¿ë
+// FONT_IDX_MAX, COLOR_IDX_MAX, COLOR_WHITE ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+// _GlobalDefine.hï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Æ·ï¿½ include ï¿½ï¿½ï¿½
 #include "_GlobalDefine.h"
 
 class CPidInputBox : public CDialogEx
@@ -45,6 +45,7 @@ private:
 	CMFCButton m_btnCancel;
 
 	CString m_strKeyBuffer;
+	BOOL m_bScanSawRackPrefix; // Detect RACK + PID in a single scan
 
 	CFont m_Font[FONT_IDX_MAX];
 	CBrush m_Brush[COLOR_IDX_MAX];

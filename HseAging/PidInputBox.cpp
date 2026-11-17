@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "HseAging.h"
 #include "HsePidLength.h"
 #include "PidInputBox.h"
@@ -15,6 +15,7 @@ CPidInputBox::CPidInputBox(CWnd* pParent /*=nullptr*/)
 	m_strPid.Empty();
 	m_strTitle.Empty();
 	m_strKeyBuffer.Empty();
+	m_bScanSawRackPrefix = FALSE;
 }
 
 CPidInputBox::~CPidInputBox()
@@ -59,10 +60,14 @@ BOOL CPidInputBox::OnInitDialog()
 
 	m_strPid.Empty();
 	m_strKeyBuffer.Empty();
+	m_bScanSawRackPrefix = FALSE;
 
 	m_edtPid.SetWindowText(_T(""));
-	// Do NOT truncate to the configured PID length: overflow must be rejected.
-	m_edtPid.SetLimitText(HsePidLength::kMax + 1);
+	// Keep the Edit limited to PID_LENGTH; AppendScannedKey shifts the window.
+	m_edtPid.SetLimitText(HsePidLength::Required());
+	// Scan keys are handled in PreTranslateMessage, while this blocks
+	// context-menu pastes that bypass the overflow flag.
+	m_edtPid.SetReadOnly(TRUE);
 	m_edtPid.SetFont(&m_Font[2]);
 	m_edtPid.SetFocus();
 
@@ -91,7 +96,7 @@ void CPidInputBox::Lf_InitFontset()
 		m_Font[i].DeleteObject();
 	}
 
-	// ±âº» ÆùÆ®
+	// ï¿½âº» ï¿½ï¿½Æ®
 	m_Font[0].CreateFont(
 		15, 6, 0, 0,
 		FW_BOLD,
@@ -104,7 +109,7 @@ void CPidInputBox::Lf_InitFontset()
 		DEFAULT_FONT
 	);
 
-	// ¹öÆ°¿ë
+	// ï¿½ï¿½Æ°ï¿½ï¿½
 	m_Font[1].CreateFont(
 		16, 7, 0, 0,
 		FW_BOLD,
@@ -117,7 +122,7 @@ void CPidInputBox::Lf_InitFontset()
 		DEFAULT_FONT
 	);
 
-	// PID ÀÔ·Â Edit¿ë
+	// PID ï¿½Ô·ï¿½ Editï¿½ï¿½
 	m_Font[2].CreateFont(
 		22, 9, 0, 0,
 		FW_BOLD,
@@ -148,8 +153,8 @@ void CPidInputBox::Lf_InitColorBrush()
 	m_Brush[COLOR_IDX_GRAY224].CreateSolidBrush(COLOR_GRAY224);
 	m_Brush[COLOR_IDX_DARK_NAVY].CreateSolidBrush(COLOR_DARK_NAVY);
 
-	// È¤½Ã »ö»ó ÀÎµ¦½º°¡ ÇÁ·ÎÁ§Æ®¿¡ ÀÖÀ¸¸é À¯Áö
-	// PidInput.cpp¿¡¼­µµ »ç¿ëÇÏ´Â ºê·¯½Ã
+	// È¤ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	// PidInput.cppï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ê·¯ï¿½ï¿½
 	m_Brush[COLOR_IDX_ITEM_TITLE].CreateSolidBrush(COLOR_ITEM_TITLE);
 	m_Brush[COLOR_IDX_ITEM_HEAD].CreateSolidBrush(COLOR_ITEM_HEAD);
 	m_Brush[COLOR_IDX_DARK_BG].CreateSolidBrush(COLOR_DARK_BG);
@@ -157,7 +162,7 @@ void CPidInputBox::Lf_InitColorBrush()
 
 void CPidInputBox::Lf_InitDialogDesign()
 {
-	// ±âº» À©µµ¿ì Å×¸¶ Á¦°Å
+	// ï¿½âº» ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½×¸ï¿½ ï¿½ï¿½ï¿½ï¿½
 	if (GetDlgItem(IDC_PID_INPUT_BOX) != nullptr)
 		SetWindowTheme(GetDlgItem(IDC_PID_INPUT_BOX)->GetSafeHwnd(), L"", L"");
 
@@ -167,17 +172,17 @@ void CPidInputBox::Lf_InitDialogDesign()
 	if (GetDlgItem(IDCANCEL) != nullptr)
 		SetWindowTheme(GetDlgItem(IDCANCEL)->GetSafeHwnd(), L"", L"");
 
-	// Edit Control µðÀÚÀÎ
+	// Edit Control ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	m_edtPid.SetFont(&m_Font[2]);
 
-	// IDOK ¹öÆ° µðÀÚÀÎ
+	// IDOK ï¿½ï¿½Æ° ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	m_btnOk.SetFont(&m_Font[1]);
 	m_btnOk.EnableWindowsTheming(FALSE);
 	m_btnOk.SetFaceColor(COLOR_GRAY224);
 	m_btnOk.SetTextColor(COLOR_BLACK);
 	m_btnOk.SetIcon(AfxGetApp()->LoadIcon(IDI_ICON_OX_O));
 
-	// CANCEL ¹öÆ°µµ °°ÀÌ ¸ÂÃã
+	// CANCEL ï¿½ï¿½Æ°ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	m_btnCancel.SetFont(&m_Font[1]);
 	m_btnCancel.EnableWindowsTheming(FALSE);
 	m_btnCancel.SetFaceColor(COLOR_GRAY224);
@@ -198,7 +203,7 @@ HBRUSH CPidInputBox::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 	case CTLCOLOR_EDIT:
 		if (pWnd->GetDlgCtrlID() == IDC_PID_INPUT_BOX)
 		{
-			// PidInput.cppÀÇ PID ÀÔ·Â ´ë±â »ö»ó°ú µ¿ÀÏ
+			// PidInput.cppï¿½ï¿½ PID ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 			pDC->SetBkColor(COLOR_WHITE);
 			pDC->SetTextColor(COLOR_BLACK);
 			return m_Brush[COLOR_IDX_WHITE];
@@ -226,10 +231,10 @@ void CPidInputBox::OnPaint()
 	CRect rect;
 	GetClientRect(&rect);
 
-	// PidInput.cppÀÇ OnPaint¿Í µ¿ÀÏÇÑ ¹è°æ ´À³¦
+	// PidInput.cppï¿½ï¿½ OnPaintï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	dc.FillSolidRect(rect, COLOR_GRAY192);
 
-	// »ó´Ü ³×ÀÌºñ Å¸ÀÌÆ² ¿µ¿ªÀ» ¾²°í ½ÍÀ¸¸é ¾Æ·¡ »ç¿ë
+	// ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ Å¸ï¿½ï¿½Æ² ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Æ·ï¿½ ï¿½ï¿½ï¿½
 	CRect titleRect = rect;
 	titleRect.bottom = 45;
 	dc.FillSolidRect(titleRect, COLOR_DARK_NAVY);
@@ -247,6 +252,13 @@ BOOL CPidInputBox::PreTranslateMessage(MSG* pMsg)
 
 	if (pMsg->message == WM_KEYDOWN)
 	{
+		// Pasting a longer PID could be silently clipped by SetLimitText.
+		// This scanner-only input uses typed/scanned characters instead.
+		if ((::GetKeyState(VK_CONTROL) < 0 && pMsg->wParam == 'V') ||
+			(::GetKeyState(VK_SHIFT) < 0 && pMsg->wParam == VK_INSERT))
+		{
+			return TRUE;
+		}
 		switch (pMsg->wParam)
 		{
 		case VK_ESCAPE:
@@ -256,11 +268,17 @@ BOOL CPidInputBox::PreTranslateMessage(MSG* pMsg)
 		case VK_RETURN:
 			return CompletePidInput();
 
+		case VK_BACK:
+			if (!m_strKeyBuffer.IsEmpty())
+				m_strKeyBuffer = m_strKeyBuffer.Left(m_strKeyBuffer.GetLength() - 1);
+			m_edtPid.SetWindowText(m_strKeyBuffer);
+			return TRUE;
+
 		case VK_SPACE:
 			return TRUE;
 		}
 
-		// ¹ÙÄÚµå ½ºÄ³³Ê ¹®ÀÚ ÀÔ·Â
+		// ï¿½ï¿½ï¿½Úµï¿½ ï¿½ï¿½Ä³ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½
 		if ((pMsg->wParam >= 33) && (pMsg->wParam <= 'z'))
 		{
 			AppendScannedKey(pMsg);
@@ -273,14 +291,22 @@ BOOL CPidInputBox::PreTranslateMessage(MSG* pMsg)
 
 void CPidInputBox::AppendScannedKey(MSG* pMsg)
 {
-	// One extra character marks an overlength scan as invalid.
-	if (m_strKeyBuffer.GetLength() > HsePidLength::Required())
-		return;
+	const int pidLength = HsePidLength::Required();
 
 	CString s;
 	s.Format(_T("%c"), pMsg->wParam);
-
 	m_strKeyBuffer.Append(s);
+
+	// Preserve the RACK/PID mix guard even when a long scan shifts its prefix out.
+	if (m_strKeyBuffer.GetLength() == 10 &&
+		m_strKeyBuffer.Left(4).CompareNoCase(_T("RACK")) == 0 &&
+		m_strKeyBuffer.Mid(6, 2).CompareNoCase(_T("CH")) == 0)
+		m_bScanSawRackPrefix = TRUE;
+
+	// Rolling input: discard the oldest character once the length is full.
+	if (m_strKeyBuffer.GetLength() > pidLength)
+		m_strKeyBuffer = m_strKeyBuffer.Right(pidLength);
+
 	m_edtPid.SetWindowText(m_strKeyBuffer);
 	m_edtPid.SetSel(m_strKeyBuffer.GetLength(), m_strKeyBuffer.GetLength());
 }
@@ -291,18 +317,19 @@ BOOL CPidInputBox::CompletePidInput()
 	m_edtPid.GetWindowText(pid);
 	pid.Trim();
 
-	if (!HsePidLength::Valid(pid))
+	if (m_bScanSawRackPrefix || !HsePidLength::Valid(pid))
 	{
 		CString msg;
-		msg.Format(
-			_T("PID length must be %d.\r\nCurrent PID: [%s]"),
-			HsePidLength::Required(),
-			pid.GetString()
-		);
+		if (m_bScanSawRackPrefix)
+			msg.Format(_T("RACK and PID must be separate scans.\r\nCurrent PID: [%s]"), pid.GetString());
+		else
+			msg.Format(_T("PID must be %d valid characters.\r\nCurrent PID: [%s]"),
+				HsePidLength::Required(), pid.GetString());
 
 		AfxMessageBox(msg, MB_ICONWARNING);
 
 		m_strKeyBuffer.Empty();
+		m_bScanSawRackPrefix = FALSE;
 		m_edtPid.SetWindowText(_T(""));
 		m_edtPid.SetFocus();
 

@@ -2552,16 +2552,25 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 	}
 
 
-	CString startKey, startPid, persistedFirstStart;
+	CString startKey, startPid, persistedFirstStart, firstAttemptPid, firstAttemptTime;
 	startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, channel + 1);
 	Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, &startPid);
 	Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, &persistedFirstStart);
+	Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), startKey, &firstAttemptPid);
+	Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), startKey, &firstAttemptTime);
 	startPid.Trim(); persistedFirstStart.Trim();
+	firstAttemptPid.Trim(); firstAttemptTime.Trim();
 	CString csvPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][channel];
 	csvPid.Trim();
-	if (!csvPid.IsEmpty() && startPid == csvPid && !persistedFirstStart.IsEmpty())
+	if (!csvPid.IsEmpty() && firstAttemptPid == csvPid && firstAttemptTime.GetLength() == 17)
 	{
-		// Resolve a missing/overwritten START_TIME without touching RESULT or MES ACK state.
+		// Initial AGN_IN send time is recorded even when MES returned ALREADY/NG.
+		// Never interpret this timestamp as an AGN_IN_R OK acknowledgement.
+		Gf_sumSetSummaryInfo(rack, layer, channel, SUM_START_TIME, firstAttemptTime);
+	}
+	else if (!csvPid.IsEmpty() && startPid == csvPid && persistedFirstStart.GetLength() == 17)
+	{
+		// Legacy runs recorded only a successful AGN_IN time.
 		Gf_sumSetSummaryInfo(rack, layer, channel, SUM_START_TIME, persistedFirstStart);
 	}
 	else if (!csvPid.IsEmpty() && m_summaryInfo[rack][layer][channel].m_sumData[SUM_START_TIME].IsEmpty())
@@ -2601,11 +2610,9 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 		if (lpInspWorkInfo->m_bCableMesBlocked[rack][layer][channel] == TRUE)
 			mesFail = _T("CABLE CHECK NG/N/A");
 
-		if (lpInspWorkInfo->m_sAgnInOkPid[rack][layer][channel] != currentPid)
-		{
-			if (!mesFail.IsEmpty()) mesFail += _T(" | ");
-			mesFail += _T("AGN_IN NOT OK");
-		}
+		// [1.4.3 MES POLICY] The final MES result no longer requires
+		// an AGN_IN_R OK: always attempt AGN_IN, but judge MES completion
+		// from AGN_OUT_R OK.  Existing Cable/PID/other NG stays intact.
 
 		if (lpInspWorkInfo->m_sAgnOutOkPid[rack][layer][channel] != currentPid)
 		{
@@ -2616,6 +2623,38 @@ void CHseAgingApp::Gf_sumWriteSummaryLog(int rack, int layer, int channel)
 
 	CString& failMessage = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE];
 	CString& failTime = m_summaryInfo[rack][layer][channel].m_sumData[SUM_FAILED_MESSAGE_TIME];
+
+	// [1.4.3 MES POLICY] A resumed run may have a legacy failure reason
+	// written by an older build. Remove ONLY the exact AGN_IN NOT OK
+	// token; never erase measurement, temperature, cable or AGN_OUT errors.
+	if (failMessage.Find(_T("AGN_IN NOT OK")) >= 0)
+	{
+		CString remaining;
+		int begin = 0;
+		while (begin < failMessage.GetLength())
+		{
+			const int sep = failMessage.Find(_T(" | "), begin);
+			CString reason = (sep < 0) ? failMessage.Mid(begin)
+				: failMessage.Mid(begin, sep - begin);
+			reason.Trim();
+			if (!reason.IsEmpty() && reason != _T("AGN_IN NOT OK"))
+			{
+				if (!remaining.IsEmpty()) remaining += _T(" | ");
+				remaining += reason;
+			}
+			if (sep < 0) break;
+			begin = sep + 3;
+		}
+		if (remaining != failMessage)
+		{
+			CString cleanupLog;
+			cleanupLog.Format(_T("[SUMMARY AGN_IN POLICY] Removed legacy AGN_IN NOT OK reason R%d-L%d-C%d PID=%s"),
+				rack + 1, layer + 1, channel + 1, currentPid.GetString());
+			Gf_writeMLog(cleanupLog);
+			failMessage = remaining;
+			if (failMessage.IsEmpty()) failTime.Empty();
+		}
+	}
 
 	if (!mesFail.IsEmpty())
 	{
@@ -2836,6 +2875,8 @@ void CHseAgingApp::Gf_sumInitSummaryInfo(int rack)
 			// Ended/cleared runs must not authorize future AGN_IN skips.
 			Write_SummaryInfo(_T("FIRST_AGN_IN_PID"), skey, _T(""));
 			Write_SummaryInfo(_T("FIRST_AGN_IN_TIME"), skey, _T(""));
+			Write_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), skey, _T(""));
+			Write_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), skey, _T(""));
 			Write_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), skey, _T(""));
 			Write_SummaryInfo(_T("AGN_IN_COMPLETE"), skey, _T(""));
 			Write_SummaryInfo(_T("FAIL_MESSAGE"), skey, _T(""));
@@ -3518,39 +3559,10 @@ BOOL CHseAgingApp::Gf_gmesSendHost(int hostCMD, int rack, int layer, int ch)
 		}
 	}
 
-	// Defense-in-depth: no duplicate AGN_IN for a PID already accepted by MES.
-	// The channel-level Cable Check gate above must still take precedence.
-	if (hostCMD == HOST_AGN_IN)
-	{
-		CString currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
-		CString confirmedPid = lpInspWorkInfo->m_sAgnInOkPid[rack][layer][ch];
-		currentPid.Trim();
-		confirmedPid.Trim();
-		if (!currentPid.IsEmpty() && confirmedPid == currentPid)
-		{
-			CString skipLog;
-			skipLog.Format(_T("<MES> AGN_IN SKIP (Previously confirmed OK, host gate) - R%d-L%d-C%d PID=%s"),
-				rack + 1, layer + 1, ch + 1, currentPid.GetString());
-			Gf_writeMLog(skipLog);
-			CString startKey, savedPid, savedTime;
-			startKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
-			Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, &savedPid);
-			Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, &savedTime);
-			savedPid.Trim(); savedTime.Trim();
-			if (savedPid == currentPid && !savedTime.IsEmpty())
-			{
-				Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, savedTime);
-			}
-			else if (m_summaryInfo[rack][layer][ch].m_sumData[SUM_START_TIME].IsEmpty())
-			{
-				CString warn;
-				warn.Format(_T("[SUMMARY TIME] FIRST START UNKNOWN on AGN_IN SKIP R%d-L%d-C%d PID=%s"),
-					rack + 1, layer + 1, ch + 1, currentPid.GetString());
-				Gf_writeMLog(warn);
-			}
-			return TRUE; // Prior confirmed ACK; no new AGN_IN is sent.
-		}
-	}
+	// [1.4.3 MES POLICY] Do not SKIP AGN_IN based on an old success ACK.
+	// A prior AGN_IN confirmation still determines the earliest START_TIME,
+	// but the actual AGN_IN request is sent on every Aging START/CONTINUE.
+	// PID validation and the Cable Check gate above remain mandatory.
 
 	// 기존 Admin의 MES/EAS Bypass는 유지
 	// 단, RMS Command는 실제로 전송 가능하도록 한다.
@@ -3855,52 +3867,75 @@ Send_RETRY:
 			lpInspWorkInfo->m_AgnInStartRack = rack;
 			lpInspWorkInfo->m_AgnInStartLayer = layer;
 			lpInspWorkInfo->m_AgnInStartChannel = ch;
+			CString attemptPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+			attemptPid.Trim();
+			const CString attemptNow = CTime::GetCurrentTime().Format(_T("%Y%m%d %H:%M:%S"));
 			nRtnCD = pCimNet->AGN_IN();
 
-			// Recovery fallback: accept MES-3403 ALREADY only when this
-			// exact PID had a PREVIOUS successful AGN_IN and was verified
-			// in the current operator-confirmed CONTINUE session.
-			// An arbitrary ALREADY from another station remains NG.
-			if (nRtnCD != RTN_OK && nRtnCD != RTN_MSG_NOT_SEND &&
-				nRtnCD != RTN_RCV_TIMEOUT)
+			// Persist the FIRST actual AGN_IN send attempt for Summary START_TIME.
+			// ALREADY/other NG responses must not erase the time. This is NOT
+			// the MES ACK success proof (FIRST_AGN_IN_PID/TIME remain separate).
+			if (nRtnCD != RTN_MSG_NOT_SEND && HsePidLength::Valid(attemptPid))
 			{
-				CString hostResponse = pCimNet->GetHostRecvMessage();
-				CString acceptedPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
-				CString key, savedPid, savedTime, resumeProofPid, mesPanelToken;
-				acceptedPid.Trim();
-				key.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
-				Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), key, &savedPid);
-				Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), key, &savedTime);
-				Read_SummaryInfo(_T("AGN_IN_RESUME_PROOF"), key, &resumeProofPid);
-				savedPid.Trim();
-				savedTime.Trim();
-				resumeProofPid.Trim();
-				mesPanelToken.Format(_T("Panel(%s)"), acceptedPid.GetString());
+				CString stampKey, savedAttemptPid, savedAttemptTime;
+				stampKey.Format(_T("RACK%d_LAYER%d_CH%d"), rack + 1, layer + 1, ch + 1);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), stampKey, &savedAttemptPid);
+				Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), stampKey, &savedAttemptTime);
+				savedAttemptPid.Trim();
+				savedAttemptTime.Trim();
 
-				// [142B-FIX] A response for a DIFFERENT panel (or station)
-				// is not proof of this channel's AGN_IN success.
-				if (hostResponse.Find(_T("ERR_CD=MES-3403")) >= 0 &&
-					hostResponse.Find(mesPanelToken) < 0)
+				if (savedAttemptPid != attemptPid || savedAttemptTime.GetLength() != 17)
 				{
-					CString mismatchLog;
-					mismatchLog.Format(_T("[MES RESPONSE MISMATCH] AGN_IN R%d-L%d-C%d REQUEST_PID=%s : ALREADY references a different PID; preserve NG"),
-						rack + 1, layer + 1, ch + 1, acceptedPid.GetString());
-					Gf_writeMLog(mismatchLog);
+					CString successfulPid, successfulTime;
+					Read_SummaryInfo(_T("FIRST_AGN_IN_PID"), stampKey, &successfulPid);
+					Read_SummaryInfo(_T("FIRST_AGN_IN_TIME"), stampKey, &successfulTime);
+					successfulPid.Trim();
+					successfulTime.Trim();
+					// When migrating an active job, preserve an earlier known OK time.
+					savedAttemptTime = (successfulPid == attemptPid && successfulTime.GetLength() == 17)
+						? successfulTime : attemptNow;
+					Write_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), stampKey, attemptPid);
+					Write_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), stampKey, savedAttemptTime);
 				}
 
-				if (!acceptedPid.IsEmpty() &&
-					hostResponse.Find(_T("ERR_CD=MES-3403")) >= 0 &&
-					hostResponse.Find(mesPanelToken) >= 0 &&
-					savedPid == acceptedPid &&
-					resumeProofPid == acceptedPid &&
-					savedTime.GetLength() == 17)
+				Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, savedAttemptTime);
+				CString attemptLog;
+				attemptLog.Format(_T("[SUMMARY TIME] AGN_IN ATTEMPT R%d-L%d-C%d PID=%s FIRST_START=%s RTN_CD=%d"),
+					rack + 1, layer + 1, ch + 1, attemptPid.GetString(), savedAttemptTime.GetString(), nRtnCD);
+				Gf_writeMLog(attemptLog);
+			}
+
+			// [1.4.3 MES POLICY] Do not turn a negative MES response
+			// into a fictitious AGN_IN_R OK.  AGN_IN_R status is kept in
+			// MLog for troubleshooting, but not used for Summary RESULT.
+			// AGN_OUT must still succeed for an otherwise valid panel.
+			if (nRtnCD != RTN_OK &&
+				nRtnCD != RTN_MSG_NOT_SEND &&
+				nRtnCD != RTN_RCV_TIMEOUT)
+			{
+				const CString response = pCimNet->GetHostRecvMessage();
+				CString currentPid = lpInspWorkInfo->m_sMesPanelID[rack][layer][ch];
+				currentPid.Trim();
+				CString responseLog;
+				responseLog.Format(
+					_T("[AGN_IN RESPONSE NG] R%d-L%d-C%d PID=%s RTN_CD=%d (ignored for Summary RESULT, check AGN_OUT)"),
+					rack + 1, layer + 1, ch + 1,
+					currentPid.GetString(), nRtnCD);
+				Gf_writeMLog(responseLog);
+
+				// Preserve diagnostic visibility when the host responds
+				// ALREADY for an unexpected panel; never call it AGN_IN OK.
+				if (response.Find(_T("ERR_CD=MES-3403")) >= 0)
 				{
-					CString recoveryLog;
-					recoveryLog.Format(_T("[AGN_IN RECOVERY] VERIFIED ALREADY R%d-L%d-C%d PID=%s FIRST_START=%s"),
-						rack + 1, layer + 1, ch + 1, acceptedPid.GetString(), savedTime.GetString());
-					Gf_writeMLog(recoveryLog);
-					// Treat ONLY this validated duplicate as successful.
-					nRtnCD = RTN_OK;
+					CString expectedPanel;
+					expectedPanel.Format(_T("Panel(%s)"), currentPid.GetString());
+					if (response.Find(expectedPanel) < 0)
+					{
+						CString mismatchLog;
+						mismatchLog.Format(_T("[MES RESPONSE MISMATCH] AGN_IN R%d-L%d-C%d PID=%s : ALREADY references a different PID"),
+							rack + 1, layer + 1, ch + 1, currentPid.GetString());
+						Gf_writeMLog(mismatchLog);
+					}
 				}
 			}
 
@@ -3927,10 +3962,16 @@ Send_RETRY:
 						Write_SummaryInfo(_T("FIRST_AGN_IN_PID"), startKey, acceptedPid);
 						Write_SummaryInfo(_T("FIRST_AGN_IN_TIME"), startKey, savedTime);
 					}
-					Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, savedTime);
+					CString firstAttemptTime, firstAttemptPid;
+					Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_PID"), startKey, &firstAttemptPid);
+					Read_SummaryInfo(_T("FIRST_AGN_IN_ATTEMPT_TIME"), startKey, &firstAttemptTime);
+					firstAttemptPid.Trim(); firstAttemptTime.Trim();
+					const CString initialStart = (firstAttemptPid == acceptedPid && firstAttemptTime.GetLength() == 17)
+						? firstAttemptTime : savedTime;
+					Gf_sumSetSummaryInfo(rack, layer, ch, SUM_START_TIME, initialStart);
 					CString timeLog;
 					timeLog.Format(_T("[SUMMARY TIME] AGN_IN OK R%d-L%d-C%d PID=%s FIRST_START=%s"),
-						rack + 1, layer + 1, ch + 1, acceptedPid.GetString(), savedTime.GetString());
+						rack + 1, layer + 1, ch + 1, acceptedPid.GetString(), initialStart.GetString());
 					Gf_writeMLog(timeLog);
 				}
 
@@ -4119,6 +4160,17 @@ Send_RETRY:
 	// ============================================================
 	if (hostCMD == HOST_PCHK &&
 		bPchkModelInterlockNg == TRUE)
+	{
+		return FALSE;
+	}
+
+	// [1.4.3 MES POLICY] A real AGN_IN_R NG is NOT reclassified as OK.
+	// Avoid an unattended-operation modal popup and do not overwrite
+	// m_AgingErrorMsg for this AGN_IN-only response: MLog retains the
+	// complete raw <HOST_R> response and [AGN_IN RESPONSE NG] trace.
+	// Message-not-sent and timeout still follow the retry path below.
+	if (hostCMD == HOST_AGN_IN && nRtnCD != RTN_OK &&
+		nRtnCD != RTN_MSG_NOT_SEND && nRtnCD != RTN_RCV_TIMEOUT)
 	{
 		return FALSE;
 	}
